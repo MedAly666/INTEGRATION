@@ -1,0 +1,17 @@
+{
+  "name": "project_integration",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "mariadb": "^3.4.0",
+    "mysql2": "^3.13.0",
+    "neo4j-driver": "^5.28.1",
+    "xml2js": "^0.6.2"
+  }
+}

@@ -1,0 +1,63 @@
+<!DOCTYPE Vente [
+<!ELEMENT Vente (clients, commandes, produits, fournisseurs, factures, paniers, 
+employes, livraisons)>
+
+<!ELEMENT clients (client+)>
+<!ELEMENT client (id, nom, courriel, telephone)>
+<!ATTLIST client id ID #REQUIRED>
+<!ATTLIST client nom ID #REQUIRED>
+<!ATTLIST client courriel CDATA #REQUIRED>
+<!ATTLIST client telephone CDATA #IMPLIED>
+
+<!ELEMENT commandes (commande+)>
+<!ELEMENT commande (id, date, montant, statut, mode_paiement, clientID, employeID)>
+<!ATTLIST commande id ID #REQUIRED>
+<!ATTLIST commande date CDATA #REQUIRED>
+<!ATTLIST commande montant CDATA #REQUIRED>
+<!ATTLIST commande statut CDATA #REQUIRED>
+<!ATTLIST commande mode_paiement CDATA #REQUIRED>
+<!ATTLIST commande clientID IDREF #REQUIRED>
+<!ATTLIST commande employeID IDREF #IMPLIED>
+
+<!ELEMENT paniers (panier+)>
+<!ELEMENT panier (id_commande, id_produit, nombre)>
+<!ATTLIST panier id_commande IDREF #REQUIRED>
+<!ATTLIST panier id_produit IDREF #REQUIRED>
+<!ATTLIST panier nombre CDATA #REQUIRED>
+
+<!ELEMENT produits (produit+)>
+<!ELEMENT produit (id, description, prix, categorie, quantite_totale, id_fournisseur)>
+<!ATTLIST produit id ID #REQUIRED>
+<!ATTLIST produit description CDATA #REQUIRED>
+<!ATTLIST produit prix CDATA #REQUIRED>
+<!ATTLIST produit categorie CDATA #REQUIRED>
+<!ATTLIST produit quantite_totale CDATA #REQUIRED>
+<!ATTLIST produit id_fournisseur IDREF #REQUIRED>
+
+<!ELEMENT fournisseurs (fournisseur+)>
+<!ELEMENT fournisseur (id, nom, telephone, adresse)>
+<!ATTLIST fournisseur id ID #REQUIRED>
+<!ATTLIST fournisseur nom ID #REQUIRED>
+<!ATTLIST fournisseur telephone CDATA #IMPLIED>
+<!ATTLIST fournisseur adresse CDATA #IMPLIED>
+
+<!ELEMENT factures (facture+)>
+<!ELEMENT facture (id, montant, date, commandeID)>
+<!ATTLIST facture id ID #REQUIRED>
+<!ATTLIST facture montant CDATA #REQUIRED>
+<!ATTLIST facture date CDATA #REQUIRED>
+<!ATTLIST facture commandeID IDREF #REQUIRED>
+
+<!ELEMENT livraisons (livraison+)>
+<!ELEMENT livraison (id, transporteur, statut, commandeID)>
+<!ATTLIST livraison id ID #REQUIRED>
+<!ATTLIST livraison transporteur CDATA #REQUIRED>
+<!ATTLIST livraison statut CDATA #REQUIRED>
+<!ATTLIST livraison commandeID IDREF #REQUIRED>
+
+<!ELEMENT employes (employe+)>
+<!ELEMENT employe (id, nom, email)>
+<!ATTLIST employe id ID #REQUIRED>
+<!ATTLIST employe nom ID #REQUIRED>
+<!ATTLIST employe email CDATA #REQUIRED>
+]>
