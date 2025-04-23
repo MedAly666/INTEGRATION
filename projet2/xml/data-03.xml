@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Vente xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="schema.xml">
+  
+  <clients>
+    <client id="c1" nom="Dupont" courriel="jean.dupont@email.com" telephone="0123456789">
+      <id>1</id>
+      <nom>aKEB Dupont</nom>
+      <courriel>jean.dupont@email.com</courriel>
+      <telephone>0123456789</telephone>
+    </client>
+    <client id="c2" nom="Martin" courriel="sophie.martin@email.com" telephone="0234567890">
+      <id>2</id>
+      <nom>Sophie Martin</nom>
+      <courriel>sophie.martin@email.com</courriel>
+      <telephone>0234567890</telephone>
+    </client>
+    <client id="c3" nom="Bernard" courriel="paul.bernard@email.com" telephone="0345678901">
+      <id>3</id>
+      <nom>Paul Bernard</nom>
+      <courriel>paul.bernard@email.com</courriel>
+      <telephone>0345678901</telephone>
+    </client>
+  </clients>
+  
+  <commandes>
+    <commande id="cmd1" date="2025-03-10" montant="150.75" statut="Livré" mode_paiement="Carte" clientID="c1" employeID="e1">
+      <id>1</id>
+      <date>2025-03-10</date>
+      <montant>150.75</montant>
+      <statut>Livré</statut>
+      <mode_paiement>Carte</mode_paiement>
+      <clientID>1</clientID>
+      <employeID>1</employeID>
+    </commande>
+    <commande id="cmd2" date="2025-03-12" montant="78.50" statut="En cours" mode_paiement="PayPal" clientID="c2" employeID="e2">
+      <id>2</id>
+      <date>2025-03-12</date>
+      <montant>78.50</montant>
+      <statut>En cours</statut>
+      <mode_paiement>PayPal</mode_paiement>
+      <clientID>2</clientID>
+      <employeID>2</employeID>
+    </commande>
+    <commande id="cmd3" date="2025-03-15" montant="215.30" statut="En attente" mode_paiement="Virement" clientID="c3" employeID="e1">
+      <id>3</id>
+      <date>2025-03-15</date>
+      <montant>215.30</montant>
+      <statut>En attente</statut>
+      <mode_paiement>Virement</mode_paiement>
+      <clientID>3</clientID>
+      <employeID>1</employeID>
+    </commande>
+  </commandes>
+  
+  <produits>
+    <produit id="p1" description="Ordinateur portable" prix="899.99" categorie="Informatique" quantite_totale="15" id_fournisseur="f1">
+      <id>1</id>
+      <description>Ordinateur portable 15" haute performance</description>
+      <prix>899.99</prix>
+      <categorie>Informatique</categorie>
+      <quantite_totale>15</quantite_totale>
+      <id_fournisseur>1</id_fournisseur>
+    </produit>
+    <produit id="p2" description="Smartphone" prix="499.50" categorie="Téléphonie" quantite_totale="25" id_fournisseur="f2">
+      <id>2</id>
+      <description>Smartphone dernière génération</description>
+      <prix>499.50</prix>
+      <categorie>Téléphonie</categorie>
+      <quantite_totale>25</quantite_totale>
+      <id_fournisseur>2</id_fournisseur>
+    </produit>
+    <produit id="p3" description="Écouteurs sans fil" prix="89.90" categorie="Audio" quantite_totale="40" id_fournisseur="f1">
+      <id>3</id>
+      <description>Écouteurs sans fil à réduction de bruit</description>
+      <prix>89.90</prix>
+      <categorie>Audio</categorie>
+      <quantite_totale>40</quantite_totale>
+      <id_fournisseur>1</id_fournisseur>
+    </produit>
+  </produits>
+  
+  <fournisseurs>
+    <fournisseur id="f1" nom="TechGlobal" telephone="0987654321" adresse="75 Rue de la Technologie, 75001 Paris">
+      <id>1</id>
+      <nom>TechGlobal</nom>
+      <telephone>0987654321</telephone>
+      <adresse>75 Rue de la Technologie, 75001 Paris</adresse>
+    </fournisseur>
+    <fournisseur id="f2" nom="ElectroPlus" telephone="0876543210" adresse="22 Avenue des Gadgets, 69002 Lyon">
+      <id>2</id>
+      <nom>ElectroPlus</nom>
+      <telephone>0876543210</telephone>
+      <adresse>22 Avenue des Gadgets, 69002 Lyon</adresse>
+    </fournisseur>
+  </fournisseurs>
+  
+  <factures>
+    <facture id="fact1" montant="150.75" date="2025-03-11" commandeID="cmd1">
+      <id>1</id>
+      <montant>150.75</montant>
+      <date>2025-03-11</date>
+      <commandeID>1</commandeID>
+    </facture>
+    <facture id="fact2" montant="78.50" date="2025-03-13" commandeID="cmd2">
+      <id>2</id>
+      <montant>78.50</montant>
+      <date>2025-03-13</date>
+      <commandeID>2</commandeID>
+    </facture>
+    <facture id="fact3" montant="215.30" date="2025-03-16" commandeID="cmd3">
+      <id>3</id>
+      <montant>215.30</montant>
+      <date>2025-03-16</date>
+      <commandeID>3</commandeID>
+    </facture>
+  </factures>
+  
+  <paniers>
+    <panier id_commande="cmd1" id_produit="p1" nombre="1">
+      <id_commande>1</id_commande>
+      <id_produit>1</id_produit>
+      <nombre>1</nombre>
+    </panier>
+    <panier id_commande="cmd2" id_produit="p3" nombre="2">
+      <id_commande>2</id_commande>
+      <id_produit>3</id_produit>
+      <nombre>2</nombre>
+    </panier>
+    <panier id_commande="cmd3" id_produit="p2" nombre="1">
+      <id_commande>3</id_commande>
+      <id_produit>2</id_produit>
+      <nombre>1</nombre>
+    </panier>
+    <panier id_commande="cmd3" id_produit="p3" nombre="3">
+      <id_commande>3</id_commande>
+      <id_produit>3</id_produit>
+      <nombre>3</nombre>
+    </panier>
+  </paniers>
+  
+  <employes>
+    <employe id="e1" nom="Dubois" email="marie.dubois@entreprise.com">
+      <id>1</id>
+      <nom>AKEB Dubois</nom>
+      <email>marie.dubois@entreprise.com</email>
+    </employe>
+    <employe id="e2" nom="Lefebvre" email="thomas.lefebvre@entreprise.com">
+      <id>2</id>
+      <nom>Thomas Lefebvre</nom>
+      <email>thomas.lefebvre@entreprise.com</email>
+    </employe>
+  </employes>
+  
+  <livraisons>
+    <livraison id="liv1" transporteur="ExpressShip" statut="Livré" commandeID="cmd1">
+      <id>1</id>
+      <transporteur>ExpressShip</transporteur>
+      <statut>Livré</statut>
+      <commandeID>1</commandeID>
+    </livraison>
+    <livraison id="liv2" transporteur="QuickCargo" statut="En transit" commandeID="cmd2">
+      <id>2</id>
+      <transporteur>QuickCargo</transporteur>
+      <statut>En transit</statut>
+      <commandeID>2</commandeID>
+    </livraison>
+    <livraison id="liv3" transporteur="ExpressShip" statut="Préparation" commandeID="cmd3">
+      <id>3</id>
+      <transporteur>ExpressShip</transporteur>
+      <statut>Préparation</statut>
+      <commandeID>3</commandeID>
+    </livraison>
+  </livraisons>
+  
+</Vente>

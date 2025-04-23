@@ -1,0 +1,239 @@
+extends layouts/main
+
+block content
+  h1 SQL Query Interface
+  p This interface allows you to execute SQL queries against the integrated data sources.
+  
+  .schema-info
+    h2 Global Schema
+    p Available tables:
+    ul
+      li
+        code clients
+        |  - Client information
+      li
+        code employees
+        |  - Employee information
+      li
+        code agences
+        |  - Agency information
+      li
+        code fournisseurs
+        |  - Supplier information
+      li
+        code produits
+        |  - Product information
+      li
+        code commandes
+        |  - Order information
+      li
+        code details_commande
+        |  - Order details
+      li
+        code factures
+        |  - Invoice information
+      li
+        code livraisons
+        |  - Delivery information
+      li
+        code approvisionnement
+        |  - Supply information
+
+  .query-section
+    h2 Query
+    textarea#query-input(placeholder="Enter your SQL query here...") SELECT * FROM clients LIMIT 10;
+    br
+    button#execute-btn(onclick="executeQuery()") Execute Query
+    span.loading#loading Processing query...
+  
+  .examples
+    h2 Example Queries
+    .example-query(onclick="setExampleQuery(1)") Show all clients
+    .example-query(onclick="setExampleQuery(2)") Find orders by client name
+    .example-query(onclick="setExampleQuery(3)") Join orders with clients
+    .example-query(onclick="setExampleQuery(4)") Count products by category
+    .example-query(onclick="setExampleQuery(5)") Find top products by order quantity
+
+  .result-section
+    h2 Results
+    #results
+      p Execute a query to see results.
+
+  style.
+    .query-section {
+      margin-bottom: 20px;
+    }
+    #query-input {
+      width: 100%;
+      height: 150px;
+      padding: 10px;
+      font-family: monospace;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      resize: vertical;
+    }
+    #execute-btn {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 10px 0;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    #execute-btn:hover {
+      background-color: #45a049;
+    }
+    .result-section {
+      margin-top: 20px;
+    }
+    #results {
+      overflow-x: auto;
+      margin-top: 10px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px;
+      border: 1px solid #ddd;
+    }
+    th {
+      background-color: #f2f2f2;
+      font-weight: bold;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    .error {
+      color: #D8000C;
+      background-color: #FFD2D2;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    .examples {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+    }
+    .example-query {
+      cursor: pointer;
+      margin: 5px 0;
+      padding: 5px;
+      background-color: #e9ecef;
+      border-radius: 3px;
+      display: inline-block;
+    }
+    .schema-info {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #e9f7ef;
+      border-radius: 4px;
+    }
+    .loading {
+      display: none;
+      margin-left: 10px;
+      font-style: italic;
+    }
+  
+  script.
+    function executeQuery() {
+      const query = document.getElementById('query-input').value;
+      if (!query) {
+        alert('Please enter a SQL query');
+        return;
+      }
+
+      // Show loading indicator
+      document.getElementById('loading').style.display = 'inline';
+      document.getElementById('results').innerHTML = '<p>Executing query...</p>';
+
+      // Send the query to the server
+      fetch('/api/query', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ query })
+      })
+      .then(response => response.json())
+      .then(data => {
+        // Hide loading indicator
+        document.getElementById('loading').style.display = 'none';
+
+        if (data.error) {
+          document.getElementById('results').innerHTML = `<div class="error">${data.error}</div>`;
+        } else {
+          
+          displayResults(data);
+        }
+      })
+      .catch(error => {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('results').innerHTML = `<div class="error">Error executing query: ${error}</div>`;
+      });
+    }
+
+    function displayResults(data) {
+      if (!data || data.length === 0) {
+        document.getElementById('results').innerHTML = '<p>No results found.</p>';
+        return;
+      }
+
+      // Create a table from the results
+      const tableEl = document.createElement('table');
+      
+      // Create header row
+      const headerRow = document.createElement('tr');
+      Object.keys(data[0]).forEach(key => {
+        const th = document.createElement('th');
+        th.textContent = key;
+        headerRow.appendChild(th);
+      });
+      tableEl.appendChild(headerRow);
+
+      // Create data rows
+      data.forEach(row => {
+        const tr = document.createElement('tr');
+        Object.values(row).forEach(value => {
+          const td = document.createElement('td');
+          td.textContent = value !== null ? value : 'NULL';
+          tr.appendChild(td);
+        });
+        tableEl.appendChild(tr);
+      });
+
+      // Replace existing results with the new table
+      document.getElementById('results').innerHTML = '';
+      document.getElementById('results').appendChild(tableEl);
+    }
+
+    function setExampleQuery(exampleNumber) {
+      const queryInput = document.getElementById('query-input');
+      
+      switch (exampleNumber) {
+        case 1:
+          queryInput.value = 'SELECT * FROM clients LIMIT 10;';
+          break;
+        case 2:
+          queryInput.value = 'SELECT * FROM clients WHERE nom_complet LIKE "%Smith%";';
+          break;
+        case 3:
+          queryInput.value = 'SELECT c.nom_complet, c.email_contact, o.date_commande, o.statut\nFROM commandes o\nJOIN clients c ON o.client_ref = c.id\nLIMIT 20;';
+          break;
+        case 4:
+          queryInput.value = 'SELECT categorie, COUNT(*) as product_count\nFROM produits\nGROUP BY categorie\nORDER BY product_count DESC;';
+          break;
+        case 5:
+          queryInput.value = 'SELECT p.id, p.libelle, SUM(d.quantite) as total_ordered\nFROM details_commande d\nJOIN produits p ON d.produit_id = p.id\nGROUP BY p.id, p.libelle\nORDER BY total_ordered DESC\nLIMIT 10;';
+          break;
+      }
+    }
