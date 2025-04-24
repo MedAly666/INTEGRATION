@@ -231,7 +231,6 @@ async function startServer() {
           // get livraisons
           if (apiPath === 'livraisons') {
             const livraisons = await mediator.getLivraisons();
-            console.log(livraisons.getItems());
             
             return new Response(JSON.stringify(livraisons.getItems()), {
               headers: { 'Content-Type': 'application/json' }

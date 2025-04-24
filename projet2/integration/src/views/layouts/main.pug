@@ -1,5 +1,5 @@
 doctype html
-html(lang="en")
+html(lang="en", data-theme="light")
   head
     meta(charset="UTF-8")
     meta(name="viewport", content="width=device-width, initial-scale=1.0")
@@ -7,18 +7,51 @@ html(lang="en")
     link(rel="stylesheet", href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css")
     style.
       :root {
+        /* Base colors */
         --primary: #4361ee;
         --primary-dark: #3a56d4;
         --secondary: #3f8efc;
         --success: #2ec4b6;
         --danger: #e71d36;
         --warning: #ff9f1c;
+        
+        /* Light theme variables */
+        --bg-color: #f5f8ff;
+        --text-color: #212529;
+        --card-bg: #ffffff;
+        --nav-bg: #ffffff;
+        --border-color: #e5e7eb;
+        --code-bg: #f1f4ff;
+        --hover-bg: rgba(67, 97, 238, 0.05);
+        --table-header-bg: rgba(67, 97, 238, 0.08);
+        --table-row-hover: rgba(67, 97, 238, 0.05);
+        --table-border: #e5e7eb;
+        --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        --gray: #6c757d;
+        
         --light: #f8f9fa;
         --dark: #212529;
-        --gray: #6c757d;
         --white: #ffffff;
-        --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         --transition: all 0.3s ease;
+      }
+      
+      html[data-theme='dark'] {
+        /* Drastically adjusted colors for much better contrast in dark mode */
+        --primary: #90a8ff; /* Much brighter blue */
+        --primary-dark: #a6b9ff; /* Even brighter for headings */
+        --secondary: #7cc2ff;
+        --bg-color: #121212;
+        --text-color: #ffffff; /* Pure white for maximum contrast */
+        --card-bg: #1e1e1e;
+        --nav-bg: #1e1e1e;
+        --border-color: #2c2c2c;
+        --code-bg: #2a2a2a;
+        --hover-bg: rgba(144, 168, 255, 0.2); /* Updated to match new primary */
+        --table-header-bg: #2a2a2a;
+        --table-row-hover: rgba(144, 168, 255, 0.2);
+        --table-border: #333333;
+        --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        --gray: #d0d0d0; /* Very light gray for better readability */
       }
       
       * {
@@ -30,20 +63,22 @@ html(lang="en")
       body {
         font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
         line-height: 1.6;
-        color: var(--dark);
-        background-color: #f5f8ff;
+        color: var(--text-color);
+        background-color: var(--bg-color);
         margin: 0;
         padding: 0;
+        transition: background-color 0.3s ease, color 0.3s ease;
       }
       
       .container {
-        max-width: 1200px;
+        max-width: 1400px;
         margin: 0 auto;
-        padding: 20px;
+        padding: 10px 15px;
+        width: 100%;
       }
       
       h1, h2, h3, h4 {
-        color: var(--dark);
+        color: var(--text-color);
         margin-bottom: 0.8rem;
         font-weight: 600;
       }
@@ -51,7 +86,7 @@ html(lang="en")
       h1 {
         font-size: 2.5rem;
         margin-bottom: 1.2rem;
-        color: var(--primary-dark);
+        color: var(--primary-dark); /* Using primary-dark for headings in both modes */
       }
       
       h2 {
@@ -65,7 +100,7 @@ html(lang="en")
       }
       
       .card {
-        background-color: var(--white);
+        background-color: var(--card-bg);
         border-radius: 8px;
         padding: 1.5rem;
         margin-bottom: 1.5rem;
@@ -90,7 +125,7 @@ html(lang="en")
       }
       
       .endpoint-item {
-        background-color: var(--white);
+        background-color: var(--card-bg);
         padding: 1rem;
         border-radius: 8px;
         box-shadow: var(--card-shadow);
@@ -104,7 +139,7 @@ html(lang="en")
       }
       
       code {
-        background-color: #f1f4ff;
+        background-color: var(--code-bg);
         padding: 0.2rem 0.4rem;
         border-radius: 4px;
         font-family: 'Courier New', monospace;
@@ -112,6 +147,7 @@ html(lang="en")
         color: var(--primary);
       }
       
+      /* SQL Interface card - special styling that works in both themes */
       .sql-interface {
         background: linear-gradient(135deg, #4361ee 0%, #3a56d4 100%);
         color: white;
@@ -121,13 +157,17 @@ html(lang="en")
         box-shadow: var(--card-shadow);
       }
       
+      html[data-theme='dark'] .sql-interface {
+        background: linear-gradient(135deg, #5470f5 0%, #445adc 100%);
+      }
+      
       .sql-interface h2, .sql-interface p {
         color: var(--white);
       }
       
       .btn {
         display: inline-block;
-        background-color: var(--white);
+        background-color: var(--card-bg);
         color: var(--primary);
         text-decoration: none;
         padding: 0.8rem 1.5rem;
@@ -141,7 +181,7 @@ html(lang="en")
       }
       
       .btn:hover {
-        background-color: rgba(255, 255, 255, 0.9);
+        background-color: var(--hover-bg);
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
       }
@@ -151,10 +191,10 @@ html(lang="en")
       }
       
       .nav {
-        background-color: var(--white);
-        padding: 1rem;
+        background-color: var(--nav-bg);
+        padding: 0.5rem;
         border-radius: 8px;
-        margin-bottom: 2rem;
+        margin-bottom: 1rem;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -170,35 +210,81 @@ html(lang="en")
         align-items: center;
       }
       
+      html[data-theme='dark'] .nav-brand {
+        color: #a6b9ff; /* Extra bright for the brand in dark mode */
+      }
+      
       .nav-brand i {
         margin-right: 0.5rem;
       }
       
       .nav-links {
         display: flex;
-        gap: 1.5rem;
+        gap: 1rem;
+        align-items: center;
       }
       
       .nav-links a {
-        color: var(--dark);
+        color: var(--text-color);
         text-decoration: none;
         font-weight: 500;
         transition: var(--transition);
         display: flex;
         align-items: center;
+        padding: 0.4rem 0.6rem;
+        border-radius: 4px;
+      }
+      
+      html[data-theme='dark'] .nav-links a {
+        color: #d8e0ff; /* Brighter color specifically for nav links in dark mode */
       }
       
       .nav-links a i {
-        margin-right: 0.5rem;
+        margin-right: 0.4rem;
       }
       
       .nav-links a:hover {
         color: var(--primary);
+        background-color: var(--hover-bg);
+      }
+      
+      html[data-theme='dark'] .nav-links a:hover {
+        color: #ffffff;
+        background-color: rgba(144, 168, 255, 0.3);
+      }
+      
+      .theme-toggle {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--text-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 4px;
+        transition: var(--transition);
+        padding: 0.4rem;
+      }
+      
+      html[data-theme='dark'] .theme-toggle {
+        color: #ffeb3b; /* Yellow sun icon for better visibility */
+      }
+      
+      .theme-toggle:hover {
+        color: var(--primary);
+        background-color: var(--hover-bg);
+      }
+      
+      html[data-theme='dark'] .theme-toggle:hover {
+        color: #fff176;
+        background-color: rgba(255, 235, 59, 0.1);
       }
       
       .header {
         text-align: center;
-        margin-bottom: 2.5rem;
+        margin-bottom: 1.5rem;
       }
       
       .header p {
@@ -206,9 +292,42 @@ html(lang="en")
         margin: 0 auto;
       }
       
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+        font-size: 14px;
+        text-align: left;
+      }
+      
+      th {
+        background-color: var(--table-header-bg);
+        padding: 8px 12px;
+        font-weight: 600;
+        border-bottom: 2px solid rgba(67, 97, 238, 0.1);
+      }
+      
+      html[data-theme='dark'] th {
+        border-bottom: 2px solid rgba(144, 168, 255, 0.2);
+        color: var(--primary-dark);
+      }
+      
+      td {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--table-border);
+      }
+      
+      tr:nth-child(even) {
+        background-color: var(--hover-bg);
+      }
+      
+      tr:hover {
+        background-color: var(--table-row-hover);
+      }
+      
       @media (max-width: 768px) {
         .container {
-          padding: 15px;
+          padding: 10px;
         }
         
         .endpoint-list {
@@ -216,12 +335,35 @@ html(lang="en")
         }
         
         .nav {
-          flex-direction: column;
+          flex-direction: row;
+          flex-wrap: wrap;
+        }
+        
+        .nav-brand {
+          margin-right: 1rem;
         }
         
         .nav-links {
-          margin-top: 1rem;
           flex-wrap: wrap;
+        }
+        
+        .nav-links a {
+          font-size: 0.9rem;
+          padding: 0.3rem 0.5rem;
+        }
+      }
+      
+      @media (max-width: 576px) {
+        .nav {
+          flex-direction: column;
+          padding: 0.5rem;
+        }
+        
+        .nav-brand {
+          margin-bottom: 0.5rem;
+        }
+        
+        .nav-links {
           justify-content: center;
         }
       }
@@ -229,3 +371,43 @@ html(lang="en")
     .container
       include ../includes/navigation
       block content
+    
+    script.
+      // Theme toggle functionality
+      document.addEventListener('DOMContentLoaded', function() {
+        // Check for saved theme preference or use OS preference
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+          document.documentElement.setAttribute('data-theme', savedTheme);
+          updateThemeIcon(savedTheme);
+        } else {
+          // Check for OS dark mode preference
+          const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (prefersDarkMode) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('theme', 'dark');
+            updateThemeIcon('dark');
+          }
+        }
+        
+        // Theme toggle button functionality
+        const themeToggle = document.getElementById('theme-toggle');
+        if (themeToggle) {
+          themeToggle.addEventListener('click', function() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            updateThemeIcon(newTheme);
+          });
+        }
+      });
+      
+      function updateThemeIcon(theme) {
+        const themeIcon = document.getElementById('theme-icon');
+        if (themeIcon) {
+          themeIcon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        }
+      }
