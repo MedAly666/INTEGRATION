@@ -1,56 +1,93 @@
 extends layouts/main
 
 block content
-  h1 Data Integration System API
-  p Welcome to the Data Integration System API. Use the endpoints below to access integrated data:
-  
+  .header
+    h1 Data Integration System
+    p Seamlessly access and query data from multiple sources through our unified API
+
   .sql-interface
-    h2 SQL Query Interface
-    p Execute SQL queries directly against the integrated global schema:
-    a(href="/sql-interface") Open SQL Query Interface
-  
-  .endpoints
-    h2 Available REST Endpoints:
-    ul
-      li
-        code GET /api/clients
-        |  - Get all clients
-      li
-        code GET /api/employees
-        |  - Get all employees
-      li
-        code GET /api/agences
-        |  - Get all agencies
-      li
-        code GET /api/fournisseurs
-        |  - Get all suppliers
-      li
-        code GET /api/produits
-        |  - Get all products
-      li
-        code GET /api/commandes
-        |  - Get all orders
-      li
-        code GET /api/details-commande
-        |  - Get all order details
-      li
-        code GET /api/search/clients?q=query
-        |  - Search clients by name
-      li
-        code GET /api/clients/{clientId}/commandes
-        |  - Get orders for a client
-      li
-        code GET /api/commandes/{orderId}/details
-        |  - Get details for an order
-      li
-        code GET /api/statistics
-        |  - Get data statistics
-      li
-        code GET /api/validate
-        |  - Validate data consistency
-      li
-        code GET /api/duplicates/clients
-        |  - Find potential duplicate clients
-      li
-        code POST /api/query
-        |  - Execute a custom query
+    h2
+      i.fas.fa-database.mr-2
+      |  SQL Query Interface
+    p Execute powerful SQL queries directly against our integrated global schema
+    a.btn(href="/sql-interface")
+      i.fas.fa-code
+      |  Open SQL Query Interface
+
+  .card
+    h2
+      i.fas.fa-book.mr-2
+      |  API Documentation
+    p.mb-4 Use these REST endpoints to access integrated data from all sources:
+    
+    .endpoints
+      h3
+        i.fas.fa-list.mr-2
+        |  Resource Endpoints
+      ul.endpoint-list
+        li.endpoint-item
+          code.get GET /api/clients
+          p Get all clients
+        li.endpoint-item
+          code.get GET /api/employees
+          p Get all employees
+        li.endpoint-item
+          code.get GET /api/agences
+          p Get all agencies
+        li.endpoint-item
+          code.get GET /api/fournisseurs
+          p Get all suppliers
+        li.endpoint-item
+          code.get GET /api/produits
+          p Get all products
+        li.endpoint-item
+          code.get GET /api/commandes
+          p Get all orders
+        li.endpoint-item
+          code.get GET /api/details-commande
+          p Get all order details
+    
+    .endpoints
+      h3
+        i.fas.fa-search.mr-2
+        |  Search & Filter Endpoints
+      ul.endpoint-list
+        li.endpoint-item
+          code.get GET /api/search/clients?q=query
+          p Search clients by name
+        li.endpoint-item
+          code.get GET /api/clients/{clientId}/commandes
+          p Get orders for a specific client
+        li.endpoint-item
+          code.get GET /api/commandes/{orderId}/details
+          p Get details for a specific order
+    
+    .endpoints
+      h3
+        i.fas.fa-chart-bar.mr-2
+        |  Analytics & Validation Endpoints
+      ul.endpoint-list
+        li.endpoint-item
+          code.get GET /api/statistics
+          p Get data statistics across sources
+        li.endpoint-item
+          code.get GET /api/validate
+          p Validate data consistency
+        li.endpoint-item
+          code.get GET /api/duplicates/clients
+          p Find potential duplicate clients
+        li.endpoint-item
+          code.post POST /api/query
+          p Execute a custom query
+          
+  .card
+    h3
+      i.fas.fa-code.mr-2
+      |  Example Usage
+    pre.code-example
+      code.
+        // Example: Fetching all clients
+        fetch('/api/clients')
+          .then(response => response.json())
+          .then(data => console.log(data))
+          .catch(error => console.error('Error:', error));

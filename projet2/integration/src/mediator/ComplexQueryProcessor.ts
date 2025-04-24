@@ -22,7 +22,7 @@ export class ComplexQueryProcessor {
     'details_commande': 'getDetailsCommande',
     'factures': 'getFactures',
     'livraisons': 'getLivraisons',
-    'approvisionnement': 'getApprovisionnement'
+    'approvisionnements': 'getApprovisionnements'
   };
 
   /**

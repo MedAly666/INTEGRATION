@@ -1,0 +1,373 @@
+extends layouts/main
+
+block content
+  .header
+    h1 
+      i.fas.fa-table.mr-2
+      | Database Tables
+    p View and explore data from all integrated sources
+
+  .card
+    h2
+      i.fas.fa-list-alt.mr-2
+      | Available Tables
+    .table-cards
+      .table-card(onclick="loadTable('clients')")
+        .table-icon
+          i.fas.fa-users
+        .table-info
+          h3 Clients
+          p Customer information from all sources
+      
+      .table-card(onclick="loadTable('employees')")
+        .table-icon
+          i.fas.fa-user-tie
+        .table-info
+          h3 Employees
+          p Staff and employee records
+      
+      .table-card(onclick="loadTable('agences')")
+        .table-icon
+          i.fas.fa-building
+        .table-info
+          h3 Agences
+          p Agency and branch information
+      
+      .table-card(onclick="loadTable('fournisseurs')")
+        .table-icon
+          i.fas.fa-truck
+        .table-info
+          h3 Fournisseurs
+          p Supplier information
+      
+      .table-card(onclick="loadTable('produits')")
+        .table-icon
+          i.fas.fa-box-open
+        .table-info
+          h3 Produits
+          p Product catalog and information
+      
+      .table-card(onclick="loadTable('commandes')")
+        .table-icon
+          i.fas.fa-shopping-cart
+        .table-info
+          h3 Commandes
+          p Order information
+      
+      .table-card(onclick="loadTable('details-commande')")
+        .table-icon
+          i.fas.fa-receipt
+        .table-info
+          h3 Details Commande
+          p Order line items and details
+      
+      .table-card(onclick="loadTable('factures')")
+        .table-icon
+          i.fas.fa-file-invoice
+        .table-info
+          h3 Factures
+          p Invoice information
+      
+      .table-card(onclick="loadTable('livraisons')")
+        .table-icon
+          i.fas.fa-shipping-fast
+        .table-info
+          h3 Livraisons
+          p Delivery tracking information
+      
+      .table-card(onclick="loadTable('approvisionnements')")
+        .table-icon
+          i.fas.fa-dolly
+        .table-info
+          h3 Approvisionnement
+          p Supply chain and inventory management
+
+  .card.mt-4#table-data-container
+    h2#table-title
+      i.fas.fa-table.mr-2
+      | Select a table to view data
+    
+    .table-controls
+      .row-limit
+        label(for="limit-select") Show
+        select#limit-select(onchange="updateLimit()")
+          option(value="10") 10
+          option(value="25") 25
+          option(value="50") 50
+          option(value="100") 100
+        label(for="limit-select") entries
+      
+      .table-search
+        label(for="search-input") Search:
+        input#search-input(type="text", placeholder="Filter results...", oninput="filterTable()")
+    
+    .table-responsive
+      table#data-table
+        thead
+          tr
+            th No data selected
+        tbody
+          tr
+            td Please select a table from above
+
+  style.
+    .mr-2 {
+      margin-right: 0.5rem;
+    }
+    
+    .mt-4 {
+      margin-top: 2rem;
+    }
+    
+    .table-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    
+    .table-card {
+      display: flex;
+      background-color: var(--white);
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      transition: var(--transition);
+      cursor: pointer;
+      border: 1px solid #edf2f7;
+    }
+    
+    .table-card:hover {
+      box-shadow: 0 8px 12px rgba(67, 97, 238, 0.1);
+      transform: translateY(-3px);
+      border-color: var(--primary);
+    }
+    
+    .table-card.active {
+      border-color: var(--primary);
+      background-color: rgba(67, 97, 238, 0.05);
+    }
+    
+    .table-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      background-color: var(--primary);
+      color: white;
+      border-radius: 8px;
+      font-size: 20px;
+      margin-right: 1rem;
+      flex-shrink: 0;
+    }
+    
+    .table-info {
+      flex: 1;
+    }
+    
+    .table-info h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--dark);
+    }
+    
+    .table-info p {
+      margin: 5px 0 0;
+      font-size: 12px;
+      color: var(--gray);
+    }
+    
+    .table-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    
+    .row-limit {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    #limit-select {
+      padding: 0.25rem 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    
+    .table-search {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    #search-input {
+      padding: 0.35rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      min-width: 200px;
+    }
+    
+    .table-responsive {
+      overflow-x: auto;
+      margin-top: 1rem;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    th, td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    th {
+      background-color: #f7fafc;
+      font-weight: 600;
+      color: var(--primary-dark);
+    }
+    
+    tr:hover td {
+      background-color: rgba(67, 97, 238, 0.03);
+    }
+    
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(67, 97, 238, 0.3);
+      border-radius: 50%;
+      border-top-color: var(--primary);
+      animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 768px) {
+      .table-cards {
+        grid-template-columns: 1fr;
+      }
+      
+      .table-controls {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  
+  script.
+    let currentTable = '';
+    let currentData = [];
+    let currentLimit = 10;
+    let activeCard = null;
+    
+    function loadTable(tableName) {
+      // Update UI to show loading state
+      document.getElementById('table-title').innerHTML = `<i class="fas fa-table mr-2"></i>${tableName} <span class="loading-spinner"></span>`;
+      document.getElementById('data-table').innerHTML = '<thead><tr><th>Loading...</th></tr></thead><tbody><tr><td>Loading data...</td></tr></tbody>';
+      
+      // Update active card
+      if (activeCard) {
+        activeCard.classList.remove('active');
+      }
+      
+      const cards = document.querySelectorAll('.table-card');
+      cards.forEach(card => {
+        if (card.getAttribute('onclick').includes(tableName)) {
+          card.classList.add('active');
+          activeCard = card;
+        }
+      });
+      
+      // Fetch data from API
+      currentTable = tableName;
+      fetch(`/api/${tableName}`)
+        .then(response => response.json())
+        .then(data => {
+          displayTableData(data);
+          currentData = data;
+        })
+        .catch(error => {
+          document.getElementById('table-title').innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i>Error Loading Table`;
+          document.getElementById('data-table').innerHTML = `<thead><tr><th>Error</th></tr></thead><tbody><tr><td>Failed to load table data: ${error.message}</td></tr></tbody>`;
+        });
+    }
+    
+    function displayTableData(data) {
+      if (!data || data.length === 0) {
+        document.getElementById('table-title').innerHTML = `<i class="fas fa-table mr-2"></i>${formatTableName(currentTable)} - No Data`;
+        document.getElementById('data-table').innerHTML = '<thead><tr><th>No Data</th></tr></thead><tbody><tr><td>This table is empty</td></tr></tbody>';
+        return;
+      }
+      
+      // Get column headers from first row
+      const headers = Object.keys(data[0]);
+      
+      // Create table headers
+      let tableHTML = '<thead><tr>';
+      headers.forEach(header => {
+        tableHTML += `<th>${header}</th>`;
+      });
+      tableHTML += '</tr></thead>';
+      
+      // Create table body with limited rows
+      tableHTML += '<tbody>';
+      const limitedData = data.slice(0, currentLimit);
+      limitedData.forEach(row => {
+        tableHTML += '<tr>';
+        headers.forEach(header => {
+          const value = row[header];
+          tableHTML += `<td>${value !== null && value !== undefined ? value : 'NULL'}</td>`;
+        });
+        tableHTML += '</tr>';
+      });
+      tableHTML += '</tbody>';
+      
+      // Update the table
+      document.getElementById('table-title').innerHTML = `<i class="fas fa-table mr-2"></i>${formatTableName(currentTable)} <span class="text-secondary">(${data.length} records)</span>`;
+      document.getElementById('data-table').innerHTML = tableHTML;
+    }
+    
+    function formatTableName(name) {
+      // Convert kebab-case or snake_case to Title Case
+      return name
+        .replace(/-|_/g, ' ')
+        .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+    }
+    
+    function updateLimit() {
+      currentLimit = parseInt(document.getElementById('limit-select').value);
+      if (currentData && currentData.length > 0) {
+        displayTableData(currentData);
+      }
+    }
+    
+    function filterTable() {
+      const searchTerm = document.getElementById('search-input').value.toLowerCase();
+      
+      if (!currentData || currentData.length === 0) return;
+      
+      if (searchTerm === '') {
+        displayTableData(currentData);
+        return;
+      }
+      
+      const filteredData = currentData.filter(row => {
+        return Object.values(row).some(value => 
+          value !== null && 
+          value !== undefined && 
+          value.toString().toLowerCase().includes(searchTerm)
+        );
+      });
+      
+      displayTableData(filteredData);
+    }

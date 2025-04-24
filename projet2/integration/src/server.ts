@@ -153,6 +153,13 @@ async function startServer() {
           });
         }
         
+        // Serve Tables page with Pug
+        if (path === '/tables') {
+          return await renderPug('tables', {
+            title: 'Database Tables - Data Integration System'
+          });
+        }
+        
         // API routes
         if (path.startsWith('/api/')) {
           const apiPath = path.substring(5); // Remove '/api/' from the path
@@ -209,6 +216,32 @@ async function startServer() {
           if (apiPath === 'details-commande') {
             const details = await mediator.getDetailsCommande();
             return new Response(JSON.stringify(details.getItems()), {
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+
+          // Get factures
+          if (apiPath === 'factures') {
+            const factures = await mediator.getFactures();
+            return new Response(JSON.stringify(factures.getItems()), {
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+
+          // get livraisons
+          if (apiPath === 'livraisons') {
+            const livraisons = await mediator.getLivraisons();
+            console.log(livraisons.getItems());
+            
+            return new Response(JSON.stringify(livraisons.getItems()), {
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+
+          //get approvisionnements
+          if (apiPath === 'approvisionnements') {
+            const approvisionnements = await mediator.getApprovisionnements();
+            return new Response(JSON.stringify(approvisionnements.getItems()), {
               headers: { 'Content-Type': 'application/json' }
             });
           }

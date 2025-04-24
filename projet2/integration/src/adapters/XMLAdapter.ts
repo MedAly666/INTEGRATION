@@ -454,7 +454,7 @@ export class XMLAdapter implements IAdapter {
    * 
    * @returns Collection of supply records
    */
-  public async getApprovisionnement(): Promise<ApprovisionnementCollection> {
+  public async getApprovisionnements(): Promise<ApprovisionnementCollection> {
     if (!this.connected) {
       throw new Error('Not connected to XML data source');
     }

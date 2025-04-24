@@ -1,161 +1,351 @@
 extends layouts/main
 
 block content
-  h1 SQL Query Interface
-  p This interface allows you to execute SQL queries against the integrated data sources.
-  
-  .schema-info
-    h2 Global Schema
-    p Available tables:
-    ul
-      li
-        code clients
-        |  - Client information
-      li
-        code employees
-        |  - Employee information
-      li
-        code agences
-        |  - Agency information
-      li
-        code fournisseurs
-        |  - Supplier information
-      li
-        code produits
-        |  - Product information
-      li
-        code commandes
-        |  - Order information
-      li
-        code details_commande
-        |  - Order details
-      li
-        code factures
-        |  - Invoice information
-      li
-        code livraisons
-        |  - Delivery information
-      li
-        code approvisionnement
-        |  - Supply information
+  .chat-container
+    .chat-header
+      h1 
+        i.fas.fa-database
+        | SQL Query Interface
+    
+    .messages#messages
+      .message.system
+        .message-content
+          p Welcome to the SQL query interface. You can execute SQL queries against our integrated database.
+          p 
+            strong Available tables: 
+            span clients, employees, agences, fournisseurs, produits, commandes, details_commande, factures, livraisons, approvisionnement
+      
+      .message.system
+        .message-content
+          p Try one of these examples:
+          .example-pills
+            span.pill(onclick="setExampleQuery(1)") Show clients
+            span.pill(onclick="setExampleQuery(2)") Find by name
+            span.pill(onclick="setExampleQuery(3)") Join tables
+            span.pill(onclick="setExampleQuery(4)") Count by category
+            span.pill(onclick="setExampleQuery(5)") Top products
 
-  .query-section
-    h2 Query
-    textarea#query-input(placeholder="Enter your SQL query here...") SELECT * FROM clients LIMIT 10;
-    br
-    button#execute-btn(onclick="executeQuery()") Execute Query
-    span.loading#loading Processing query...
-  
-  .examples
-    h2 Example Queries
-    .example-query(onclick="setExampleQuery(1)") Show all clients
-    .example-query(onclick="setExampleQuery(2)") Find orders by client name
-    .example-query(onclick="setExampleQuery(3)") Join orders with clients
-    .example-query(onclick="setExampleQuery(4)") Count products by category
-    .example-query(onclick="setExampleQuery(5)") Find top products by order quantity
-
-  .result-section
-    h2 Results
-    #results
-      p Execute a query to see results.
+    .input-area
+      textarea#query-input(placeholder="Type your SQL query here...", rows="1") SELECT * FROM clients LIMIT 10;
+      button#execute-btn(onclick="executeQuery()")
+        i.fas.fa-paper-plane
+    
+    .loading#loading
+      .dot
+      .dot
+      .dot
 
   style.
-    .query-section {
-      margin-bottom: 20px;
+    :root {
+      --chat-bg: #ffffff;
+      --user-msg-bg: #4361ee;
+      --system-msg-bg: #f5f7ff;
+      --msg-text: #333333;
+      --placeholder: #9ca3af;
+      --border: #e5e7eb;
+      --focus: #4361ee;
+      --pill-bg: #e9efff;
+      --pill-text: #4361ee;
     }
-    #query-input {
+    
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 180px);
+      min-height: 500px;
+      background-color: var(--chat-bg);
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+    }
+    
+    .chat-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+    }
+    
+    .chat-header h1 {
+      font-size: 1.5rem;
+      margin: 0;
+      color: var(--focus);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .message {
+      display: flex;
+      margin-bottom: 8px;
+      max-width: 85%;
+    }
+    
+    .message.system {
+      align-self: flex-start;
+    }
+    
+    .message.user {
+      align-self: flex-end;
+    }
+    
+    .message.result {
+      align-self: flex-start;
       width: 100%;
-      height: 150px;
-      padding: 10px;
-      font-family: monospace;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      resize: vertical;
+      max-width: 100%;
     }
+    
+    .message-content {
+      padding: 12px 16px;
+      border-radius: 18px;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    
+    .system .message-content {
+      background-color: var(--system-msg-bg);
+      color: var(--msg-text);
+      border-bottom-left-radius: 4px;
+    }
+    
+    .user .message-content {
+      background-color: var(--user-msg-bg);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    
+    .result .message-content {
+      background-color: var(--system-msg-bg);
+      color: var(--msg-text);
+      border-bottom-left-radius: 4px;
+      width: 100%;
+      overflow-x: auto;
+    }
+    
+    .message-content p {
+      margin: 0 0 8px 0;
+      color: inherit;
+    }
+    
+    .message-content p:last-child {
+      margin-bottom: 0;
+    }
+    
+    .input-area {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      border-top: 1px solid var(--border);
+      position: relative;
+    }
+    
+    #query-input {
+      flex: 1;
+      padding: 12px 16px;
+      padding-right: 48px;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      font-size: 15px;
+      resize: none;
+      overflow-y: hidden;
+      max-height: 150px;
+      transition: height 0.1s;
+      font-family: inherit;
+    }
+    
+    #query-input:focus {
+      outline: none;
+      border-color: var(--focus);
+      box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.1);
+    }
+    
+    #query-input::placeholder {
+      color: var(--placeholder);
+    }
+    
     #execute-btn {
-      background-color: #4CAF50;
+      position: absolute;
+      right: 28px;
+      bottom: 28px;
+      background: var(--user-msg-bg);
       color: white;
       border: none;
-      padding: 10px 20px;
-      text-align: center;
-      text-decoration: none;
-      display: inline-block;
-      font-size: 16px;
-      margin: 10px 0;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
-      border-radius: 4px;
+      transition: transform 0.2s;
     }
+    
     #execute-btn:hover {
-      background-color: #45a049;
+      transform: scale(1.1);
     }
-    .result-section {
-      margin-top: 20px;
-    }
-    #results {
-      overflow-x: auto;
-      margin-top: 10px;
-    }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-    }
-    th, td {
-      text-align: left;
-      padding: 8px;
-      border: 1px solid #ddd;
-    }
-    th {
-      background-color: #f2f2f2;
-      font-weight: bold;
-    }
-    tr:nth-child(even) {
-      background-color: #f9f9f9;
-    }
-    .error {
-      color: #D8000C;
-      background-color: #FFD2D2;
-      padding: 10px;
-      border-radius: 4px;
-      margin-top: 10px;
-    }
-    .examples {
-      margin-top: 20px;
-      padding: 10px;
-      background-color: #f8f9fa;
-      border-radius: 4px;
-    }
-    .example-query {
-      cursor: pointer;
-      margin: 5px 0;
-      padding: 5px;
-      background-color: #e9ecef;
-      border-radius: 3px;
-      display: inline-block;
-    }
-    .schema-info {
-      margin-top: 20px;
-      padding: 10px;
-      background-color: #e9f7ef;
-      border-radius: 4px;
-    }
+    
     .loading {
       display: none;
-      margin-left: 10px;
-      font-style: italic;
+      justify-content: center;
+      padding: 12px 0;
+    }
+    
+    .loading .dot {
+      width: 8px;
+      height: 8px;
+      background: var(--focus);
+      border-radius: 50%;
+      margin: 0 4px;
+      animation: loadingAnimation 1.5s infinite ease-in-out;
+    }
+    
+    .loading .dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    
+    .loading .dot:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+    
+    @keyframes loadingAnimation {
+      0%, 100% {
+        transform: translateY(0);
+        opacity: 0.4;
+      }
+      50% {
+        transform: translateY(-8px);
+        opacity: 1;
+      }
+    }
+    
+    .example-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    
+    .pill {
+      padding: 6px 12px;
+      background-color: var(--pill-bg);
+      color: var(--pill-text);
+      border-radius: 16px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    
+    .pill:hover {
+      background-color: var(--pill-text);
+      color: white;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 14px;
+      text-align: left;
+    }
+    
+    th {
+      background-color: rgba(67, 97, 238, 0.08);
+      padding: 8px 12px;
+      font-weight: 600;
+      border-bottom: 2px solid rgba(67, 97, 238, 0.1);
+    }
+    
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    tr:nth-child(even) {
+      background-color: rgba(0, 0, 0, 0.02);
+    }
+    
+    tr:hover {
+      background-color: rgba(67, 97, 238, 0.05);
+    }
+    
+    .error {
+      color: #e11d48;
+      background-color: #fff1f2;
+      padding: 8px 12px;
+      border-left: 3px solid #e11d48;
+      border-radius: 4px;
+    }
+    
+    @media (max-width: 768px) {
+      .chat-container {
+        height: calc(100vh - 140px);
+      }
+      
+      .example-pills {
+        flex-wrap: wrap;
+      }
+      
+      .message {
+        max-width: 90%;
+      }
     }
   
   script.
+    // Auto-resize textarea
+    const queryInput = document.getElementById('query-input');
+    queryInput.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = (this.scrollHeight) + 'px';
+    });
+    
+    // Set initial height
+    window.addEventListener('load', function() {
+      queryInput.style.height = 'auto';
+      queryInput.style.height = (queryInput.scrollHeight) + 'px';
+    });
+    
+    // Enter to submit (Shift+Enter for new line)
+    queryInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        executeQuery();
+      }
+    });
+
     function executeQuery() {
       const query = document.getElementById('query-input').value;
       if (!query) {
         alert('Please enter a SQL query');
         return;
       }
-
+      
+      // Add user message
+      const messagesDiv = document.getElementById('messages');
+      const userMessage = document.createElement('div');
+      userMessage.className = 'message user';
+      userMessage.innerHTML = `<div class="message-content"><p>${query.replace(/\n/g, '<br>')}</p></div>`;
+      messagesDiv.appendChild(userMessage);
+      
       // Show loading indicator
-      document.getElementById('loading').style.display = 'inline';
-      document.getElementById('results').innerHTML = '<p>Executing query...</p>';
-
+      document.getElementById('loading').style.display = 'flex';
+      
+      // Clear input and resize
+      queryInput.value = '';
+      queryInput.style.height = 'auto';
+      
+      // Scroll to bottom
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      
       // Send the query to the server
       fetch('/api/query', {
         method: 'POST',
@@ -169,51 +359,56 @@ block content
         // Hide loading indicator
         document.getElementById('loading').style.display = 'none';
 
+        // Create result message
+        const resultMessage = document.createElement('div');
+        resultMessage.className = 'message result';
+        
         if (data.error) {
-          document.getElementById('results').innerHTML = `<div class="error">${data.error}</div>`;
+          resultMessage.innerHTML = `<div class="message-content"><div class="error">${data.error}</div></div>`;
         } else {
-          
-          displayResults(data);
+          resultMessage.innerHTML = createResultTable(data);
         }
+        
+        messagesDiv.appendChild(resultMessage);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
       })
       .catch(error => {
         document.getElementById('loading').style.display = 'none';
-        document.getElementById('results').innerHTML = `<div class="error">Error executing query: ${error}</div>`;
+        
+        const resultMessage = document.createElement('div');
+        resultMessage.className = 'message result';
+        resultMessage.innerHTML = `<div class="message-content"><div class="error">Error executing query: ${error}</div></div>`;
+        
+        messagesDiv.appendChild(resultMessage);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
       });
     }
 
-    function displayResults(data) {
+    function createResultTable(data) {
       if (!data || data.length === 0) {
-        document.getElementById('results').innerHTML = '<p>No results found.</p>';
-        return;
+        return `<div class="message-content"><p>No results found.</p></div>`;
       }
 
-      // Create a table from the results
-      const tableEl = document.createElement('table');
+      let html = `<div class="message-content"><p>Query executed successfully:</p><table>`;
       
       // Create header row
-      const headerRow = document.createElement('tr');
+      html += `<tr>`;
       Object.keys(data[0]).forEach(key => {
-        const th = document.createElement('th');
-        th.textContent = key;
-        headerRow.appendChild(th);
+        html += `<th>${key}</th>`;
       });
-      tableEl.appendChild(headerRow);
+      html += `</tr>`;
 
       // Create data rows
       data.forEach(row => {
-        const tr = document.createElement('tr');
+        html += `<tr>`;
         Object.values(row).forEach(value => {
-          const td = document.createElement('td');
-          td.textContent = value !== null ? value : 'NULL';
-          tr.appendChild(td);
+          html += `<td>${value !== null ? value : 'NULL'}</td>`;
         });
-        tableEl.appendChild(tr);
+        html += `</tr>`;
       });
 
-      // Replace existing results with the new table
-      document.getElementById('results').innerHTML = '';
-      document.getElementById('results').appendChild(tableEl);
+      html += `</table></div>`;
+      return html;
     }
 
     function setExampleQuery(exampleNumber) {
@@ -227,13 +422,18 @@ block content
           queryInput.value = 'SELECT * FROM clients WHERE nom_complet LIKE "%Smith%";';
           break;
         case 3:
-          queryInput.value = 'SELECT c.nom_complet, c.email_contact, o.date_commande, o.statut\nFROM commandes o\nJOIN clients c ON o.client_ref = c.id\nLIMIT 20;';
+          queryInput.value = 'SELECT c.nom_complet, o.date_commande, o.statut\nFROM commandes o\nJOIN clients c ON o.client_ref = c.id\nLIMIT 10;';
           break;
         case 4:
           queryInput.value = 'SELECT categorie, COUNT(*) as product_count\nFROM produits\nGROUP BY categorie\nORDER BY product_count DESC;';
           break;
         case 5:
-          queryInput.value = 'SELECT p.id, p.libelle, SUM(d.quantite) as total_ordered\nFROM details_commande d\nJOIN produits p ON d.produit_id = p.id\nGROUP BY p.id, p.libelle\nORDER BY total_ordered DESC\nLIMIT 10;';
+          queryInput.value = 'SELECT p.libelle, SUM(d.quantite) as total\nFROM details_commande d\nJOIN produits p ON d.produit_id = p.id\nGROUP BY p.libelle\nORDER BY total DESC\nLIMIT 5;';
           break;
       }
+      
+      // Update textarea height
+      queryInput.style.height = 'auto';
+      queryInput.style.height = (queryInput.scrollHeight) + 'px';
+      queryInput.focus();
     }

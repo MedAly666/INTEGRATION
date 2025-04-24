@@ -178,7 +178,7 @@ export class Mediator {
     for (const adapter of this.adapters) {
       const produits = await adapter.getProduits();
       result.merge(produits);
-    }
+    }    
     
     return result;
   }
@@ -252,11 +252,11 @@ export class Mediator {
    * 
    * @returns Integrated supply data
    */
-  public async getApprovisionnement(): Promise<ApprovisionnementCollection> {
+  public async getApprovisionnements(): Promise<ApprovisionnementCollection> {
     const result = new ApprovisionnementCollection();
     
     for (const adapter of this.adapters) {
-      const approvisionnements = await adapter.getApprovisionnement();
+      const approvisionnements = await adapter.getApprovisionnements();
       result.merge(approvisionnements);
     }
     
@@ -327,7 +327,7 @@ export class Mediator {
    * @returns Products from this supplier
    */
   public async getProductsBySupplier(fournisseurId: string): Promise<ProduitCollection> {
-    const allApprovisionnements = await this.getApprovisionnement();
+    const allApprovisionnements = await this.getApprovisionnements();
     const allProduits = await this.getProduits();
     const result = new ProduitCollection();
     const productIds: string[] = [];
@@ -447,7 +447,7 @@ export class Mediator {
     
     // Validate supplier references in supply records
     await this.validateReferences(
-      await this.getApprovisionnement(),
+      await this.getApprovisionnements(),
       await this.getFournisseurs(),
       'fournisseurId',
       'id',
@@ -457,7 +457,7 @@ export class Mediator {
     
     // Validate product references in supply records
     await this.validateReferences(
-      await this.getApprovisionnement(),
+      await this.getApprovisionnements(),
       await this.getProduits(),
       'produitId',
       'id',
@@ -557,7 +557,7 @@ export class Mediator {
         orderDetails: (await this.getDetailsCommande()).count(),
         invoices: (await this.getFactures()).count(),
         deliveries: (await this.getLivraisons()).count(),
-        supplyRecords: (await this.getApprovisionnement()).count()
+        supplyRecords: (await this.getApprovisionnements()).count()
       },
       bySource: {} as Record<string, Record<string, number>>
     };
@@ -585,7 +585,7 @@ export class Mediator {
     await this.countBySource(await this.getDetailsCommande(), 'orderDetails', stats.bySource);
     await this.countBySource(await this.getFactures(), 'invoices', stats.bySource);
     await this.countBySource(await this.getLivraisons(), 'deliveries', stats.bySource);
-    await this.countBySource(await this.getApprovisionnement(), 'supplyRecords', stats.bySource);
+    await this.countBySource(await this.getApprovisionnements(), 'supplyRecords', stats.bySource);
     
     return stats;
   }

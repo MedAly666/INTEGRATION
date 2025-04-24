@@ -85,5 +85,5 @@ export interface IAdapter {
   /**
    * Fetch supply data 
    */
-  getApprovisionnement(): Promise<ApprovisionnementCollection>;
+  getApprovisionnements(): Promise<ApprovisionnementCollection>;
 }

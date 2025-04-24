@@ -572,7 +572,7 @@ export class SQLAdapter implements IAdapter {
         };
         
         collection.addItem(facture);
-      }
+      }      
     } catch (error) {
       console.error('Error fetching invoices:', error);
     }
@@ -622,7 +622,7 @@ export class SQLAdapter implements IAdapter {
    * 
    * @returns Collection of supply records
    */
-  public async getApprovisionnement(): Promise<ApprovisionnementCollection> {
+  public async getApprovisionnements(): Promise<ApprovisionnementCollection> {
     if (!this.connected) {
       throw new Error('Not connected to SQL database');
     }

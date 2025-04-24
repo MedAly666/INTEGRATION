@@ -568,7 +568,7 @@ export class Neo4jAdapter implements IAdapter {
         const livraison: Livraison = {
           id: `NEO_${record.get('id')}`,
           sourceSystem: this.sourceSystem,
-          dateEstimee: record.get('date_livraison') || record.get('date_estimee'),
+          dateEstimee: record.get('date_estimee'),
           transporteur: record.get('transporteur'),
           commandeRef: `NEO_${record.get('commande_id')}`,
           statut: record.get('statut')
@@ -586,7 +586,7 @@ export class Neo4jAdapter implements IAdapter {
    * 
    * @returns Collection of supply records
    */
-  public async getApprovisionnement(): Promise<ApprovisionnementCollection> {
+  public async getApprovisionnements(): Promise<ApprovisionnementCollection> {
     if (!this.connected) {
       throw new Error('Not connected to Neo4j database');
     }
