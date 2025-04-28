@@ -4,7 +4,7 @@
  */
 
 import neo4j, { Driver, Session, Record as Neo4jRecord, QueryResult } from 'neo4j-driver';
-import { IAdapter } from './IAdapter';
+import { IAdapter, QueryFilter } from './IAdapter';
 import {
   ClientCollection,
   Client,
@@ -296,7 +296,7 @@ export class Neo4jAdapter implements IAdapter {
           sourceSystem: this.sourceSystem,
           nomComplet: record.get('nom') || record.get('nom').split(' ')[0],
           email: record.get('email'),
-          post: record.get('fonction'),
+          post: record.get('poste'),
           salaire: record.get('salaire') ? parseFloat(record.get('salaire')) : undefined,
           agenceRef: record.get('agence_id') ? `NEO_${record.get('agence_id')}` : undefined,
         };
@@ -482,7 +482,7 @@ export class Neo4jAdapter implements IAdapter {
     const query = `MATCH (o:Commande)-[d:DETAIL]->(p:Produit)
                  RETURN o.id_commande as commande_id,
                         p.id_produit as produit_id,
-                        d.quantité as quantite`;
+                        d.quantite as quantite`;
     
     const result = await this.executeCypherQuery(query);
     
@@ -597,7 +597,7 @@ export class Neo4jAdapter implements IAdapter {
     const query = `MATCH (p:Produit)-[f:FOURNI_PAR]->(s:Fournisseur)
                  RETURN p.id_produit as produit_id,
                         s.id_fournisseur as fournisseur_id,
-                        f.quantité as quantite`;
+                        f.quantite as quantite`;
     
     const result = await this.executeCypherQuery(query);
     
@@ -617,5 +617,455 @@ export class Neo4jAdapter implements IAdapter {
     }
     
     return collection;
+  }
+
+  /**
+   * Execute a filtered query directly on the adapter
+   * @param tableName The table/entity to query
+   * @param filter Query filter specification
+   * @returns The appropriate data collection with filtered results
+   */
+  public async executeFilteredQuery(tableName: string, filter: QueryFilter): Promise<any> {
+    if (!this.connected) {
+      throw new Error('Not connected to Neo4j database');
+    }
+    
+    console.log(`Neo4jAdapter: Executing filtered query for ${tableName}`);
+    console.log('Filter:', JSON.stringify(filter));
+    
+    // Map the common table names to Neo4j node types and relationship patterns
+    const nodeMap: Record<string, string> = {
+      'clients': 'Client',
+      'employees': 'Employe',
+      'agences': 'Agence',
+      'fournisseurs': 'Fournisseur',
+      'produits': 'Produit',
+      'commandes': 'Commande',
+      'factures': 'Facture',
+      'livraisons': 'Livraison'
+    };
+    
+    // Special relationship patterns for "tables" that are modeled as relationships in Neo4j
+    const relationshipMap: Record<string, { pattern: string; fields: string[] }> = {
+      'details_commande': {
+        pattern: '(o:Commande)-[d:DETAIL]->(p:Produit)',
+        fields: ['o.id_commande', 'p.id_produit', 'd.quantité']
+      },
+      'approvisionnements': {
+        pattern: '(p:Produit)-[f:FOURNI_PAR]->(s:Fournisseur)',
+        fields: ['p.id_produit', 's.id_fournisseur', 'f.quantité']
+      }
+    };
+    
+    // Additional relationship patterns for joined queries
+    const joinPatterns: Record<string, Record<string, string>> = {
+      'commandes': {
+        'clients': '(c:Client)-[:PASSE]->(o:Commande)',
+        'employees': '(e:Employe)-[:GERE]->(o:Commande)'
+      },
+      'factures': {
+        'commandes': '(o:Commande)-[:FACTURE]->(f:Facture)'
+      },
+      'livraisons': {
+        'commandes': '(o:Commande)-[:LIVREE_PAR]->(l:Livraison)'
+      },
+      'employees': {
+        'agences': '(e:Employe)-[:TRAVAILLE_DANS]->(a:Agence)'
+      }
+    };
+    
+    // Map collection creation methods to table names
+    const methodMap: Record<string, keyof Neo4jAdapter & string> = {
+      'clients': 'getClients',
+      'employees': 'getEmployees',
+      'agences': 'getAgences',
+      'fournisseurs': 'getFournisseurs',
+      'produits': 'getProduits',
+      'commandes': 'getCommandes',
+      'details_commande': 'getDetailsCommande',
+      'factures': 'getFactures',
+      'livraisons': 'getLivraisons',
+      'approvisionnements': 'getApprovisionnements'
+    };
+    
+    // Field mapping from common model to Neo4j schema
+    const fieldMaps: Record<string, Record<string, string>> = {
+      'clients': {
+        'id': 'c.id_client',
+        'nom_complet': 'c.nom',
+        'adresse': 'c.adresse',
+        'email_contact': 'c.email',
+        'numero_telephone': 'c.telephone'
+      },
+      'employees': {
+        'id': 'e.id_employe',
+        'nom_complet': 'e.nom',
+        'email': 'e.email',
+        'poste': 'e.poste',
+        'agence_ref': 'a.id_agence'
+      },
+      'agences': {
+        'id': 'a.id_agence',
+        'ville': 'a.ville',
+        'adresse': 'a.adresse'
+      },
+      'fournisseurs': {
+        'id': 'f.id_fournisseur',
+        'nom_fournisseur': 'f.nom',
+        'adresse': 'f.adresse',
+        'numero_telephone': 'f.telephone'
+      },
+      'produits': {
+        'id': 'p.id_produit',
+        'description': 'p.description',
+        'prix_cout': 'p.prix',
+        'categorie': 'p.categorie'
+      },
+      'commandes': {
+        'id': 'o.id_commande',
+        'date_commande': 'o.date',
+        'montant': 'o.montant',
+        'statut': 'o.statut',
+        'mode_paiement': 'o.mode_paiement',
+        'client_ref': 'c.id_client',
+        'employe_ref': 'e.id_employe'
+      },
+      'details_commande': {
+        'commande_id': 'o.id_commande',
+        'produit_id': 'p.id_produit',
+        'quantite': 'd.quantité'
+      },
+      'factures': {
+        'id': 'f.id_facture',
+        'montant_total': 'f.montant_total',
+        'date_facture': 'f.date',
+        'commande_ref': 'o.id_commande'
+      },
+      'livraisons': {
+        'id': 'l.id_livraison',
+        'transporteur': 'l.transporteur',
+        'date_estimee': 'l.date_estimee',
+        'statut': 'l.statut',
+        'commande_ref': 'o.id_commande'
+      },
+      'approvisionnements': {
+        'produit_id': 'p.id_produit',
+        'fournisseur_id': 's.id_fournisseur',
+        'quantite': 'f.quantité'
+      }
+    };
+    
+    try {
+      // Build the Cypher query
+      let cypher = 'MATCH ';
+      let whereClause = '';
+      const params: Record<string, any> = {};
+      
+      // Determine the base pattern to match
+      let basePattern = '';
+      let variablePrefix = '';
+      
+      if (relationshipMap[tableName]) {
+        // Use relationship pattern
+        basePattern = relationshipMap[tableName].pattern;
+      } else if (nodeMap[tableName]) {
+        // Use node pattern with variable
+        variablePrefix = tableName.charAt(0);
+        basePattern = `(${variablePrefix}:${nodeMap[tableName]})`;
+      } else {
+        throw new Error(`Unknown table: ${tableName}`);
+      }
+      
+      // Add base pattern to query
+      cypher += basePattern;
+      
+      // Add joins if present
+      if (filter.joins && filter.joins.length > 0) {
+        for (const join of filter.joins) {
+          if (join.type && join.on && join.on.table) {
+            const joinTable = join.on.table;
+            
+            // Check if we have a predefined join pattern for this relationship
+            if (joinPatterns[tableName] && joinPatterns[tableName][joinTable]) {
+              // Use the predefined pattern
+              cypher += `\nMATCH ${joinPatterns[tableName][joinTable]}`;
+            } else {
+              // Construct a generic join
+              const joinNodeType = nodeMap[joinTable];
+              if (!joinNodeType) {
+                console.warn(`No node mapping for join table: ${joinTable}`);
+                continue;
+              }
+              
+              const joinPrefix = joinTable.charAt(0);
+              
+              if (join.on.left && join.on.right) {
+                // Handle explicit join condition
+                const leftField = fieldMaps[tableName][join.on.left.field] || join.on.left.field;
+                const rightField = fieldMaps[joinTable][join.on.right.field] || join.on.right.field;
+                
+                cypher += `\nMATCH (${joinPrefix}:${joinNodeType})`;
+                whereClause += whereClause ? ' AND ' : 'WHERE ';
+                whereClause += `${leftField} = ${rightField}`;
+              } else {
+                // Handle implicit join (assume relationship exists)
+                cypher += `\nOPTIONAL MATCH (${variablePrefix})-[]->(${joinPrefix}:${joinNodeType})`;
+              }
+            }
+          }
+        }
+      }
+      
+      // Add conditions if present
+      if (filter.conditions && filter.conditions.length > 0) {
+        for (let i = 0; i < filter.conditions.length; i++) {
+          const condition = filter.conditions[i];
+          
+          whereClause += whereClause ? ' AND ' : 'WHERE ';
+          
+          // Handle different condition types
+          if (condition.type === 'binary_expr') {
+            // Handle binary expressions like field = value
+            let leftField = '';
+            
+            if (condition.left.column) {
+              leftField = fieldMaps[tableName][condition.left.column] || condition.left.column;
+            } else if (typeof condition.left === 'string') {
+              leftField = fieldMaps[tableName][condition.left] || condition.left;
+            }
+            
+            whereClause += `${leftField} ${condition.operator} $param${i}`;
+            params[`param${i}`] = condition.right.value;
+          } else {
+            // Handle other condition types (default to TRUE)
+            whereClause += 'TRUE';
+          }
+        }
+      }
+      
+      // Complete the query with the WHERE clause
+      if (whereClause) {
+        cypher += `\n${whereClause}`;
+      }
+      
+      // Add RETURN clause
+      cypher += '\nRETURN ';
+      
+      // Add projections
+      if (filter.projections && filter.projections.length > 0 && !filter.projections.includes('*')) {
+        // Map projection fields to Neo4j fields
+        const projectionFields = filter.projections
+          .map(field => {
+            const neoField = fieldMaps[tableName][field];
+            
+            // If we have a Neo4j field mapping, use it; otherwise use the field as-is
+            if (neoField) {
+              // Add an alias to make output processing easier
+              return `${neoField} AS ${field}`;
+            }
+            return field;
+          })
+          .join(', ');
+          
+        cypher += projectionFields;
+      } else if (relationshipMap[tableName]) {
+        // For relationship-based tables, return specific fields
+        const fields = relationshipMap[tableName].fields
+          .map((field, index) => {
+            const alias = ['commande_id', 'produit_id', 'quantite', 'fournisseur_id'][index];
+            return `${field} AS ${alias}`;
+          })
+          .join(', ');
+        
+        cypher += fields;
+      } else {
+        // For node-based tables, return all fields with appropriate aliases
+        const fieldList = Object.entries(fieldMaps[tableName])
+          .map(([alias, field]) => `${field} AS ${alias}`)
+          .join(', ');
+        
+        cypher += fieldList || '*';
+      }
+      
+      // Add ORDER BY if present
+      if (filter.orderBy && filter.orderBy.length > 0) {
+        const orderClauses = filter.orderBy
+          .map(order => {
+            const field = fieldMaps[tableName][order.column] || order.column;
+            return `${field} ${order.type}`;
+          })
+          .join(', ');
+        
+        cypher += `\nORDER BY ${orderClauses}`;
+      }
+      
+      // Add LIMIT if present
+      if (filter.limit !== undefined && filter.limit !== null) {
+        cypher += `\nLIMIT ${filter.limit}`;
+      }
+      
+      console.log(`Neo4jAdapter: Generated Cypher: ${cypher}`);
+      console.log('Parameters:', params);
+      
+      // Execute the query
+      const result = await this.executeCypherQuery(cypher, params);
+      
+      // Create and populate the appropriate collection
+      const methodName = methodMap[tableName];
+      if (!methodName) {
+        throw new Error(`No method mapping found for table: ${tableName}`);
+      }
+      
+      // Create an empty collection directly instead of calling the method
+      let collection;
+      switch (tableName) {
+        case 'clients':
+          collection = new ClientCollection();
+          break;
+        case 'employees':
+          collection = new EmployeeCollection();
+          break;
+        case 'agences':
+          collection = new AgenceCollection();
+          break;
+        case 'fournisseurs':
+          collection = new FournisseurCollection();
+          break;
+        case 'produits':
+          collection = new ProduitCollection();
+          break;
+        case 'commandes':
+          collection = new CommandeCollection();
+          break;
+        case 'details_commande':
+          collection = new DetailCommandeCollection();
+          break;
+        case 'factures':
+          collection = new FactureCollection();
+          break;
+        case 'livraisons':
+          collection = new LivraisonCollection();
+          break;
+        case 'approvisionnements':
+          collection = new ApprovisionnementCollection();
+          break;
+        default:
+          throw new Error(`No collection type found for table: ${tableName}`);
+      }
+      
+      // Process the query results into model objects
+      if (result) {
+        for (const record of result) {
+          let item: any;
+          
+          switch (tableName) {
+            case 'clients':
+              item = {
+                id: `NEO_${record.get('id')}`,
+                sourceSystem: this.sourceSystem,
+                nomComplet: record.get('nom_complet'),
+                adresse: record.get('adresse'),
+                emailContact: record.get('email_contact'),
+                numeroTelephone: record.get('numero_telephone')
+              };
+              break;
+            case 'employees':
+              item = {
+                id: `NEO_${record.get('id')}`,
+                sourceSystem: this.sourceSystem,
+                nomComplet: record.get('nom_complet'),
+                email: record.get('email'),
+                post: record.get('poste'),
+                agenceRef: record.get('agence_ref') ? `NEO_${record.get('agence_ref')}` : undefined
+              };
+              break;
+            case 'agences':
+              item = {
+                id: `NEO_${record.get('id')}`,
+                sourceSystem: this.sourceSystem,
+                ville: record.get('ville'),
+                adresse: record.get('adresse'),
+              };
+              break;
+            case 'fournisseurs':
+              item = {
+                id: `NEO_${record.get('id')}`,
+                sourceSystem: this.sourceSystem,
+                nomFournisseur: record.get('nom_fournisseur'),
+                adresse: record.get('adresse'),
+                numeroTelephone: record.get('numero_telephone')
+              };
+              break;
+            case 'produits':
+              item = {
+                id: `NEO_${record.get('id')}`,
+                sourceSystem: this.sourceSystem,
+                description: record.get('description'),
+                categorie: record.get('categorie'),
+                prixCout: record.get('prix_cout') ? parseFloat(record.get('prix_cout')) : undefined
+              };
+              break;
+            case 'commandes':
+              item = {
+                id: `NEO_${record.get('id')}`,
+                sourceSystem: this.sourceSystem,
+                dateCommande: record.get('date_commande'),
+                montant: record.get('montant') ? parseFloat(record.get('montant')) : undefined,
+                statut: record.get('statut'),
+                modePaiement: record.get('mode_paiement'),
+                clientRef: `NEO_${record.get('client_ref')}`,
+                employeRef: record.get('employe_ref') ? `NEO_${record.get('employe_ref')}` : undefined
+              };
+              break;
+            case 'details_commande':
+              item = {
+                id: `NEO_${record.get('commande_id')}_${record.get('produit_id')}`,
+                sourceSystem: this.sourceSystem,
+                commandeId: `NEO_${record.get('commande_id')}`,
+                produitId: `NEO_${record.get('produit_id')}`,
+                quantite: record.get('quantite')?.toNumber() || 0
+              };
+              break;
+            case 'factures':
+              item = {
+                id: `NEO_${record.get('id')}`,
+                sourceSystem: this.sourceSystem,
+                montantTotal: record.get('montant_total') ? parseFloat(record.get('montant_total')) : undefined,
+                dateFacture: record.get('date_facture'),
+                commandeRef: `NEO_${record.get('commande_ref')}`
+              };
+              break;
+            case 'livraisons':
+              item = {
+                id: `NEO_${record.get('id')}`,
+                sourceSystem: this.sourceSystem,
+                transporteur: record.get('transporteur'),
+                dateEstimee: record.get('date_estimee'),
+                statut: record.get('statut'),
+                commandeRef: `NEO_${record.get('commande_ref')}`
+              };
+              break;
+            case 'approvisionnements':
+              item = {
+                id: `NEO_${record.get('produit_id')}_${record.get('fournisseur_id')}`,
+                sourceSystem: this.sourceSystem,
+                produitId: `NEO_${record.get('produit_id')}`,
+                fournisseurId: `NEO_${record.get('fournisseur_id')}`,
+                quantite: record.get('quantite')?.toNumber() || 0
+              };
+              break;
+            default:
+              continue;
+          }
+          
+          collection.addItem(item);
+        }
+      }
+      
+      return collection;
+    } catch (error) {
+      console.error(`Error executing filtered query for ${tableName}:`, error);
+      throw error;
+    }
   }
 }

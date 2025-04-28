@@ -16,6 +16,19 @@ import {
   ApprovisionnementCollection
 } from '../common/DataModel';
 
+/**
+ * Query filter structure that adapters can use to filter data
+ */
+export interface QueryFilter {
+  projections?: string[];
+  conditions?: any[];
+  joins?: any[];
+  limit?: number | null;
+  groupBy?: string[] | null;
+  orderBy?: { column: string, type: string }[] | null;
+  parameters?: Record<string, any>;
+}
+
 export interface IAdapter {
   /**
    * Connect to the data source
@@ -40,50 +53,58 @@ export interface IAdapter {
   /**
    * Fetch clients data 
    */
-  getClients(): Promise<ClientCollection>;
+  getClients(filter?: QueryFilter): Promise<ClientCollection>;
   
   /**
    * Fetch employees data
    */
-  getEmployees(): Promise<EmployeeCollection>;
+  getEmployees(filter?: QueryFilter): Promise<EmployeeCollection>;
   
   /**
    * Fetch agencies data
    */
-  getAgences(): Promise<AgenceCollection>;
+  getAgences(filter?: QueryFilter): Promise<AgenceCollection>;
   
   /**
    * Fetch suppliers data
    */
-  getFournisseurs(): Promise<FournisseurCollection>;
+  getFournisseurs(filter?: QueryFilter): Promise<FournisseurCollection>;
   
   /**
    * Fetch products data
    */
-  getProduits(): Promise<ProduitCollection>;
+  getProduits(filter?: QueryFilter): Promise<ProduitCollection>;
   
   /**
    * Fetch orders data
    */
-  getCommandes(): Promise<CommandeCollection>;
+  getCommandes(filter?: QueryFilter): Promise<CommandeCollection>;
   
   /**
    * Fetch order details data
    */
-  getDetailsCommande(): Promise<DetailCommandeCollection>;
+  getDetailsCommande(filter?: QueryFilter): Promise<DetailCommandeCollection>;
   
   /**
    * Fetch invoices data
    */
-  getFactures(): Promise<FactureCollection>;
+  getFactures(filter?: QueryFilter): Promise<FactureCollection>;
   
   /**
    * Fetch deliveries data
    */
-  getLivraisons(): Promise<LivraisonCollection>;
+  getLivraisons(filter?: QueryFilter): Promise<LivraisonCollection>;
   
   /**
    * Fetch supply data 
    */
-  getApprovisionnements(): Promise<ApprovisionnementCollection>;
+  getApprovisionnements(filter?: QueryFilter): Promise<ApprovisionnementCollection>;
+  
+  /**
+   * Execute a filtered query directly on the adapter
+   * @param tableName The table/entity to query
+   * @param filter Query filter specification
+   * @returns Generic data collection
+   */
+  executeFilteredQuery(tableName: string, filter: QueryFilter): Promise<any>;
 }

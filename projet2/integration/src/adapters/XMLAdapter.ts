@@ -3,7 +3,7 @@
  * Adapter for XML data sources
  */
 
-import { IAdapter } from './IAdapter';
+import { IAdapter, QueryFilter } from './IAdapter';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { DOMParser } from 'xmldom';
@@ -49,6 +49,81 @@ export class XMLAdapter implements IAdapter {
   ) {
     this.sourceSystem = sourceSystem;
     this.xmlFilePath = xmlFilePath;
+  }
+  
+  /**
+   * Execute a query with filtering
+   * 
+   * @param tableName The name of the entity to query
+   * @param filter Filter criteria to apply
+   * @returns Promise with the filtered results
+   */
+  public async executeFilteredQuery(tableName: string, filter: QueryFilter): Promise<any> {
+    if (!this.connected) {
+      throw new Error('Not connected to XML data source');
+    }
+    
+    let results: any;
+    
+    // Get the appropriate collection based on tableName
+    switch (tableName.toLowerCase()) {
+      case 'clients':
+        results = await this.getClients();
+        break;
+      case 'employees':
+        results = await this.getEmployees();
+        break;
+      case 'agences':
+        results = await this.getAgences();
+        break;
+      case 'fournisseurs':
+        results = await this.getFournisseurs();
+        break;
+      case 'produits':
+        results = await this.getProduits();
+        break;
+      case 'commandes':
+        results = await this.getCommandes();
+        break;
+      case 'detailscommande':
+        results = await this.getDetailsCommande();
+        break;
+      case 'factures':
+        results = await this.getFactures();
+        break;
+      case 'livraisons':
+        results = await this.getLivraisons();
+        break;
+      case 'approvisionnements':
+        results = await this.getApprovisionnements();
+        break;
+      default:
+        throw new Error(`Unknown table name: ${tableName}`);
+    }
+    
+    // If no filter provided, return all results
+    if (!filter || Object.keys(filter).length === 0) {
+      return results;
+    }
+    
+    // Apply filtering
+    const filteredItems = results.getItems().filter((item: any) => {
+      // Check if item matches all filter criteria
+      for (const [key, value] of Object.entries(filter)) {
+        // Skip if the property doesn't exist on the item or if it's not a match
+        if (!item.hasOwnProperty(key) || item[key] !== value) {
+          return false;
+        }
+      }
+      return true;
+    });
+    
+    // Create a new collection with the filtered items
+    const filteredCollection = results.clone();
+    filteredCollection.clear();
+    filteredItems.forEach((item: any) => filteredCollection.addItem(item));
+    
+    return filteredCollection;
   }
 
   /**

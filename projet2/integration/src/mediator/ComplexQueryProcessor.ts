@@ -8,6 +8,7 @@ import { Parser } from 'node-sql-parser';
 import alasql from 'alasql';
 import { Mediator } from './Mediator';
 import { it } from 'bun:test';
+import { QueryFilter } from '../adapters/IAdapter';
 
 export class ComplexQueryProcessor {
   private mediator: Mediator;
@@ -71,9 +72,19 @@ export class ComplexQueryProcessor {
         }
       }
       
-      // Fetch only the necessary data from each source
-      const results = await this.fetchRequiredData(queryInfo, parameters);
+      // Create a QueryFilter from the analysis
+      const filter: QueryFilter = {
+        projections: queryInfo.projections,
+        conditions: queryInfo.conditions,
+        joins: queryInfo.joins,
+        limit: queryInfo.limit,
+        groupBy: queryInfo.groupBy,
+        orderBy: queryInfo.orderBy,
+        parameters: parameters
+      };
       
+      // Fetch only the necessary data from each source using the filter
+      const results = await this.fetchRequiredData(queryInfo, filter);
       
       // Apply the final query to the combined results
       return this.processResults(results, queryInfo, query, parameters);
@@ -239,12 +250,13 @@ export class ComplexQueryProcessor {
   
   /**
    * Fetch only the required data from each source based on the query analysis
+   * Delegates filtering to the adapters
    * 
    * @param queryInfo Information extracted from the query
-   * @param parameters Query parameters
+   * @param filter QueryFilter object with projections, conditions, and joins
    * @returns Object containing data from each table
    */
-  private async fetchRequiredData(queryInfo: any, parameters: Record<string, any>): Promise<any> {
+  private async fetchRequiredData(queryInfo: any, filter: QueryFilter): Promise<any> {
     const data: Record<string, any[]> = {};
     
     for (const tableName of queryInfo.tables) {
@@ -254,43 +266,57 @@ export class ComplexQueryProcessor {
         throw new Error(`Unknown table: ${tableName}`);
       }
       
-      console.log(`Fetching data for table ${tableName} using ${methodName}`);
-      if (typeof this.mediator[methodName as keyof Mediator] === 'function') {
-        // Call the appropriate method on the mediator
-        const collection = await (this.mediator[methodName as keyof Mediator] as Function).call(this.mediator);
-        
-        // Extract items and normalize property names
-        interface DataItem {
-          [key: string]: any;
-        }
-        
-        interface DataCollection {
-          getItems(): DataItem[];
-        }
-        
-        interface NormalizedItem {
-          [key: string]: any;
-        }
-        
-        const items = (collection as DataCollection).getItems().map((item: DataItem): NormalizedItem => {
-          const normalized: NormalizedItem = {};
-          for (const [key, value] of Object.entries(item)) {
-            // Convert camelCase to snake_case for SQL compatibility
-            const normalizedKey = key.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
-            normalized[normalizedKey] = value;
-            // Keep the original key as well
-            //normalized[key] = value;
+      console.log(`Fetching data for table ${tableName} using ${methodName} with filter`);
+      
+      // Get all adapters from the mediator
+      const adapters = this.mediator.getAdapters();
+      const collections = [];
+      
+      // Query each adapter with the filter
+      for (const adapter of adapters) {
+        if (typeof adapter['executeFilteredQuery'] === 'function') {
+          try {
+            // Call the adapter's executeFilteredQuery with the table name and filter
+            const collection = await adapter.executeFilteredQuery(tableName, filter);
+            if (collection) {
+              collections.push(collection);
+            }
+          } catch (error) {
+            console.warn(`Adapter ${adapter.getSourceSystem()} failed to process filtered query for ${tableName}:`, error);
           }
-          return normalized;
-        });
-        
-        // Store the data
-        data[tableName] = items;
-        
-        console.log(`Fetched ${items.length} records for table ${tableName}`);
-      } else {
-        throw new Error(`Method ${methodName} not found in mediator`);
+        }
       }
+      
+      // Merge all collections
+      const mergedCollection = this.mediator.mergeCollections(collections, methodName);
+      
+      // Extract items and normalize property names
+      interface DataItem {
+        [key: string]: any;
+      }
+      
+      interface DataCollection {
+        getItems(): DataItem[];
+      }
+      
+      interface NormalizedItem {
+        [key: string]: any;
+      }
+      
+      const items = (mergedCollection as DataCollection).getItems().map((item: DataItem): NormalizedItem => {
+        const normalized: NormalizedItem = {};
+        for (const [key, value] of Object.entries(item)) {
+          // Convert camelCase to snake_case for SQL compatibility
+          const normalizedKey = key.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
+          normalized[normalizedKey] = value;
+        }
+        return normalized;
+      });
+      
+      // Store the data
+      data[tableName] = items;
+      
+      console.log(`Fetched ${items.length} records for table ${tableName}`);
     }
     
     return data;
@@ -312,50 +338,42 @@ export class ComplexQueryProcessor {
     parameters: Record<string, any>
   ): any[] {    
     try {
-      // Clear any previous tables with the same names
+      // Clear any previous views with the same names
       for (const tableName of Object.keys(data)) {
         try {
-          alasql(`DROP TABLE IF EXISTS ${tableName}`);
+          alasql(`DROP VIEW IF EXISTS ${tableName}`);
         } catch (error) {
-          console.warn(`Error dropping table ${tableName}:`, error);
+          console.warn(`Error dropping view ${tableName}:`, error);
         }
       }
       
-      // Create tables with the fetched data directly in the default database
+      // Register the data arrays directly as views using alasql
       for (const [tableName, items] of Object.entries(data)) {
-        // Create the table
         if (items.length > 0) {
-          // Generate column definitions based on the first item
-          const firstItem = items[0];
-          const columns = Object.keys(firstItem);
+          // Define the view using SELECT ... FROM ? syntax
+          // This creates a view that references the data array without copying it
+          alasql.tables[tableName] = {data: items};
+          alasql(`CREATE VIEW ${tableName} AS SELECT * FROM ?`, [items]);
           
-          // Create table with all columns
-          alasql(`CREATE TABLE ${tableName} (${columns.map(col => `[${col}]`).join(',')})`);
-          
-          // Insert data
-          for (const item of items) {
-            alasql(`INSERT INTO ${tableName} VALUES ?`, [item]);
-          }
-          
-          console.log(`Created temporary table ${tableName} with ${items.length} records`);
+          console.log(`Created temporary view ${tableName} with ${items.length} records`);
         } else {
-          // Create empty table with a generic structure
-          alasql(`CREATE TABLE ${tableName} (id STRING)`);
-          console.log(`Created empty temporary table ${tableName}`);
+          // Create an empty view with a generic structure
+          alasql(`CREATE VIEW ${tableName} AS SELECT 'empty' AS id WHERE 1=0`);
+          console.log(`Created empty temporary view ${tableName}`);
         }
       }
       
-      // Execute the original query on the temporary tables
+      // Execute the original query on the temporary views
       const processedQuery = this.applyParameters(originalQuery, parameters);
       console.log("Executing processed query:", processedQuery);
       const results = alasql(processedQuery);
       
-      // Clean up - drop the temporary tables
+      // Clean up - drop the temporary views
       for (const tableName of Object.keys(data)) {
         try {
-          alasql(`DROP TABLE IF EXISTS ${tableName}`);
+          alasql(`DROP VIEW IF EXISTS ${tableName}`);
         } catch (error) {
-          console.warn(`Error dropping table ${tableName}:`, error);
+          console.warn(`Error dropping view ${tableName}:`, error);
         }
       }
       

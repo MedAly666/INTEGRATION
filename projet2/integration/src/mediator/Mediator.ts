@@ -4,7 +4,7 @@
  * and provides a unified view of the data
  */
 
-import { IAdapter } from '../adapters/IAdapter';
+import { IAdapter, QueryFilter } from '../adapters/IAdapter';
 import {
   ClientCollection,
   EmployeeCollection,
@@ -42,6 +42,15 @@ export class Mediator {
     return this;
   }
   
+  /**
+   * Get all registered adapters
+   * 
+   * @returns Array of adapter instances
+   */
+  public getAdapters(): IAdapter[] {
+    return this.adapters;
+  }
+
   /**
    * Initialize the complex query processor
    * 
@@ -104,15 +113,16 @@ export class Mediator {
   }
   
   /**
-   * Get clients from all data sources
+   * Get clients from all data sources with optional filtering
    * 
+   * @param filter Optional query filter
    * @returns Integrated client data
    */
-  public async getClients(): Promise<ClientCollection> {
+  public async getClients(filter?: QueryFilter): Promise<ClientCollection> {
     const result = new ClientCollection();
     
     for (const adapter of this.adapters) {
-      const clients = await adapter.getClients();
+      const clients = await adapter.getClients(filter);
       result.merge(clients);      
     }
     
@@ -120,15 +130,16 @@ export class Mediator {
   }
   
   /**
-   * Get employees from all data sources
+   * Get employees from all data sources with optional filtering
    * 
+   * @param filter Optional query filter
    * @returns Integrated employee data
    */
-  public async getEmployees(): Promise<EmployeeCollection> {
+  public async getEmployees(filter?: QueryFilter): Promise<EmployeeCollection> {
     const result = new EmployeeCollection();
     
     for (const adapter of this.adapters) {
-      const employees = await adapter.getEmployees();
+      const employees = await adapter.getEmployees(filter);
       result.merge(employees);
     }
     
@@ -136,15 +147,16 @@ export class Mediator {
   }
   
   /**
-   * Get agencies from all data sources
+   * Get agencies from all data sources with optional filtering
    * 
+   * @param filter Optional query filter
    * @returns Integrated agency data
    */
-  public async getAgences(): Promise<AgenceCollection> {
+  public async getAgences(filter?: QueryFilter): Promise<AgenceCollection> {
     const result = new AgenceCollection();
     
     for (const adapter of this.adapters) {
-      const agences = await adapter.getAgences();
+      const agences = await adapter.getAgences(filter);
       result.merge(agences);
     }
     
@@ -152,15 +164,16 @@ export class Mediator {
   }
   
   /**
-   * Get suppliers from all data sources
+   * Get suppliers from all data sources with optional filtering
    * 
+   * @param filter Optional query filter
    * @returns Integrated supplier data
    */
-  public async getFournisseurs(): Promise<FournisseurCollection> {
+  public async getFournisseurs(filter?: QueryFilter): Promise<FournisseurCollection> {
     const result = new FournisseurCollection();
     
     for (const adapter of this.adapters) {
-      const fournisseurs = await adapter.getFournisseurs();
+      const fournisseurs = await adapter.getFournisseurs(filter);
       result.merge(fournisseurs);
     }
     
@@ -168,15 +181,16 @@ export class Mediator {
   }
   
   /**
-   * Get products from all data sources
+   * Get products from all data sources with optional filtering
    * 
+   * @param filter Optional query filter
    * @returns Integrated product data
    */
-  public async getProduits(): Promise<ProduitCollection> {
+  public async getProduits(filter?: QueryFilter): Promise<ProduitCollection> {
     const result = new ProduitCollection();
     
     for (const adapter of this.adapters) {
-      const produits = await adapter.getProduits();
+      const produits = await adapter.getProduits(filter);
       result.merge(produits);
     }    
     
@@ -184,15 +198,16 @@ export class Mediator {
   }
   
   /**
-   * Get orders from all data sources
+   * Get orders from all data sources with optional filtering
    * 
+   * @param filter Optional query filter
    * @returns Integrated order data
    */
-  public async getCommandes(): Promise<CommandeCollection> {
+  public async getCommandes(filter?: QueryFilter): Promise<CommandeCollection> {
     const result = new CommandeCollection();
     
     for (const adapter of this.adapters) {
-      const commandes = await adapter.getCommandes();
+      const commandes = await adapter.getCommandes(filter);
       result.merge(commandes);
     }
     
@@ -200,15 +215,16 @@ export class Mediator {
   }
   
   /**
-   * Get order details from all data sources
+   * Get order details from all data sources with optional filtering
    * 
+   * @param filter Optional query filter
    * @returns Integrated order detail data
    */
-  public async getDetailsCommande(): Promise<DetailCommandeCollection> {
+  public async getDetailsCommande(filter?: QueryFilter): Promise<DetailCommandeCollection> {
     const result = new DetailCommandeCollection();
     
     for (const adapter of this.adapters) {
-      const details = await adapter.getDetailsCommande();
+      const details = await adapter.getDetailsCommande(filter);
       result.merge(details);
     }
     
@@ -216,15 +232,16 @@ export class Mediator {
   }
   
   /**
-   * Get invoices from all data sources
+   * Get invoices from all data sources with optional filtering
    * 
+   * @param filter Optional query filter
    * @returns Integrated invoice data
    */
-  public async getFactures(): Promise<FactureCollection> {
+  public async getFactures(filter?: QueryFilter): Promise<FactureCollection> {
     const result = new FactureCollection();
     
     for (const adapter of this.adapters) {
-      const factures = await adapter.getFactures();
+      const factures = await adapter.getFactures(filter);
       result.merge(factures);
     }
     
@@ -232,15 +249,16 @@ export class Mediator {
   }
   
   /**
-   * Get deliveries from all data sources
+   * Get deliveries from all data sources with optional filtering
    * 
+   * @param filter Optional query filter
    * @returns Integrated delivery data
    */
-  public async getLivraisons(): Promise<LivraisonCollection> {
+  public async getLivraisons(filter?: QueryFilter): Promise<LivraisonCollection> {
     const result = new LivraisonCollection();
     
     for (const adapter of this.adapters) {
-      const livraisons = await adapter.getLivraisons();
+      const livraisons = await adapter.getLivraisons(filter);
       result.merge(livraisons);
     }
     
@@ -248,15 +266,16 @@ export class Mediator {
   }
   
   /**
-   * Get supply data from all data sources
+   * Get supply data from all data sources with optional filtering
    * 
+   * @param filter Optional query filter
    * @returns Integrated supply data
    */
-  public async getApprovisionnements(): Promise<ApprovisionnementCollection> {
+  public async getApprovisionnements(filter?: QueryFilter): Promise<ApprovisionnementCollection> {
     const result = new ApprovisionnementCollection();
     
     for (const adapter of this.adapters) {
-      const approvisionnements = await adapter.getApprovisionnements();
+      const approvisionnements = await adapter.getApprovisionnements(filter);
       result.merge(approvisionnements);
     }
     
@@ -794,5 +813,61 @@ export class Mediator {
     }
     
     return Math.min(1.0, score); // Ensure score doesn't exceed 1
+  }
+  
+  /**
+   * Merges multiple collections into one based on the method name
+   * 
+   * @param collections Array of collections from different adapters
+   * @param methodName Name of the method used to get these collections
+   * @returns Merged collection
+   */
+  public mergeCollections(collections: any[], methodName: string): any {
+    // Create the appropriate collection type based on the method name
+    let result: any;
+    
+    switch(methodName) {
+      case 'getClients':
+        result = new ClientCollection();
+        break;
+      case 'getEmployees':
+        result = new EmployeeCollection();
+        break;
+      case 'getAgences':
+        result = new AgenceCollection();
+        break;
+      case 'getFournisseurs':
+        result = new FournisseurCollection();
+        break;
+      case 'getProduits':
+        result = new ProduitCollection();
+        break;
+      case 'getCommandes':
+        result = new CommandeCollection();
+        break;
+      case 'getDetailsCommande':
+        result = new DetailCommandeCollection();
+        break;
+      case 'getFactures':
+        result = new FactureCollection();
+        break;
+      case 'getLivraisons':
+        result = new LivraisonCollection();
+        break;
+      case 'getApprovisionnements':
+        result = new ApprovisionnementCollection();
+        break;
+      default:
+        throw new Error(`Unknown method name: ${methodName}`);
+    }
+    
+    // Merge all collections into the result
+    for (const collection of collections) {
+      if (collection) {
+        result.merge(collection);
+      }
+    }
+    
+    return result;
   }
 }
