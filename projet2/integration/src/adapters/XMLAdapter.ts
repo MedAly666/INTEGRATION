@@ -85,7 +85,7 @@ export class XMLAdapter implements IAdapter {
       case 'commandes':
         results = await this.getCommandes();
         break;
-      case 'detailscommande':
+      case 'details_commande':
         results = await this.getDetailsCommande();
         break;
       case 'factures':
@@ -106,24 +106,59 @@ export class XMLAdapter implements IAdapter {
       return results;
     }
     
-    // Apply filtering
-    const filteredItems = results.getItems().filter((item: any) => {
-      // Check if item matches all filter criteria
-      for (const [key, value] of Object.entries(filter)) {
-        // Skip if the property doesn't exist on the item or if it's not a match
-        if (!item.hasOwnProperty(key) || item[key] !== value) {
-          return false;
-        }
-      }
-      return true;
-    });
+    // Apply filtering - only if there's a limit, otherwise return all items
+    let filteredItems = results.getItems();
     
-    // Create a new collection with the filtered items
-    const filteredCollection = results.clone();
-    filteredCollection.clear();
-    filteredItems.forEach((item: any) => filteredCollection.addItem(item));
+    // Apply limit filter if present
+    if (filter.limit && typeof filter.limit === 'number') {
+      filteredItems = filteredItems.slice(0, filter.limit);
+    }
     
-    return filteredCollection;
+    // Create a new collection of the same type
+    // Instead of using clone(), create a new collection of the appropriate type
+    let newCollection;
+    
+    switch (tableName.toLowerCase()) {
+      case 'clients':
+        newCollection = new ClientCollection();
+        break;
+      case 'employees':
+        newCollection = new EmployeeCollection();
+        break;
+      case 'agences':
+        newCollection = new AgenceCollection();
+        break;
+      case 'fournisseurs':
+        newCollection = new FournisseurCollection();
+        break;
+      case 'produits':
+        newCollection = new ProduitCollection();
+        break;
+      case 'commandes':
+        newCollection = new CommandeCollection();
+        break;
+      case 'details_commande':
+        newCollection = new DetailCommandeCollection();
+        break;
+      case 'factures':
+        newCollection = new FactureCollection();
+        break;
+      case 'livraisons':
+        newCollection = new LivraisonCollection();
+        break;
+      case 'approvisionnements':
+        newCollection = new ApprovisionnementCollection();
+        break;
+      default:
+        throw new Error(`Unknown table name: ${tableName}`);
+    }
+    
+    // Add filtered items to the new collection
+    for (const item of filteredItems) {
+      newCollection.addItem(item);
+    }
+    
+    return newCollection;
   }
 
   /**

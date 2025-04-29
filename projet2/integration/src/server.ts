@@ -153,6 +153,13 @@ async function startServer() {
           });
         }
         
+        // Serve SQL Chat interface with Pug
+        if (path === '/sql-chat') {
+          return await renderPug('sql-chat', {
+            title: 'SQL Chat - Data Integration System'
+          });
+        }
+        
         // Serve Tables page with Pug
         if (path === '/tables') {
           return await renderPug('tables', {

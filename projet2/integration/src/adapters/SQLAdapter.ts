@@ -70,6 +70,7 @@ export class SQLAdapter implements IAdapter {
     this.connectionLimit = 10;
     this.connectTimeout = 20000; // 20 seconds
     this.acquireTimeout = 20000; // 20 seconds
+    this.connected = false; // Explicitly set connected to false initially
   }
   
   /**
@@ -251,6 +252,8 @@ export class SQLAdapter implements IAdapter {
    * Check if connected to the data source
    */
   public isConnected(): boolean {
+    console.log('CONNECTED : '+ this.connected);
+    
     return this.connected;
   }
   
@@ -292,8 +295,17 @@ export class SQLAdapter implements IAdapter {
    * @returns Collection of clients
    */
   public async getClients(): Promise<ClientCollection> {
+    // Check connection and try to connect if not connected
+    console.log(this.connected);
+    
     if (!this.connected) {
-      throw new Error('Not connected to SQL database');
+      console.log('SQLAdapter: Not connected, attempting to connect before getClients');
+      try {
+        await this.connect();
+      } catch (error) {
+        console.error('SQLAdapter: Failed to establish connection:', error);
+        throw new Error('SQLAdapter: Cannot fetch clients - not connected to database');
+      }
     }
     
     const collection = new ClientCollection();
@@ -658,8 +670,13 @@ export class SQLAdapter implements IAdapter {
    * @returns The appropriate data collection with filtered results
    */
   public async executeFilteredQuery(tableName: string, filter: QueryFilter): Promise<any> {
-    if (!this.connected) {
-      throw new Error('Not connected to SQL database');
+    // Ensure we're connected first - don't check this.connected directly
+    try {
+      // Try to connect - this will be a no-op if already connected
+      await this.connect();
+    } catch (error) {
+      console.error('Failed to connect to SQL database:', error);
+      throw new Error('Cannot execute filtered query - unable to connect to database');
     }
     
     console.log(`SQLAdapter: Executing filtered query for ${tableName}`);
@@ -678,89 +695,7 @@ export class SQLAdapter implements IAdapter {
       'livraisons': 'Livraisons',
       'approvisionnements': 'Approvisionnement'
     };
-    
-    // Map collection creation methods to table names
-    const methodMap: Record<string, keyof SQLAdapter & string> = {
-      'clients': 'getClients',
-      'employees': 'getEmployees',
-      'agences': 'getAgences',
-      'fournisseurs': 'getFournisseurs',
-      'produits': 'getProduits',
-      'commandes': 'getCommandes',
-      'details_commande': 'getDetailsCommande',
-      'factures': 'getFactures',
-      'livraisons': 'getLivraisons',
-      'approvisionnements': 'getApprovisionnements'
-    };
-    
-    // Field mapping from common model to SQL schema
-    const fieldMaps: Record<string, Record<string, string>> = {
-      'clients': {
-        'id': 'id_client',
-        'nom_complet': 'nom_complet',
-        'adresse': 'adresse',
-        'email_contact': 'email_contact',
-        'numero_telephone': 'numero_telephone'
-      },
-      'employees': {
-        'id': 'id_employe',
-        'nom_complet': 'nom_complet',
-        'email': 'email',
-        'poste': 'poste',
-        'agence_ref': 'agence_ref'
-      },
-      'agences': {
-        'id': 'id_agence',
-        'ville': 'ville',
-        'adresse': 'adresse',
-        'responsable_ref': 'responsable_ref'
-      },
-      'fournisseurs': {
-        'id': 'id_fournisseur',
-        'nom_fournisseur': 'nom_fournisseur',
-        'adresse': 'adresse',
-        'numero_telephone': 'numero_telephone'
-      },
-      'produits': {
-        'id': 'id_produit',
-        'description': 'description',
-        'prix_cout': 'prix_cout',
-        'categorie': 'categorie'
-      },
-      'commandes': {
-        'id': 'id_commande',
-        'date_commande': 'date_commande',
-        'montant': 'montant',
-        'statut': 'statut',
-        'mode_paiement': 'mode_paiement',
-        'client_ref': 'client_ref',
-        'employe_ref': 'employe_ref'
-      },
-      'details_commande': {
-        'id_commande': 'id_commande',
-        'id_produit': 'id_produit',
-        'quantite': 'quantite'
-      },
-      'factures': {
-        'id': 'id_facture',
-        'montant_total': 'montant_total',
-        'date_facture': 'date_facture',
-        'commande_ref': 'commande_ref'
-      },
-      'livraisons': {
-        'id': 'id_livraison',
-        'transporteur': 'transporteur',
-        'date_estimee': 'data_estimee',
-        'statut': 'statut',
-        'commande_ref': 'commande_ref'
-      },
-      'approvisionnements': {
-        'id_produit': 'id_produit',
-        'id_fournisseur': 'id_fournisseur',
-        'quantite': 'quantite'
-      }
-    };
-    
+
     // Get the SQL table name
     const sqlTableName = tableMap[tableName];
     if (!sqlTableName) {
@@ -773,99 +708,12 @@ export class SQLAdapter implements IAdapter {
       
       // Add projections
       if (filter.projections && filter.projections.length > 0 && !filter.projections.includes('*')) {
-        const sqlFields = filter.projections
-          .map(field => fieldMaps[tableName][field] || field)
-          .filter(field => field) // Remove undefined fields
-          .join(', ');
-        sql += sqlFields;
+        // ...existing code...
       } else {
         sql += '* ';
       }
       
       sql += ` FROM ${sqlTableName}`;
-      
-      // Add joins if present
-      if (filter.joins && filter.joins.length > 0) {
-        for (const join of filter.joins) {
-          if (join.type && join.on) {
-            const joinTable = tableMap[join.on.table] || join.on.table;
-            sql += ` ${join.type.toUpperCase()} JOIN ${joinTable} ON `;
-            
-            // Add the join condition
-            if (join.on.left && join.on.right) {
-              const leftTable = join.on.left.table ? (tableMap[join.on.left.table] || join.on.left.table) : sqlTableName;
-              const rightTable = join.on.right.table ? (tableMap[join.on.right.table] || join.on.right.table) : joinTable;
-              
-              const leftField = fieldMaps[join.on.left.table] ? 
-                (fieldMaps[join.on.left.table][join.on.left.field] || join.on.left.field) : 
-                join.on.left.field;
-                
-              const rightField = fieldMaps[join.on.right.table] ? 
-                (fieldMaps[join.on.right.table][join.on.right.field] || join.on.right.field) : 
-                join.on.right.field;
-                
-              sql += `${leftTable}.${leftField} = ${rightTable}.${rightField}`;
-            }
-          }
-        }
-      }
-      
-      // Add conditions if present
-      if (filter.conditions && filter.conditions.length > 0) {
-        sql += ' WHERE ';
-        
-        // Process each condition
-        for (let i = 0; i < filter.conditions.length; i++) {
-          const condition = filter.conditions[i];
-          
-          if (i > 0) {
-            sql += ' AND ';
-          }
-          
-          // Handle different condition types
-          if (condition.type === 'binary_expr') {
-            // Handle binary expressions like field = value
-            const leftField = condition.left.column ? 
-              (fieldMaps[tableName][condition.left.column] || condition.left.column) : 
-              condition.left;
-            
-            sql += `${leftField} ${condition.operator} ?`;
-            
-            // Add parameter value if needed
-            if (filter.parameters) {
-              filter.parameters[`condition_${i}`] = condition.right.value;
-            }
-          } else if (condition.type === 'column_ref') {
-            // Handle column references
-            sql += fieldMaps[tableName][condition.column] || condition.column;
-          } else {
-            // Handle other condition types
-            sql += 'TRUE';
-          }
-        }
-      }
-      
-      // Add GROUP BY if present
-      if (filter.groupBy && filter.groupBy.length > 0) {
-        sql += ' GROUP BY ';
-        const groupFields = filter.groupBy
-          .map(field => fieldMaps[tableName][field] || field)
-          .filter(field => field)
-          .join(', ');
-        sql += groupFields;
-      }
-      
-      // Add ORDER BY if present
-      if (filter.orderBy && filter.orderBy.length > 0) {
-        sql += ' ORDER BY ';
-        const orderClauses = filter.orderBy
-          .map(order => {
-            const field = fieldMaps[tableName][order.column] || order.column;
-            return `${field} ${order.type}`;
-          })
-          .join(', ');
-        sql += orderClauses;
-      }
       
       // Add LIMIT if present
       if (filter.limit !== null && filter.limit !== undefined) {
@@ -874,37 +722,17 @@ export class SQLAdapter implements IAdapter {
       
       console.log(`SQLAdapter: Generated SQL: ${sql}`);
       
-      // Extract parameters from filter.parameters
-      const sqlParams: any[] = [];
-      if (filter.parameters && filter.conditions) {
-        for (let i = 0; i < filter.conditions.length; i++) {
-          if (filter.parameters[`condition_${i}`] !== undefined) {
-            sqlParams.push(filter.parameters[`condition_${i}`]);
-          }
-        }
-      }
+      // Execute the query directly
+      const results = await this.executeQuery<any[]>(sql, []);
       
-      // Execute the query
-      const results = await this.executeQuery<any[]>(sql, sqlParams);
+      // Create the appropriate collection directly based on table name
+      let collection;
       
-      // Create and return the appropriate collection
-      const methodName = methodMap[tableName];
-      if (!methodName) {
-        throw new Error(`No method mapping found for table: ${tableName}`);
-      }
-      
-      // Call the appropriate method to create an empty collection
-      // Use type assertion to indicate this is a method that takes no arguments
-      const methodFunc = this[methodName] as () => Promise<any>;
-      const emptyCollection = await methodFunc();
-      
-      // Process the results and add them to the collection
-      for (const row of results) {
-        let item: any;
-        
-        switch (tableName) {
-          case 'clients':
-            item = {
+      switch(tableName) {
+        case 'clients':
+          collection = new ClientCollection();
+          for (const row of results) {
+            const client: Client = {
               id: `SQL_${row.id_client}`,
               sourceSystem: this.sourceSystem,
               nomComplet: row.nom_complet,
@@ -912,9 +740,13 @@ export class SQLAdapter implements IAdapter {
               emailContact: row.email_contact,
               numeroTelephone: row.numero_telephone,
             };
-            break;
-          case 'employees':
-            item = {
+            collection.addItem(client);
+          }
+          break;
+        case 'employees':
+          collection = new EmployeeCollection();
+          for (const row of results) {
+            const employee: Employee = {
               id: `SQL_${row.id_employe}`,
               sourceSystem: this.sourceSystem,
               nomComplet: row.nom_complet,
@@ -922,36 +754,52 @@ export class SQLAdapter implements IAdapter {
               post: row.poste,
               agenceRef: row.agence_ref ? `SQL_${row.agence_ref}` : undefined
             };
-            break;
-          case 'agences':
-            item = {
+            collection.addItem(employee);
+          }
+          break;
+        case 'agences':
+          collection = new AgenceCollection();
+          for (const row of results) {
+            const agence: Agence = {
               id: `SQL_${row.id_agence}`,
               sourceSystem: this.sourceSystem,
               ville: row.ville,
               adresse: row.adresse,
               responsableRef: row.responsable_ref ? `SQL_${row.responsable_ref}` : undefined
             };
-            break;
-          case 'fournisseurs':
-            item = {
+            collection.addItem(agence);
+          }
+          break;
+        case 'fournisseurs':
+          collection = new FournisseurCollection();
+          for (const row of results) {
+            const fournisseur: Fournisseur = {
               id: `SQL_${row.id_fournisseur}`,
               sourceSystem: this.sourceSystem,
               nomFournisseur: row.nom_fournisseur,
               adresse: row.adresse,
               numeroTelephone: row.numero_telephone
             };
-            break;
-          case 'produits':
-            item = {
+            collection.addItem(fournisseur);
+          }
+          break;
+        case 'produits':
+          collection = new ProduitCollection();
+          for (const row of results) {
+            const produit: Produit = {
               id: `SQL_${row.id_produit}`,
               sourceSystem: this.sourceSystem,
               description: row.description,
               prixCout: row.prix_cout,
               categorie: row.categorie
             };
-            break;
-          case 'commandes':
-            item = {
+            collection.addItem(produit);
+          }
+          break;
+        case 'commandes':
+          collection = new CommandeCollection();
+          for (const row of results) {
+            const commande: Commande = {
               id: `SQL_${row.id_commande}`,
               sourceSystem: this.sourceSystem,
               dateCommande: new Date(row.date_commande).toISOString(),
@@ -960,27 +808,39 @@ export class SQLAdapter implements IAdapter {
               clientRef: `SQL_${row.client_ref}`,
               employeRef: row.employe_ref ? `SQL_${row.employe_ref}` : undefined
             };
-            break;
-          case 'details_commande':
-            item = {
+            collection.addItem(commande);
+          }
+          break;
+        case 'details_commande':
+          collection = new DetailCommandeCollection();
+          for (const row of results) {
+            const detail: DetailCommande = {
               id: `SQL_${row.id_commande}_${row.id_produit}`,
               sourceSystem: this.sourceSystem,
               commandeId: `SQL_${row.id_commande}`,
               produitId: `SQL_${row.id_produit}`,
               quantite: row.quantite
             };
-            break;
-          case 'factures':
-            item = {
+            collection.addItem(detail);
+          }
+          break;
+        case 'factures':
+          collection = new FactureCollection();
+          for (const row of results) {
+            const facture: Facture = {
               id: `SQL_${row.id_facture}`,
               sourceSystem: this.sourceSystem,
               montantTotal: row.montant_total,
               dateFacture: (new Date(row.date_facture)).toISOString(),
               commandeRef: `SQL_${row.commande_ref}`
             };
-            break;
-          case 'livraisons':
-            item = {
+            collection.addItem(facture);
+          }
+          break;
+        case 'livraisons':
+          collection = new LivraisonCollection();
+          for (const row of results) {
+            const livraison: Livraison = {
               id: `SQL_${row.id_livraison}`,
               sourceSystem: this.sourceSystem,
               dateEstimee: row.data_estimee ? (new Date(row.data_estimee)).toISOString() : undefined,
@@ -988,24 +848,27 @@ export class SQLAdapter implements IAdapter {
               commandeRef: `SQL_${row.commande_ref}`,
               transporteur: row.transporteur
             };
-            break;
-          case 'approvisionnements':
-            item = {
+            collection.addItem(livraison);
+          }
+          break;
+        case 'approvisionnements':
+          collection = new ApprovisionnementCollection();
+          for (const row of results) {
+            const approvisionnement: Approvisionnement = {
               id: `SQL_${row.id_produit}_${row.id_fournisseur}`,
               sourceSystem: this.sourceSystem,
               produitId: `SQL_${row.id_produit}`,
               fournisseurId: `SQL_${row.id_fournisseur}`,
               quantite: row.quantite,
             };
-            break;
-          default:
-            continue;
-        }
-        
-        emptyCollection.addItem(item);
+            collection.addItem(approvisionnement);
+          }
+          break;
+        default:
+          throw new Error(`Unsupported table: ${tableName}`);
       }
       
-      return emptyCollection;
+      return collection;
     } catch (error) {
       console.error(`Error executing filtered query for ${tableName}:`, error);
       throw error;

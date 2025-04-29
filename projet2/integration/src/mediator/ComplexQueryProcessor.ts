@@ -338,42 +338,99 @@ export class ComplexQueryProcessor {
     parameters: Record<string, any>
   ): any[] {    
     try {
-      // Clear any previous views with the same names
+      // First make sure alasql is properly defined
+      if (!alasql || !alasql.tables) {
+        console.log('Reinitializing alasql...');
+        // @ts-ignore - Ensure alasql is defined globally
+        if (typeof window !== 'undefined') window.alasql = alasql;
+      }
+      
+      // Clear any previous tables/views with the same names
+      console.log('Clearing any existing tables/views...');
       for (const tableName of Object.keys(data)) {
         try {
+          console.log(`Dropping existing table/view ${tableName} if it exists`);
+          alasql(`DROP TABLE IF EXISTS ${tableName}`);
           alasql(`DROP VIEW IF EXISTS ${tableName}`);
-        } catch (error) {
-          console.warn(`Error dropping view ${tableName}:`, error);
-        }
-      }
-      
-      // Register the data arrays directly as views using alasql
-      for (const [tableName, items] of Object.entries(data)) {
-        if (items.length > 0) {
-          // Define the view using SELECT ... FROM ? syntax
-          // This creates a view that references the data array without copying it
-          alasql.tables[tableName] = {data: items};
-          alasql(`CREATE VIEW ${tableName} AS SELECT * FROM ?`, [items]);
           
-          console.log(`Created temporary view ${tableName} with ${items.length} records`);
-        } else {
-          // Create an empty view with a generic structure
-          alasql(`CREATE VIEW ${tableName} AS SELECT 'empty' AS id WHERE 1=0`);
-          console.log(`Created empty temporary view ${tableName}`);
+          // Also remove from alasql.tables if it exists
+          if (alasql.tables && alasql.tables[tableName]) {
+            delete alasql.tables[tableName];
+          }
+        } catch (error) {
+          console.warn(`Error dropping table/view ${tableName}:`, error);
+          // Continue anyway - the table/view might not exist
         }
       }
       
-      // Execute the original query on the temporary views
+      // Register tables directly in alasql using a standard approach
+      for (const [tableName, items] of Object.entries(data)) {
+        try {
+          if (!items || !Array.isArray(items)) {
+            console.warn(`No data available for table ${tableName}, creating empty table`);
+            alasql(`CREATE TABLE ${tableName} (id STRING)`);
+            continue;
+          }
+          
+          if (items.length === 0) {
+            console.log(`Creating empty table for ${tableName}`);
+            alasql(`CREATE TABLE ${tableName} (id STRING)`);
+            continue;
+          }
+          
+          // Create table with columns based on the first item's properties
+          const firstItem = items[0];
+          const columns = Object.keys(firstItem);
+          
+          console.log(`Creating table ${tableName} with columns: ${columns.join(', ')}`);
+          
+          // Create the table with appropriate columns
+          let createTableSQL = `CREATE TABLE ${tableName} (`;
+          createTableSQL += columns.map(col => `[${col}] STRING`).join(', ');
+          createTableSQL += ')';
+          
+          alasql(createTableSQL);
+          
+          // Insert the data
+          console.log(`Inserting ${items.length} records into table ${tableName}`);
+          
+          // Insert records in batches to prevent issues with large datasets
+          const batchSize = 1000;
+          for (let i = 0; i < items.length; i += batchSize) {
+            const batch = items.slice(i, i + batchSize);
+            alasql.tables[tableName].data = alasql.tables[tableName].data || [];
+            alasql.tables[tableName].data.push(...batch);
+          }
+          
+          console.log(`Successfully created and populated table ${tableName}`);
+        } catch (error) {
+          console.error(`Error creating table for ${tableName}:`, error);
+          throw new Error(`Failed to create table for ${tableName}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      
+      // Execute the original query on the temporary tables
       const processedQuery = this.applyParameters(originalQuery, parameters);
       console.log("Executing processed query:", processedQuery);
-      const results = alasql(processedQuery);
       
-      // Clean up - drop the temporary views
+      let results;
+      try {
+        results = alasql(processedQuery);
+        console.log(`Query execution successful, returned ${Array.isArray(results) ? results.length : 1} results`);
+      } catch (error) {
+        console.error("Error executing alasql query:", error);
+        throw new Error(`Error executing query: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      
+      // Clean up - drop the temporary tables
       for (const tableName of Object.keys(data)) {
         try {
-          alasql(`DROP VIEW IF EXISTS ${tableName}`);
+          alasql(`DROP TABLE IF EXISTS ${tableName}`);
+          if (alasql.tables && alasql.tables[tableName]) {
+            delete alasql.tables[tableName];
+          }
         } catch (error) {
-          console.warn(`Error dropping view ${tableName}:`, error);
+          console.warn(`Error cleaning up table ${tableName}:`, error);
         }
       }
       
@@ -418,5 +475,93 @@ export class ComplexQueryProcessor {
     }
     
     return processedQuery;
+  }
+  
+  /**
+   * Process data collections and combine them into a unified result
+   * 
+   * @param tableName Name of the table to create
+   * @param results Array of data collections
+   * @returns Combined result as array
+   */
+  private async consolidateResults(tableName: string, results: any[]): Promise<any[]> {
+    // Filter out empty results
+    const validResults = results.filter(r => r && Array.isArray(r.getItems()) && r.getItems().length > 0);
+    
+    // If no valid results, return empty array
+    if (validResults.length === 0) {
+      return [];
+    }
+    
+    try {
+      // Use alasql to consolidate results
+      console.log(`Processing ${validResults.length} valid results for ${tableName}`);
+      
+      // Create a temporary table for the results
+      // First check if the table exists and drop it to avoid the "table already exists" error
+      try {
+        await alasql.promise(`DROP TABLE IF EXISTS ${tableName}`);
+      } catch (dropError) {
+        console.log(`Could not drop table ${tableName}: ${dropError}`);
+        // Continue anyway, as the table might not exist
+      }
+      
+      // Create a new table for our data
+      let createTableSql = `CREATE TABLE ${tableName} (`;
+      
+      // Get columns from the first result
+      const firstResult = validResults[0].getItems()[0];
+      const columns = Object.keys(firstResult);
+      
+      // Generate column definitions
+      createTableSql += columns.map(col => `[${col}] STRING`).join(', ');
+      createTableSql += ')';
+      
+      await alasql.promise(createTableSql);
+      
+      // Insert data from all results
+      let insertedCount = 0;
+      for (const result of validResults) {
+        const items = result.getItems();
+        
+        // Skip empty collections
+        if (items.length === 0) continue;
+        
+        // Insert batch of records
+        const values = items.map((item: { [key: string]: any }) => {
+          // Ensure all values are properly escaped for SQL
+          const rowValues = columns.map(col => {
+            const val = item[col];
+            if (val === null || val === undefined) return 'NULL';
+            if (typeof val === 'string') return `'${val.replace(/'/g, "''")}'`;
+            return val;
+          });
+          return `(${rowValues.join(', ')})`;
+        });
+        
+        // Insert in batches to prevent excessive string sizes
+        const batchSize = 1000;
+        for (let i = 0; i < values.length; i += batchSize) {
+          const batch = values.slice(i, i + batchSize);
+          const insertSql = `INSERT INTO ${tableName} VALUES ${batch.join(', ')}`;
+          await alasql.promise(insertSql);
+          insertedCount += batch.length;
+        }
+      }
+      
+      console.log(`Inserted ${insertedCount} records into temporary table ${tableName}`);
+      
+      // Execute query to get unified results
+      const resultSet = await alasql.promise(`SELECT * FROM ${tableName}`);
+      
+      // Ensure we return an array of the correct type
+      return Array.isArray(resultSet) ? resultSet as any[] : [resultSet];
+    } catch (error) {
+      console.error('Error consolidating results:', error);
+      if (error instanceof Error) {
+        throw new Error(`Error consolidating results: ${error.message}`);
+      }
+      throw error;
+    }
   }
 }
