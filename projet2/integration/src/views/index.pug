@@ -26,14 +26,14 @@ block content
             .source-stat-value#sql-clients-count Loading...
             .source-stat-label Clients
           .source-stat
-            .source-stat-value#sql-orders-count Loading...
+            .source-stat-value#sql-commandes-count Loading...
             .source-stat-label Orders
           .source-stat
-            .source-stat-value#sql-products-count Loading...
-            .source-stat-label Products
+            .source-stat-value#sql-factures-count Loading...
+            .source-stat-label Invoices
           .source-stat
-            .source-stat-value#sql-employees-count Loading...
-            .source-stat-label Employees
+            .source-stat-value#sql-fournisseurs-count Loading...
+            .source-stat-label Suppliers
             
       .source-card
         .source-header
@@ -49,14 +49,14 @@ block content
             .source-stat-value#xml-clients-count Loading...
             .source-stat-label Clients
           .source-stat
-            .source-stat-value#xml-invoices-count Loading...
+            .source-stat-value#xml-produits-count Loading...
+            .source-stat-label Products
+          .source-stat
+            .source-stat-value#xml-factures-count Loading...
             .source-stat-label Invoices
           .source-stat
-            .source-stat-value#xml-deliveries-count Loading...
+            .source-stat-value#xml-livraisons-count Loading...
             .source-stat-label Deliveries
-          .source-stat
-            .source-stat-value#xml-suppliers-count Loading...
-            .source-stat-label Suppliers
             
       .source-card
         .source-header
@@ -72,14 +72,14 @@ block content
             .source-stat-value#neo4j-clients-count Loading...
             .source-stat-label Clients
           .source-stat
-            .source-stat-value#neo4j-orders-count Loading...
+            .source-stat-value#neo4j-commandes-count Loading...
             .source-stat-label Orders
           .source-stat
-            .source-stat-value#neo4j-products-count Loading...
+            .source-stat-value#neo4j-produits-count Loading...
             .source-stat-label Products
           .source-stat
-            .source-stat-value#neo4j-relationships-count Loading...
-            .source-stat-label Relationships
+            .source-stat-value#neo4j-fournisseurs-count Loading...
+            .source-stat-label Suppliers
 
   // Key Metrics
   .section
@@ -720,45 +720,53 @@ block append scripts
         // Get statistics from API
         const response = await fetch('/api/statistics');
         const stats = await response.json();
+        console.log('Statistics data:', stats);
         
         // Update SQL stats
-        document.getElementById('sql-clients-count').textContent = stats.sql?.clients || '0';
-        document.getElementById('sql-orders-count').textContent = stats.sql?.commandes || '0';
-        document.getElementById('sql-products-count').textContent = stats.sql?.produits || '0';
-        document.getElementById('sql-employees-count').textContent = stats.sql?.employees || '0';
+        document.getElementById('sql-clients-count').textContent = stats.bySource.SQL_SOURCE?.clients || '0';
+        document.getElementById('sql-commandes-count').textContent = stats.bySource.SQL_SOURCE?.orders || '0';
+        document.getElementById('sql-factures-count').textContent = stats.bySource.SQL_SOURCE?.invoices || '0';
+        document.getElementById('sql-fournisseurs-count').textContent = stats.bySource.SQL_SOURCE?.suppliers || '0';
         
         // Update XML stats
-        document.getElementById('xml-clients-count').textContent = stats.xml?.clients || '0';
-        document.getElementById('xml-invoices-count').textContent = stats.xml?.factures || '0';
-        document.getElementById('xml-deliveries-count').textContent = stats.xml?.livraisons || '0';
-        document.getElementById('xml-suppliers-count').textContent = stats.xml?.fournisseurs || '0';
+        document.getElementById('xml-clients-count').textContent = stats.bySource.XML_SOURCE?.clients || '0';
+        document.getElementById('xml-produits-count').textContent = stats.bySource.XML_SOURCE?.products || '0';
+        document.getElementById('xml-factures-count').textContent = stats.bySource.XML_SOURCE?.invoices || '0';
+        document.getElementById('xml-livraisons-count').textContent = stats.bySource.XML_SOURCE?.deliveries || '0';
         
         // Update Neo4j stats
-        document.getElementById('neo4j-clients-count').textContent = stats.neo4j?.clients || '0';
-        document.getElementById('neo4j-orders-count').textContent = stats.neo4j?.commandes || '0';
-        document.getElementById('neo4j-products-count').textContent = stats.neo4j?.produits || '0';
-        document.getElementById('neo4j-relationships-count').textContent = stats.neo4j?.relationships || '0';
+        document.getElementById('neo4j-clients-count').textContent = stats.bySource.NEO4J_SOURCE?.clients || '0';
+        document.getElementById('neo4j-commandes-count').textContent = stats.bySource.NEO4J_SOURCE?.orders || '0';
+        document.getElementById('neo4j-produits-count').textContent = stats.bySource.NEO4J_SOURCE?.products || '0';
+        document.getElementById('neo4j-fournisseurs-count').textContent = stats.bySource.NEO4J_SOURCE?.suppliers || '0';
         
         // Update total metrics
-        document.getElementById('total-clients-count').textContent = stats.totals?.clients || '0';
-        document.getElementById('total-orders-count').textContent = stats.totals?.commandes || '0';
-        document.getElementById('total-products-count').textContent = stats.totals?.produits || '0';
+        document.getElementById('total-clients-count').textContent = stats.overall?.clients || '0';
+        document.getElementById('total-orders-count').textContent = stats.overall?.orders || '0';
+        document.getElementById('total-products-count').textContent = stats.overall?.products || '0';
         
         // Update consistency status
         const consistencyElement = document.getElementById('data-consistency');
-        const consistencyValue = stats.consistency?.percentage || 0;
+        const validationResponse = await fetch('/api/validate');
+        const validationResult = await validationResponse.json();
+        const consistencyValue = validationResult.status ? 100 : 
+                                (validationResult.warnings.length > 0 ? 80 : 90);
         consistencyElement.textContent = `${consistencyValue}%`;
         
         if (consistencyValue >= 95) {
-          consistencyElement.style.color = 'var(--success)';
+          consistencyElement.style.color = 'var(--status-success)';
         } else if (consistencyValue >= 80) {
-          consistencyElement.style.color = 'var(--warning)';
+          consistencyElement.style.color = 'var(--status-warning)';
         } else {
-          consistencyElement.style.color = 'var(--error)';
+          consistencyElement.style.color = 'var(--status-error)';
         }
         
       } catch (error) {
         console.error('Error fetching data source statistics:', error);
+        // Set fallback values on error
+        document.querySelectorAll('[id$="-count"]').forEach(el => {
+          el.textContent = '0';
+        });
       }
     }
     

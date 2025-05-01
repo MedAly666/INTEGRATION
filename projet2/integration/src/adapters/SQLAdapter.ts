@@ -252,7 +252,6 @@ export class SQLAdapter implements IAdapter {
    * Check if connected to the data source
    */
   public isConnected(): boolean {
-    console.log('CONNECTED : '+ this.connected);
     
     return this.connected;
   }
@@ -295,9 +294,7 @@ export class SQLAdapter implements IAdapter {
    * @returns Collection of clients
    */
   public async getClients(): Promise<ClientCollection> {
-    // Check connection and try to connect if not connected
-    console.log(this.connected);
-    
+    // Check connection and try to connect if not connected    
     if (!this.connected) {
       console.log('SQLAdapter: Not connected, attempting to connect before getClients');
       try {
@@ -665,7 +662,7 @@ export class SQLAdapter implements IAdapter {
 
   /**
    * Execute a filtered query directly on the adapter
-   * @param tableName The table/entity to query
+   * @param tableName The table/entity to query (generic name like 'clients')
    * @param filter Query filter specification
    * @returns The appropriate data collection with filtered results
    */
@@ -696,42 +693,215 @@ export class SQLAdapter implements IAdapter {
       'approvisionnements': 'Approvisionnement'
     };
 
-    // Get the SQL table name
+    // Map generic field names to actual SQL column names per table
+    const fieldMaps: Record<string, Record<string, string>> = {
+        'clients': {
+            'id': 'id_client',
+            'nom_complet': 'nom_complet',
+            'adresse': 'adresse',
+            'email_contact': 'email_contact',
+            'numero_telephone': 'numero_telephone'
+        },
+        'employees': {
+            'id': 'id_employe',
+            'nom_complet': 'nom_complet',
+            'email': 'email',
+            'poste': 'poste',
+            'agence_ref': 'agence_ref' // SQL foreign key
+        },
+        'agences': {
+            'id': 'id_agence',
+            'ville': 'ville',
+            'adresse': 'adresse',
+            'responsable_ref': 'responsable_ref' // SQL foreign key
+        },
+        'fournisseurs': {
+            'id': 'id_fournisseur',
+            'nom_fournisseur': 'nom_fournisseur',
+            'adresse': 'adresse',
+            'numero_telephone': 'numero_telephone'
+        },
+        'produits': {
+            'id': 'id_produit',
+            'description': 'description',
+            'categorie': 'categorie',
+            'prix_cout': 'prix_cout'
+        },
+        'commandes': {
+            'id': 'id_commande',
+            'date_commande': 'date_commande',
+            'montant': 'montant',
+            'statut': 'statut',
+            'mode_paiement': 'mode_paiement',
+            'client_ref': 'client_ref', // SQL foreign key
+            'employe_ref': 'employe_ref' // SQL foreign key
+        },
+        'details_commande': {
+            // Assuming composite key in SQL or separate ID
+            'commande_id': 'id_commande', // SQL foreign key
+            'produit_id': 'id_produit',   // SQL foreign key
+            'quantite': 'quantite'
+        },
+        'factures': {
+            'id': 'id_facture',
+            'montant_total': 'montant_total',
+            'date_facture': 'date_facture',
+            'commande_ref': 'commande_ref' // SQL foreign key
+        },
+        'livraisons': {
+            'id': 'id_livraison',
+            'transporteur': 'transporteur',
+            'date_estimee': 'data_estimee', // Corrected column name based on previous context
+            'statut': 'statut',
+            'commande_ref': 'commande_ref' // SQL foreign key
+        },
+        'approvisionnements': {
+            // Assuming composite key in SQL or separate ID
+            'produit_id': 'id_produit',     // SQL foreign key
+            'fournisseur_id': 'id_fournisseur', // SQL foreign key
+            'quantite': 'quantite'
+        }
+    };
+
+
+    // Get the SQL table name for the primary table
     const sqlTableName = tableMap[tableName];
     if (!sqlTableName) {
       throw new Error(`Unknown table: ${tableName}`);
     }
-    
+
     try {
-      // Build the SQL query
       let sql = 'SELECT ';
-      
-      // Add projections
-      if (filter.projections && filter.projections.length > 0 && !filter.projections.includes('*')) {
-        // ...existing code...
-      } else {
-        sql += '* ';
+      const mainTableAlias = sqlTableName.charAt(0).toLowerCase(); // e.g., 'c' for Clients
+      const involvedAliases: Record<string, string> = { [tableName]: mainTableAlias }; // Map generic name to alias, e.g., { 'clients': 'c' }
+
+      // --- 1. Build JOIN clause first to identify all aliases ---
+      let joinClause = '';
+      if (filter.joins && filter.joins.length > 0) {
+        for (const join of filter.joins) {
+          const joinGenericTable = join.on.table; // e.g., 'commandes'
+          const joinSqlTable = tableMap[joinGenericTable]; // e.g., 'Commandes'
+
+          if (joinSqlTable && join.on.left && join.on.right) {
+            // Create a unique alias for the joined table, e.g., 'c1'
+            const joinAlias = joinSqlTable.charAt(0).toLowerCase() + Object.keys(involvedAliases).length;
+            involvedAliases[joinGenericTable] = joinAlias; // Add to map, e.g., { 'clients': 'c', 'commandes': 'c1' }
+
+            // Get actual SQL column names from fieldMaps for the join condition
+            const leftSqlField = fieldMaps[tableName]?.[join.on.left.field] || join.on.left.field;
+            const rightSqlField = fieldMaps[joinGenericTable]?.[join.on.right.field] || join.on.right.field;
+
+            joinClause += ` ${join.type || 'INNER'} JOIN ${joinSqlTable} AS ${joinAlias} ON ${mainTableAlias}.${leftSqlField} = ${joinAlias}.${rightSqlField}`;
+          } else {
+             console.warn(`Skipping invalid join definition:`, join);
+          }
+        }
       }
-      
-      sql += ` FROM ${sqlTableName}`;
-      
-      // Add LIMIT if present
+
+      // --- 2. Helper to resolve generic column names to aliased SQL columns ---
+      const resolveColumn = (genericColumn: string): string | null => {
+        const trimmedColumn = genericColumn.trim();
+        // Handle aggregate functions or literals first
+        if (trimmedColumn.includes('(') || trimmedColumn.includes('*') || !isNaN(parseFloat(trimmedColumn))) {
+             return trimmedColumn; // Return as is (e.g., COUNT(*), 'literal', 123)
+        }
+
+        // Check main table
+        if (fieldMaps[tableName]?.[trimmedColumn]) {
+            return `${mainTableAlias}.${fieldMaps[tableName][trimmedColumn]}`; // e.g., c.nom_complet
+        }
+        // Check joined tables
+        for (const [genericTable, alias] of Object.entries(involvedAliases)) {
+            if (genericTable !== tableName && fieldMaps[genericTable]?.[trimmedColumn]) {
+                return `${alias}.${fieldMaps[genericTable][trimmedColumn]}`; // e.g., c1.date_commande
+            }
+        }
+        console.warn(`Column '${trimmedColumn}' could not be resolved to any known table/field.`);
+        return null; // Column not found in any involved table's map
+      };
+
+      // --- 3. Build SELECT clause ---
+      let columnsToSelect = '*';
+      if (filter.projections && filter.projections.length > 0 && !filter.projections.includes('*')) {
+        const projectedColumns = filter.projections
+            .map(p => resolveColumn(p)) // Resolve each projection
+            .filter(c => c !== null)    // Filter out unresolved columns
+            .join(', ');
+
+        if (projectedColumns.length > 0) {
+            columnsToSelect = projectedColumns;
+        } else {
+             console.warn("No valid columns found for projection, defaulting to '*'. Filter:", filter.projections);
+             columnsToSelect = `${mainTableAlias}.*`; // Fallback to selecting all from main table if resolution fails
+        }
+      } else {
+          // Default to selecting all columns from the main table if '*' or no projections
+          columnsToSelect = `${mainTableAlias}.*`;
+          // Optionally, select all from joined tables too if needed:
+          // columnsToSelect = Object.values(involvedAliases).map(alias => `${alias}.*`).join(', ');
+      }
+
+      sql += columnsToSelect + ' ';
+      sql += ` FROM ${sqlTableName} AS ${mainTableAlias}`;
+      sql += joinClause; // Add the joins
+
+      // --- 4. Build WHERE clause ---
+      const params: any[] = [];
+      if (filter.conditions && filter.conditions.length > 0) {
+        const whereClauses = filter.conditions.map((condition, index) => {
+            if (condition.type === 'binary_expr') {
+                const columnName = condition.left.column || (typeof condition.left === 'string' ? condition.left : '');
+                const resolvedCol = resolveColumn(columnName); // Resolve column with alias
+                if (resolvedCol) {
+                    params.push(condition.right.value);
+                    return `${resolvedCol} ${condition.operator} ?`; // Use resolved column (e.g., c1.status = ?)
+                } else {
+                     console.warn(`Could not resolve column '${columnName}' for WHERE clause.`);
+                     return null; // Skip condition if column is unknown
+                }
+            }
+            return null; // Skip unsupported condition types
+        }).filter(c => c !== null); // Filter out null/skipped conditions
+
+        if (whereClauses.length > 0) {
+             sql += ` WHERE ${whereClauses.join(' AND ')}`;
+        }
+      }
+
+      // --- 5. Build ORDER BY clause ---
+      if (filter.orderBy && filter.orderBy.length > 0) {
+        const orderClauses = filter.orderBy
+            .map(order => {
+                const resolvedCol = resolveColumn(order.column); // Resolve column with alias
+                return resolvedCol ? `${resolvedCol} ${order.type}` : null; // e.g., c1.date_commande DESC
+            })
+            .filter(c => c !== null) // Filter out unresolved columns
+            .join(', ');
+
+        if (orderClauses.length > 0) {
+             sql += ` ORDER BY ${orderClauses}`;
+        }
+      }
+
+      // --- 6. Build LIMIT clause ---
       if (filter.limit !== null && filter.limit !== undefined) {
         sql += ` LIMIT ${filter.limit}`;
       }
-      
+
       console.log(`SQLAdapter: Generated SQL: ${sql}`);
-      
-      // Execute the query directly
-      const results = await this.executeQuery<any[]>(sql, []);
-      
-      // Create the appropriate collection directly based on table name
+      console.log('Parameters:', params);
+
+      // Execute the query
+      const results = await this.executeQuery<any[]>(sql, params);
+
+      // --- 7. Process results ---
+      // (Keep existing result processing logic, ensuring it uses the correct SQL column names from 'results')
       let collection;
-      
       switch(tableName) {
         case 'clients':
           collection = new ClientCollection();
           for (const row of results) {
+            // Access row data using actual SQL column names
             const client: Client = {
               id: `SQL_${row.id_client}`,
               sourceSystem: this.sourceSystem,
@@ -739,10 +909,15 @@ export class SQLAdapter implements IAdapter {
               adresse: row.adresse,
               emailContact: row.email_contact,
               numeroTelephone: row.numero_telephone,
+              // Add fields from joined tables if selected and needed
             };
             collection.addItem(client);
           }
           break;
+        // ... other cases for employees, agences, etc. ...
+        // Ensure each case correctly maps the SQL column names from the 'row' object
+        // to the corresponding DataModel properties. If joins were used,
+        // columns from joined tables might also be present in 'row'.
         case 'employees':
           collection = new EmployeeCollection();
           for (const row of results) {
@@ -805,6 +980,8 @@ export class SQLAdapter implements IAdapter {
               dateCommande: new Date(row.date_commande).toISOString(),
               montant: row.montant,
               statut: row.statut,
+              // modePaiement might be missing from SQL schema, add if exists
+              modePaiement: row.mode_paiement,
               clientRef: `SQL_${row.client_ref}`,
               employeRef: row.employe_ref ? `SQL_${row.employe_ref}` : undefined
             };
@@ -815,6 +992,7 @@ export class SQLAdapter implements IAdapter {
           collection = new DetailCommandeCollection();
           for (const row of results) {
             const detail: DetailCommande = {
+              // Use actual SQL column names for composite ID generation
               id: `SQL_${row.id_commande}_${row.id_produit}`,
               sourceSystem: this.sourceSystem,
               commandeId: `SQL_${row.id_commande}`,
@@ -843,6 +1021,7 @@ export class SQLAdapter implements IAdapter {
             const livraison: Livraison = {
               id: `SQL_${row.id_livraison}`,
               sourceSystem: this.sourceSystem,
+              // Use correct SQL column name 'data_estimee'
               dateEstimee: row.data_estimee ? (new Date(row.data_estimee)).toISOString() : undefined,
               statut: row.statut,
               commandeRef: `SQL_${row.commande_ref}`,
@@ -855,6 +1034,7 @@ export class SQLAdapter implements IAdapter {
           collection = new ApprovisionnementCollection();
           for (const row of results) {
             const approvisionnement: Approvisionnement = {
+              // Use actual SQL column names for composite ID generation
               id: `SQL_${row.id_produit}_${row.id_fournisseur}`,
               sourceSystem: this.sourceSystem,
               produitId: `SQL_${row.id_produit}`,
@@ -865,13 +1045,17 @@ export class SQLAdapter implements IAdapter {
           }
           break;
         default:
-          throw new Error(`Unsupported table: ${tableName}`);
+          // Return raw results if no specific collection mapping exists
+          console.warn(`No specific collection mapping for ${tableName}, returning raw results.`);
+          return results;
+          // throw new Error(`Unsupported table for collection mapping: ${tableName}`);
       }
-      
+
       return collection;
+
     } catch (error) {
       console.error(`Error executing filtered query for ${tableName}:`, error);
-      throw error;
+      throw error; // Re-throw the error after logging
     }
   }
 }

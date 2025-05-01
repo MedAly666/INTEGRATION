@@ -282,6 +282,129 @@ export class XMLAdapter implements IAdapter {
     }
   }
 
+  // --- Start: XML Element to DataModel Mapping Helpers ---
+
+  private mapXmlElementToClient(element: Element): Client {
+    return {
+      id: `XML_${this.getElementTextContent(element, '@id')}`,
+      sourceSystem: this.sourceSystem,
+      nomComplet: this.getElementTextContent(element, 'nom'),
+      emailContact: this.getElementTextContent(element, 'courriel'),
+      numeroTelephone: this.getElementTextContent(element, 'telephone'),
+      adresse: this.getElementTextContent(element, 'adresse'),
+    };
+  }
+
+  private mapXmlElementToEmployee(element: Element): Employee {
+    return {
+      id: `XML_${this.getElementTextContent(element, '@id')}`,
+      sourceSystem: this.sourceSystem,
+      nomComplet: this.getElementTextContent(element, 'nom'),
+      email: this.getElementTextContent(element, 'email'),
+      // Assuming 'post' and 'agenceRef' might not be directly in the <employe> element based on getEmployees
+      // post: this.getElementTextContent(element, 'poste'), // Add if exists
+      // agenceRef: `XML_${this.getElementTextContent(element, 'agenceID')}`, // Add if exists
+    };
+  }
+
+  private mapXmlElementToAgence(element: Element): Agence {
+    return {
+      id: `XML_${this.getElementTextContent(element, '@id')}`,
+      sourceSystem: this.sourceSystem,
+      adresse: this.getElementTextContent(element, 'Adresse'),
+      ville: this.getElementTextContent(element, 'Ville'),
+      // responsableRef: `XML_${this.getElementTextContent(element, 'responsableID')}`, // Add if exists
+    };
+  }
+
+  private mapXmlElementToFournisseur(element: Element): Fournisseur {
+    return {
+      id: `XML_${this.getElementTextContent(element, '@id')}`,
+      sourceSystem: this.sourceSystem,
+      nomFournisseur: this.getElementTextContent(element, 'nom'),
+      adresse: this.getElementTextContent(element, 'adresse'),
+      numeroTelephone: this.getElementTextContent(element, 'telephone')
+    };
+  }
+
+  private mapXmlElementToProduit(element: Element): Produit {
+    // Note: XML structure for 'quantiteTotale' might differ, adjust XPath if needed
+    return {
+      id: `XML_${this.getElementTextContent(element, '@id')}`,
+      sourceSystem: this.sourceSystem,
+      description: this.getElementTextContent(element, 'description'),
+      prixCout: parseFloat(this.getElementTextContent(element, 'prix', '0')),
+      categorie: this.getElementTextContent(element, 'categorie'),
+      quantiteTotale: parseInt(this.getElementTextContent(element, 'quantite', '0'), 10) // Assuming 'quantite' holds total quantity
+    };
+  }
+
+  private mapXmlElementToCommande(element: Element): Commande {
+    return {
+      id: `XML_${this.getElementTextContent(element, '@id')}`,
+      sourceSystem: this.sourceSystem,
+      dateCommande: (new Date(this.getElementTextContent(element, 'date', new Date().toISOString()))).toISOString(),
+      clientRef: `XML_${this.getElementTextContent(element, 'clientID')}`,
+      employeRef: `XML_${this.getElementTextContent(element, 'employeID')}`, // May be empty if not present
+      statut: this.getElementTextContent(element, 'statut'),
+      montant: parseFloat(this.getElementTextContent(element, 'montant', '0')),
+      modePaiement: this.getElementTextContent(element, 'modePaiement')
+    };
+  }
+
+  private mapXmlElementToDetailCommande(element: Element): DetailCommande {
+    // Assumes <paniers> element structure
+    const commandeId = this.getElementTextContent(element, 'id_commande');
+    const produitId = this.getElementTextContent(element, 'id_produit');
+    return {
+      id: `XML_${commandeId}_${produitId}`,
+      sourceSystem: this.sourceSystem,
+      commandeId: `XML_${commandeId}`,
+      produitId: `XML_${produitId}`,
+      quantite: parseInt(this.getElementTextContent(element, 'Quantite', '0'), 10),
+    };
+  }
+
+  private mapXmlElementToFacture(element: Element): Facture {
+    return {
+      id: `XML_${this.getElementTextContent(element, '@id')}`,
+      sourceSystem: this.sourceSystem,
+      dateFacture: (new Date(this.getElementTextContent(element, 'date', new Date().toISOString()))).toISOString(),
+      commandeRef: `XML_${this.getElementTextContent(element, 'commandeID')}`,
+      montantTotal: parseFloat(this.getElementTextContent(element, 'montant', '0')),
+    };
+  }
+
+  private mapXmlElementToLivraison(element: Element): Livraison {
+    // Assumes <Livraison> element structure
+    return {
+      id: `XML_${this.getElementTextContent(element, '@id')}`,
+      sourceSystem: this.sourceSystem,
+      commandeRef: `XML_${this.getElementTextContent(element, 'commandeID')}`,
+      statut: this.getElementTextContent(element, 'statut'),
+      transporteur: this.getElementTextContent(element, 'transporteur'),
+      dateEstimee: this.getElementTextContent(element, 'dateEstimee'), // Keep as string, parsing can be done later if needed
+    };
+  }
+
+  private mapXmlElementToApprovisionnement(element: Element, index: number): Approvisionnement {
+     // This mapping is based on the previous potentially incorrect getApprovisionnements.
+     // It assumes supply info is within the <produit> element. Needs verification.
+     // Using index for a temporary unique ID.
+    const produitId = this.getElementTextContent(element, '@id'); // Assuming product ID from <produit>
+    const fournisseurId = this.getElementTextContent(element, 'id_fournisseur'); // Assuming this exists within <produit>
+    return {
+      id: `XML_appro_${produitId}_${fournisseurId || index}`, // More specific ID
+      sourceSystem: this.sourceSystem,
+      produitId: `XML_${produitId}`,
+      fournisseurId: `XML_${fournisseurId}`, // May be empty if 'id_fournisseur' tag doesn't exist
+      quantite: parseInt(this.getElementTextContent(element, 'quantite_totale', '0'), 10), // Assuming this represents supply quantity
+    };
+  }
+
+  // --- End: XML Element to DataModel Mapping Helpers ---
+
+
   /**
    * Fetch clients data
    * 
@@ -291,25 +414,11 @@ export class XMLAdapter implements IAdapter {
     if (!this.connected) {
       throw new Error('Not connected to XML data source');
     }
-    
     const collection = new ClientCollection();
-    
-    // Query all client elements
-    const clients = this.queryXML('//client');
-    
-    for (const element of clients) {
-      const client: Client = {
-        id: `XML_${this.getElementTextContent(element, '@id')}`,
-        sourceSystem: this.sourceSystem,
-        nomComplet: this.getElementTextContent(element, 'nom'),
-        emailContact: this.getElementTextContent(element, 'courriel'),
-        numeroTelephone: this.getElementTextContent(element, 'telephone'),
-        adresse: this.getElementTextContent(element, 'adresse'),
-      };
-      
-      collection.addItem(client);
+    const elements = this.queryXML('//client');
+    for (const element of elements) {
+      collection.addItem(this.mapXmlElementToClient(element));
     }
-    
     return collection;
   }
 
@@ -329,14 +438,7 @@ export class XMLAdapter implements IAdapter {
     const employees = this.queryXML('//employe');
     
     for (const element of employees) {
-      const employee: Employee = {
-        id: `XML_${this.getElementTextContent(element, '@id')}`,
-        sourceSystem: this.sourceSystem,
-        nomComplet: this.getElementTextContent(element, 'nom'),
-        email: this.getElementTextContent(element, 'email'),
-      };
-      
-      collection.addItem(employee);
+      collection.addItem(this.mapXmlElementToEmployee(element));
     }
     
     return collection;
@@ -358,14 +460,7 @@ export class XMLAdapter implements IAdapter {
     const agencies = this.queryXML('//agence');
     
     for (const element of agencies) {
-      const agence: Agence = {
-        id: `XML_${this.getElementTextContent(element, '@id')}`,
-        sourceSystem: this.sourceSystem,
-        adresse: this.getElementTextContent(element, 'Adresse'),
-        ville: this.getElementTextContent(element, 'Ville'),
-      };
-      
-      collection.addItem(agence);
+      collection.addItem(this.mapXmlElementToAgence(element));
     }
     
     return collection;
@@ -387,15 +482,7 @@ export class XMLAdapter implements IAdapter {
     const suppliers = this.queryXML('//fournisseur');
     
     for (const element of suppliers) {
-      const fournisseur: Fournisseur = {
-        id: `XML_${this.getElementTextContent(element, '@id')}`,
-        sourceSystem: this.sourceSystem,
-        nomFournisseur: this.getElementTextContent(element, 'nom'),
-        adresse: this.getElementTextContent(element, 'adresse'),
-        numeroTelephone: this.getElementTextContent(element, 'telephone')
-      };
-      
-      collection.addItem(fournisseur);
+      collection.addItem(this.mapXmlElementToFournisseur(element));
     }
     
     return collection;
@@ -417,16 +504,7 @@ export class XMLAdapter implements IAdapter {
     const products = this.queryXML('//produit');
     
     for (const element of products) {
-      const produit: Produit = {
-        id: `XML_${this.getElementTextContent(element, '@id')}`,
-        sourceSystem: this.sourceSystem,
-        description: this.getElementTextContent(element, 'description'),
-        prixCout: parseFloat(this.getElementTextContent(element, 'prix')),
-        categorie: this.getElementTextContent(element, 'categorie'),
-        quantiteTotale: parseInt(this.getElementTextContent(element, 'quantite'), 10)
-      };
-      
-      collection.addItem(produit);
+      collection.addItem(this.mapXmlElementToProduit(element));
     }
     
     return collection;
@@ -448,18 +526,7 @@ export class XMLAdapter implements IAdapter {
     const orders = this.queryXML('//commande');
     
     for (const element of orders) {
-      const commande: Commande = {
-        id: `XML_${this.getElementTextContent(element, '@id')}`,
-        sourceSystem: this.sourceSystem,
-        dateCommande: (new Date(this.getElementTextContent(element, 'date'))).toISOString(),
-        clientRef: `XML_${this.getElementTextContent(element, 'clientID')}`,
-        employeRef: `XML_${this.getElementTextContent(element, 'employeID')}`,
-        statut: this.getElementTextContent(element, 'statut'),
-        montant: parseFloat(this.getElementTextContent(element, 'montant')),
-        modePaiement: this.getElementTextContent(element, 'modePaiement')
-      };
-      
-      collection.addItem(commande);
+      collection.addItem(this.mapXmlElementToCommande(element));
     }
     
     return collection;
@@ -481,18 +548,7 @@ export class XMLAdapter implements IAdapter {
     const details = this.queryXML('//paniers');
     
     for (const element of details) {
-      const commandeId = this.getElementTextContent(element, 'id_commande');
-      const produitId = this.getElementTextContent(element, 'id_produit');
-      
-      const detail: DetailCommande = {
-        id: `XML_${commandeId}_${produitId}`,
-        sourceSystem: this.sourceSystem,
-        commandeId: `XML_${commandeId}`,
-        produitId: `XML_${produitId}`,
-        quantite: parseInt(this.getElementTextContent(element, 'Quantite'), 10),
-      };
-      
-      collection.addItem(detail);
+      collection.addItem(this.mapXmlElementToDetailCommande(element));
     }
     
     return collection;
@@ -514,15 +570,7 @@ export class XMLAdapter implements IAdapter {
     const invoices = this.queryXML('//facture');
     
     for (const element of invoices) {
-      const facture: Facture = {
-        id: `XML_${this.getElementTextContent(element, '@id')}`,
-        sourceSystem: this.sourceSystem,
-        dateFacture: (new Date(this.getElementTextContent(element, 'date'))).toISOString(),
-        commandeRef: `XML_${this.getElementTextContent(element, 'commandeID')}`,
-        montantTotal: parseFloat(this.getElementTextContent(element, 'montant')),
-      };
-      
-      collection.addItem(facture);
+      collection.addItem(this.mapXmlElementToFacture(element));
     }
     
     return collection;
@@ -544,16 +592,7 @@ export class XMLAdapter implements IAdapter {
     const deliveries = this.queryXML('//Livraison');
     
     for (const element of deliveries) {
-      const livraison: Livraison = {
-        id: `XML_${this.getElementTextContent(element, '@id')}`,
-        sourceSystem: this.sourceSystem,
-        commandeRef: `XML_${this.getElementTextContent(element, 'commandeID')}`,
-        statut: this.getElementTextContent(element, 'statut'),
-        transporteur: this.getElementTextContent(element, 'transporteur'),
-        dateEstimee: this.getElementTextContent(element, 'dateEstimee'),
-      };
-      
-      collection.addItem(livraison);
+      collection.addItem(this.mapXmlElementToLivraison(element));
     }
     
     return collection;
@@ -575,16 +614,7 @@ export class XMLAdapter implements IAdapter {
     const supplies = this.queryXML('//produit');
     let i = 0;
     for (const element of supplies) {
-      const approvisionnement: Approvisionnement = {
-        id: `XML_${i}`,
-        sourceSystem: this.sourceSystem,
-        produitId: `XML_${this.getElementTextContent(element, 'id')}`,
-        fournisseurId: `XML_${this.getElementTextContent(element, 'id_fournisseur')}`,
-        quantite: parseInt(this.getElementTextContent(element, 'quantite_totale'), 10),
-      };
-      
-      collection.addItem(approvisionnement);
-
+      collection.addItem(this.mapXmlElementToApprovisionnement(element, i));
       i++;
     }
     

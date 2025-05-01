@@ -24,9 +24,9 @@ block content
         .chat-welcome-examples
           h4 Try these examples:
           .example-queries
-            button.example-query SELECT * FROM clients LIMIT 5;
+            button.example-query SELECT * FROM clients LIMIT 15;
             button.example-query SELECT COUNT(*) FROM commandes;
-            button.example-query SELECT c.nom, c.prenom, COUNT(o.id_commande) as total_commandes FROM clients c LEFT JOIN commandes o ON c.id_client = o.id_client GROUP BY c.id_client, c.nom, c.prenom ORDER BY total_commandes DESC LIMIT 5;
+            button.example-query SELECT c.nom_complet, COUNT(o.id) as total_commandes FROM Clients c LEFT JOIN Commandes o ON c.id = o.client_ref GROUP BY c.id, c.nom_complet ORDER BY total_commandes DESC LIMIT 15;
     
     .query-controls
       .query-options
@@ -541,8 +541,8 @@ block append scripts
         'select-clients': 'SELECT * FROM clients LIMIT 10;',
         'select-employees': 'SELECT * FROM employees LIMIT 10;',
         'select-orders': 'SELECT * FROM commandes LIMIT 10;',
-        'join-orders-clients': 'SELECT c.nom, c.prenom, o.date_commande, o.montant_total\nFROM clients c\nJOIN commandes o ON c.id_client = o.id_client\nORDER BY o.date_commande DESC\nLIMIT 10;',
-        'count-by-client': 'SELECT c.nom, c.prenom, COUNT(o.id_commande) as total_commandes\nFROM clients c\nLEFT JOIN commandes o ON c.id_client = o.id_client\nGROUP BY c.id_client, c.nom, c.prenom\nORDER BY total_commandes DESC\nLIMIT 10;'
+        'join-orders-clients': 'SELECT c.nom_complet, o.date_commande, o.montant\nFROM clients c\nJOIN commandes o ON c.id = o.client_ref\nORDER BY o.date_commande DESC\nLIMIT 15;',
+        'count-by-client': 'SELECT c.nom_complet, COUNT(o.id) as total_commandes FROM Clients c LEFT JOIN Commandes o ON c.id = o.client_ref GROUP BY c.id, c.nom_complet ORDER BY total_commandes DESC LIMIT 15;'
       };
       
       // Query template selection
@@ -580,7 +580,7 @@ block append scripts
               <div class="example-queries">
                 <button class="example-query">SELECT * FROM clients LIMIT 5;</button>
                 <button class="example-query">SELECT COUNT(*) FROM commandes;</button>
-                <button class="example-query">SELECT c.nom, c.prenom, COUNT(o.id_commande) as total_commandes FROM clients c LEFT JOIN commandes o ON c.id_client = o.id_client GROUP BY c.id_client, c.nom, c.prenom ORDER BY total_commandes DESC LIMIT 5;</button>
+                <button class="example-query">SELECT c.nom_complet, COUNT(o.id) as total_commandes FROM Clients c LEFT JOIN Commandes o ON c.id = o.client_ref GROUP BY c.id, c.nom_complet ORDER BY total_commandes DESC LIMIT 15;</button>
               </div>
             </div>
           </div>
