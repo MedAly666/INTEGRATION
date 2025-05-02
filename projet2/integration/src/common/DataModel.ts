@@ -5,12 +5,12 @@
 
 // Base entity with common fields
 export interface BaseEntity {
-  id: string;
   sourceSystem: string;
 }
 
 // Client entity
 export interface Client extends BaseEntity {
+  idClient: string;
   nomComplet: string;
   emailContact?: string;
   adresse?: string;
@@ -19,6 +19,7 @@ export interface Client extends BaseEntity {
 
 // Employee entity
 export interface Employee extends BaseEntity {
+  idEmploye: string;
   nomComplet: string;
   email?: string;
   post?: string;
@@ -28,6 +29,7 @@ export interface Employee extends BaseEntity {
 
 // Agence entity
 export interface Agence extends BaseEntity {
+  idAgence: string;
   adresse?: string;
   ville: string;
   responsableRef?: string;
@@ -35,6 +37,7 @@ export interface Agence extends BaseEntity {
 
 // Fournisseur entity
 export interface Fournisseur extends BaseEntity {
+  idFournisseur: string;
   nomFournisseur: string;
   adresse?: string;
   numeroTelephone?: string;
@@ -42,6 +45,7 @@ export interface Fournisseur extends BaseEntity {
 
 // Produit entity
 export interface Produit extends BaseEntity {
+  idProduit: string;
   description: string;
   prixCout: number;
   categorie: string;
@@ -50,6 +54,7 @@ export interface Produit extends BaseEntity {
 
 // Commande entity
 export interface Commande extends BaseEntity {
+  idCommande: string;
   dateCommande: string;
   clientRef: string;
   employeRef?: string;
@@ -60,13 +65,15 @@ export interface Commande extends BaseEntity {
 
 // DetailCommande entity
 export interface DetailCommande extends BaseEntity {
-  commandeId: string;
-  produitId: string;
+  idDetail: string;
+  idCommande: string;
+  idProduit: string;
   quantite: number;
 }
 
 // Facture entity
 export interface Facture extends BaseEntity {
+  idFacture: string;
   dateFacture: string;
   commandeRef: string;
   montantTotal: number;
@@ -74,16 +81,18 @@ export interface Facture extends BaseEntity {
 
 // Livraison entity
 export interface Livraison extends BaseEntity {
+  idLivraison: string;
   transporteur: string;
-  dateEstimee: string | undefined;
+  dateEstimee: string | undefined; // Note: Using data_estimee as in global schema (typo in original schema)
   commandeRef: string;
   statut?: string;
 }
 
 // Approvisionnement entity
 export interface Approvisionnement extends BaseEntity {
-  produitId: string;
-  fournisseurId: string;
+  idApprovisionnement: string;
+  idProduit: string;
+  idFournisseur: string;
   quantite: number;
 }
 

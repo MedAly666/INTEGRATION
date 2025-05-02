@@ -123,11 +123,6 @@ export class ComplexQueryProcessor {
       }
     }
     
-    // If no specific projections, select all columns
-    if (projections.length === 0 || projections.includes('*')) {
-      projections = ['*'];
-    }
-    
     // Extract conditions from WHERE clause
     const conditions: any[] = [];
     if (actualAst.type === 'select' && actualAst.where) {
@@ -139,13 +134,21 @@ export class ComplexQueryProcessor {
     if (actualAst.type === 'select' && actualAst.from && actualAst.from.length > 1) {
       // Multiple tables in FROM clause indicate a join
       for (let i = 1; i < actualAst.from.length; i++) {
-        if (actualAst.from[i].join) {
+        if (actualAst.from[i].join && actualAst.from[i].on) {
           joins.push({
             type: actualAst.from[i].join,
             on: actualAst.from[i].on
           });
+          
+          // Extract columns from the JOIN conditions and add them to projections
+          this.extractColumnsFromJoinCondition(actualAst.from[i].on, projections);
         }
       }
+    }
+    
+    // If no specific projections, select all columns
+    if (projections.length === 0 || projections.includes('*')) {
+      projections = ['*'];
     }
     
     // Extract LIMIT, GROUP BY, ORDER BY, etc. with null checks
@@ -160,7 +163,7 @@ export class ComplexQueryProcessor {
     const orderBy = actualAst.type === 'select' && actualAst.orderby && Array.isArray(actualAst.orderby) ? 
       actualAst.orderby.map((item: any) => ({
         column: item.expr.column,
-        type: item.type
+        type: item.type || 'ASC' // Default to ASC if not specified
       })) 
       : null;
     
@@ -173,6 +176,43 @@ export class ComplexQueryProcessor {
       groupBy,
       orderBy
     };
+  }
+  
+  /**
+   * Extract column names from JOIN condition and add them to projections
+   * 
+   * @param joinCondition The JOIN ON condition from AST
+   * @param projections Array of projections to append to
+   */
+  private extractColumnsFromJoinCondition(joinCondition: any, projections: string[]): void {
+    try {
+      if (joinCondition.type === 'binary_expr') {
+        // Handle binary expressions (typical JOIN condition)
+        if (joinCondition.left.type === 'column_ref') {
+          // Add the column from the left side of the condition
+          const colName = joinCondition.left.column;
+          if (!projections.includes(colName)) {
+            projections.push(colName);
+          }
+        }
+        
+        if (joinCondition.right.type === 'column_ref') {
+          // Add the column from the right side of the condition
+          const colName = joinCondition.right.column;
+          if (!projections.includes(colName)) {
+            projections.push(colName);
+          }
+        }
+        
+        // Handle compound conditions (AND/OR in JOIN ON clause)
+        if (['AND', 'OR'].includes(joinCondition.operator)) {
+          this.extractColumnsFromJoinCondition(joinCondition.left, projections);
+          this.extractColumnsFromJoinCondition(joinCondition.right, projections);
+        }
+      }
+    } catch (error) {
+      console.warn('Error extracting columns from JOIN condition:', error);
+    }
   }
   
   /**
@@ -420,6 +460,9 @@ export class ComplexQueryProcessor {
             alasql.tables[tableName].data = alasql.tables[tableName].data || [];
             alasql.tables[tableName].data.push(...batch);
           }
+
+          console.log(alasql.tables[tableName].data);
+          
           
           console.log(`Successfully created and populated table ${tableName}`);
         } catch (error) {

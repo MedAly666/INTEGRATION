@@ -3,9 +3,8 @@
  * Adapter for XML data sources
  */
 
-import { IAdapter, QueryFilter } from './IAdapter';
+import { IAdapter, QueryFilter, applyTypeScriptFilter } from './IAdapter';
 import * as fs from 'fs/promises';
-import * as path from 'path';
 import { DOMParser } from 'xmldom';
 import xpath from 'xpath';
 import {
@@ -31,111 +30,7 @@ import {
   Approvisionnement
 } from '../common/DataModel';
 
-// Import the shared TypeScript filter function (assuming it's moved to a common location or copied here)
-// For now, let's copy the function definition here
-function applyTypeScriptFilter(items: any[], filter: QueryFilter): any[] {
-    let filteredItems = [...items]; // Start with a copy
-
-    // 1. Apply Conditions (WHERE)
-    if (filter.conditions && filter.conditions.length > 0) {
-        console.log('XMLAdapter: Applying TS Conditions:', filter.conditions);
-        filteredItems = filteredItems.filter(item => {
-            return filter.conditions?.every(condition => {
-                try {
-                    if (condition.type === 'binary_expr' && condition.left.type === 'column_ref') {
-                        const modelField = condition.left.column; // Assumes camelCase
-                        const operator = condition.operator;
-                        const filterValue = condition.right.value;
-                        const itemValue = item[modelField];
-
-                        if (itemValue === undefined || itemValue === null) return false;
-
-                        switch (operator.toUpperCase()) {
-                            case '=': return itemValue == filterValue;
-                            case '!=': return itemValue != filterValue;
-                            case '>': return itemValue > filterValue;
-                            case '<': return itemValue < filterValue;
-                            case '>=': return itemValue >= filterValue;
-                            case '<=': return itemValue <= filterValue;
-                            case 'LIKE':
-                                if (typeof itemValue === 'string' && typeof filterValue === 'string') {
-                                    if (filterValue.startsWith('%') && filterValue.endsWith('%')) {
-                                        return itemValue.toLowerCase().includes(filterValue.substring(1, filterValue.length - 1).toLowerCase());
-                                    } else if (filterValue.endsWith('%')) {
-                                        return itemValue.toLowerCase().startsWith(filterValue.substring(0, filterValue.length - 1).toLowerCase());
-                                    } else if (filterValue.startsWith('%')) {
-                                        return itemValue.toLowerCase().endsWith(filterValue.substring(1).toLowerCase());
-                                    } else {
-                                        return itemValue.toLowerCase() === filterValue.toLowerCase();
-                                    }
-                                }
-                                return false;
-                            default:
-                                console.warn(`XMLAdapter: Unsupported TS filter operator: ${operator}`);
-                                return true;
-                        }
-                    }
-                    console.warn(`XMLAdapter: Unsupported TS filter condition type: ${condition.type}`);
-                    return true;
-                } catch (evalError) {
-                    console.error("Error evaluating TS filter condition:", evalError, "Condition:", condition, "Item:", item);
-                    return false;
-                }
-            });
-        });
-        console.log(`XMLAdapter: ${filteredItems.length} items after TS conditions.`);
-    }
-
-    // 2. Apply Sorting (ORDER BY)
-    if (filter.orderBy && filter.orderBy.length > 0) {
-        console.log('XMLAdapter: Applying TS Sorting:', filter.orderBy);
-        const orderByItems = filter.orderBy; // Create a non-null reference
-        filteredItems.sort((a, b) => {
-            for (const order of orderByItems) {
-                const field = order.column; // Assume camelCase
-                const propA = a[field];
-                const propB = b[field];
-
-                let comparison = 0;
-                if (propA === null || propA === undefined) comparison = (propB === null || propB === undefined) ? 0 : -1;
-                else if (propB === null || propB === undefined) comparison = 1;
-                else if (propA < propB) comparison = -1;
-                else if (propA > propB) comparison = 1;
-
-                if (comparison !== 0) {
-                    return order.type.toUpperCase() === 'DESC' ? -comparison : comparison;
-                }
-            }
-            return 0;
-        });
-    }
-
-    // 3. Apply Limit
-    if (filter.limit !== null && filter.limit !== undefined && filter.limit >= 0) {
-        console.log(`XMLAdapter: Applying TS Limit: ${filter.limit}`);
-        filteredItems = filteredItems.slice(0, filter.limit);
-    }
-
-    // 4. Apply Projections (SELECT)
-    if (filter.projections && filter.projections.length > 0 && !filter.projections.includes('*')) {
-        console.log(`XMLAdapter: Applying TS Projections: ${filter.projections.join(', ')}`);
-        const projections = filter.projections; // Create a non-null reference
-        filteredItems = filteredItems.map(item => {
-            const projectedItem: any = {
-                 id: item.id, // Always include id
-                 sourceSystem: item.sourceSystem // Always include sourceSystem
-            };
-            for (const projField of projections) {
-                 if (item.hasOwnProperty(projField)) {
-                    projectedItem[projField] = item[projField];
-                 }
-            }
-            return projectedItem;
-        });
-    }
-
-    return filteredItems;
-}
+// Using shared applyTypeScriptFilter from IAdapter
 
 export class XMLAdapter implements IAdapter {
   private connected: boolean = false;
@@ -367,7 +262,7 @@ export class XMLAdapter implements IAdapter {
 
   private mapXmlElementToClient(element: Element): Client {
     return {
-      id: `XML_${this.getElementTextContent(element, '@id')}`,
+      idClient: `XML_${this.getElementTextContent(element, '@id')}`,
       sourceSystem: this.sourceSystem,
       nomComplet: this.getElementTextContent(element, 'nom'),
       emailContact: this.getElementTextContent(element, 'courriel'),
@@ -378,7 +273,7 @@ export class XMLAdapter implements IAdapter {
 
   private mapXmlElementToEmployee(element: Element): Employee {
     return {
-      id: `XML_${this.getElementTextContent(element, '@id')}`,
+      idEmploye: `XML_${this.getElementTextContent(element, '@id')}`,
       sourceSystem: this.sourceSystem,
       nomComplet: this.getElementTextContent(element, 'nom'),
       email: this.getElementTextContent(element, 'email'),
@@ -390,7 +285,7 @@ export class XMLAdapter implements IAdapter {
 
   private mapXmlElementToAgence(element: Element): Agence {
     return {
-      id: `XML_${this.getElementTextContent(element, '@id')}`,
+      idAgence: `XML_${this.getElementTextContent(element, '@id')}`,
       sourceSystem: this.sourceSystem,
       adresse: this.getElementTextContent(element, 'Adresse'),
       ville: this.getElementTextContent(element, 'Ville'),
@@ -400,7 +295,7 @@ export class XMLAdapter implements IAdapter {
 
   private mapXmlElementToFournisseur(element: Element): Fournisseur {
     return {
-      id: `XML_${this.getElementTextContent(element, '@id')}`,
+      idFournisseur: `XML_${this.getElementTextContent(element, '@id')}`,
       sourceSystem: this.sourceSystem,
       nomFournisseur: this.getElementTextContent(element, 'nom'),
       adresse: this.getElementTextContent(element, 'adresse'),
@@ -411,7 +306,7 @@ export class XMLAdapter implements IAdapter {
   private mapXmlElementToProduit(element: Element): Produit {
     // Note: XML structure for 'quantiteTotale' might differ, adjust XPath if needed
     return {
-      id: `XML_${this.getElementTextContent(element, '@id')}`,
+      idProduit: `XML_${this.getElementTextContent(element, '@id')}`,
       sourceSystem: this.sourceSystem,
       description: this.getElementTextContent(element, 'description'),
       prixCout: parseFloat(this.getElementTextContent(element, 'prix', '0')),
@@ -422,7 +317,7 @@ export class XMLAdapter implements IAdapter {
 
   private mapXmlElementToCommande(element: Element): Commande {
     return {
-      id: `XML_${this.getElementTextContent(element, '@id')}`,
+      idCommande: `XML_${this.getElementTextContent(element, '@id')}`,
       sourceSystem: this.sourceSystem,
       dateCommande: (new Date(this.getElementTextContent(element, 'date', new Date().toISOString()))).toISOString(),
       clientRef: `XML_${this.getElementTextContent(element, 'clientID')}`,
@@ -438,17 +333,17 @@ export class XMLAdapter implements IAdapter {
     const commandeId = this.getElementTextContent(element, 'id_commande');
     const produitId = this.getElementTextContent(element, 'id_produit');
     return {
-      id: `XML_${commandeId}_${produitId}`,
+      idDetail: `XML_${commandeId}_${produitId}`,
       sourceSystem: this.sourceSystem,
-      commandeId: `XML_${commandeId}`,
-      produitId: `XML_${produitId}`,
+      idCommande: `XML_${commandeId}`,
+      idProduit: `XML_${produitId}`,
       quantite: parseInt(this.getElementTextContent(element, 'Quantite', '0'), 10),
     };
   }
 
   private mapXmlElementToFacture(element: Element): Facture {
     return {
-      id: `XML_${this.getElementTextContent(element, '@id')}`,
+      idFacture: `XML_${this.getElementTextContent(element, '@id')}`,
       sourceSystem: this.sourceSystem,
       dateFacture: (new Date(this.getElementTextContent(element, 'date', new Date().toISOString()))).toISOString(),
       commandeRef: `XML_${this.getElementTextContent(element, 'commandeID')}`,
@@ -459,7 +354,7 @@ export class XMLAdapter implements IAdapter {
   private mapXmlElementToLivraison(element: Element): Livraison {
     // Assumes <Livraison> element structure
     return {
-      id: `XML_${this.getElementTextContent(element, '@id')}`,
+      idLivraison: `XML_${this.getElementTextContent(element, '@id')}`,
       sourceSystem: this.sourceSystem,
       commandeRef: `XML_${this.getElementTextContent(element, 'commandeID')}`,
       statut: this.getElementTextContent(element, 'statut'),
@@ -475,10 +370,10 @@ export class XMLAdapter implements IAdapter {
     const produitId = this.getElementTextContent(element, '@id'); // Assuming product ID from <produit>
     const fournisseurId = this.getElementTextContent(element, 'id_fournisseur'); // Assuming this exists within <produit>
     return {
-      id: `XML_appro_${produitId}_${fournisseurId || index}`, // More specific ID
+      idApprovisionnement: `XML_appro_${produitId}_${fournisseurId || index}`, // More specific ID
       sourceSystem: this.sourceSystem,
-      produitId: `XML_${produitId}`,
-      fournisseurId: `XML_${fournisseurId}`, // May be empty if 'id_fournisseur' tag doesn't exist
+      idProduit: `XML_${produitId}`,
+      idFournisseur: `XML_${fournisseurId}`, // May be empty if 'id_fournisseur' tag doesn't exist
       quantite: parseInt(this.getElementTextContent(element, 'quantite_totale', '0'), 10), // Assuming this represents supply quantity
     };
   }

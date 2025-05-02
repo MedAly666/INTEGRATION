@@ -4,7 +4,7 @@
  */
 
 import mariadb, { Pool, PoolConnection } from 'mariadb';
-import { IAdapter, QueryFilter } from './IAdapter';
+import { IAdapter, QueryFilter, applyTypeScriptFilter } from './IAdapter';
 import {
   ClientCollection,
   Client,
@@ -28,110 +28,7 @@ import {
   Approvisionnement
 } from '../common/DataModel';
 
-// Helper function to apply filtering, sorting, limit, and projection in TypeScript
-function applyTypeScriptFilter(items: any[], filter: QueryFilter): any[] {
-    let filteredItems = [...items]; // Start with a copy
-
-    // 1. Apply Conditions (WHERE)
-    if (filter.conditions && filter.conditions.length > 0) {
-        console.log('SQLAdapter: Applying TS Conditions:', filter.conditions);
-        filteredItems = filteredItems.filter(item => {
-            return filter.conditions?.every(condition => {
-                try {
-                    // Basic implementation for binary expressions using DataModel field names (camelCase)
-                    if (condition.type === 'binary_expr' && condition.left.type === 'column_ref') {
-                        const modelField = condition.left.column; // Assumes filter uses camelCase DataModel field names
-                        const operator = condition.operator;
-                        const filterValue = condition.right.value;
-                        const itemValue = item[modelField];
-
-                        if (itemValue === undefined || itemValue === null) return false;
-
-                        switch (operator.toUpperCase()) {
-                            case '=': return itemValue == filterValue;
-                            case '!=': return itemValue != filterValue;
-                            case '>': return itemValue > filterValue;
-                            case '<': return itemValue < filterValue;
-                            case '>=': return itemValue >= filterValue;
-                            case '<=': return itemValue <= filterValue;
-                            case 'LIKE':
-                                if (typeof itemValue === 'string' && typeof filterValue === 'string') {
-                                    if (filterValue.startsWith('%') && filterValue.endsWith('%')) {
-                                        return itemValue.toLowerCase().includes(filterValue.substring(1, filterValue.length - 1).toLowerCase());
-                                    } else if (filterValue.endsWith('%')) {
-                                        return itemValue.toLowerCase().startsWith(filterValue.substring(0, filterValue.length - 1).toLowerCase());
-                                    } else if (filterValue.startsWith('%')) {
-                                        return itemValue.toLowerCase().endsWith(filterValue.substring(1).toLowerCase());
-                                    } else {
-                                        return itemValue.toLowerCase() === filterValue.toLowerCase();
-                                    }
-                                }
-                                return false;
-                            // Add IN, BETWEEN etc. if needed
-                            default: 
-                                console.warn(`SQLAdapter: Unsupported TS filter operator: ${operator}`);
-                                return true; // Be permissive
-                        }
-                    }
-                    console.warn(`SQLAdapter: Unsupported TS filter condition type: ${condition.type}`);
-                    return true; // Default for unhandled conditions
-                } catch (evalError) {
-                    console.error("Error evaluating TS filter condition:", evalError, "Condition:", condition, "Item:", item);
-                    return false;
-                }
-            });
-        });
-        console.log(`SQLAdapter: ${filteredItems.length} items after TS conditions.`);
-    }
-
-    // 2. Apply Sorting (ORDER BY)
-    if (filter.orderBy && filter.orderBy.length > 0) {
-        console.log('SQLAdapter: Applying TS Sorting:', filter.orderBy);
-        filteredItems.sort((a, b) => {
-            for (const order of filter.orderBy!) {
-                const field = order.column; // Assume camelCase field name
-                const propA = a[field];
-                const propB = b[field];
-
-                let comparison = 0;
-                if (propA === null || propA === undefined) comparison = (propB === null || propB === undefined) ? 0 : -1;
-                else if (propB === null || propB === undefined) comparison = 1;
-                else if (propA < propB) comparison = -1;
-                else if (propA > propB) comparison = 1;
-
-                if (comparison !== 0) {
-                    return order.type.toUpperCase() === 'DESC' ? -comparison : comparison;
-                }
-            }
-            return 0;
-        });
-    }
-
-    // 3. Apply Limit
-    if (filter.limit !== null && filter.limit !== undefined && filter.limit >= 0) {
-        console.log(`SQLAdapter: Applying TS Limit: ${filter.limit}`);
-        filteredItems = filteredItems.slice(0, filter.limit);
-    }
-
-    // 4. Apply Projections (SELECT) - Joins are ignored here
-    if (filter.projections && filter.projections.length > 0 && !filter.projections.includes('*')) {
-        console.log(`SQLAdapter: Applying TS Projections: ${filter.projections.join(', ')}`);
-        filteredItems = filteredItems.map(item => {
-            const projectedItem: any = {
-                 id: item.id, // Always include id
-                 sourceSystem: item.sourceSystem // Always include sourceSystem
-            };
-            for (const projField of filter.projections! ) {
-                 if (item.hasOwnProperty(projField)) { // Check if property exists
-                    projectedItem[projField] = item[projField];
-                 }
-            }
-            return projectedItem;
-        });
-    }
-
-    return filteredItems;
-}
+// Import applyTypeScriptFilter from IAdapter instead of defining it here
 
 export class SQLAdapter implements IAdapter {
   private pool: Pool | null = null;
@@ -420,7 +317,7 @@ export class SQLAdapter implements IAdapter {
       
       for (const row of results) {
         const client: Client = {
-          id: `SQL_${row.id_client}`,
+          idClient: `SQL_${row.id_client}`,
           sourceSystem: this.sourceSystem,
           nomComplet: row.nom_complet,
           adresse: row.adresse,
@@ -457,7 +354,7 @@ export class SQLAdapter implements IAdapter {
       
       for (const row of results) {
         const employee: Employee = {
-          id: `SQL_${row.id_employe}`,
+          idEmploye: `SQL_${row.id_employe}`,
           sourceSystem: this.sourceSystem,
           nomComplet: row.nom_complet,
           email: row.email,
@@ -494,7 +391,7 @@ export class SQLAdapter implements IAdapter {
       
       for (const row of results) {
         const agence: Agence = {
-          id: `SQL_${row.id_agence}`,
+          idAgence: `SQL_${row.id_agence}`,
           sourceSystem: this.sourceSystem,
           ville: row.ville,
           adresse: row.adresse,
@@ -530,7 +427,7 @@ export class SQLAdapter implements IAdapter {
       
       for (const row of results) {
         const fournisseur: Fournisseur = {
-          id: `SQL_${row.id_fournisseur}`,
+          idFournisseur: `SQL_${row.id_fournisseur}`,
           sourceSystem: this.sourceSystem,
           nomFournisseur: row.nom_fournisseur,
           adresse: row.adresse,
@@ -566,7 +463,7 @@ export class SQLAdapter implements IAdapter {
       
       for (const row of results) {
         const produit: Produit = {
-          id: `SQL_${row.id_produit}`,
+          idProduit: `SQL_${row.id_produit}`,
           sourceSystem: this.sourceSystem,
           description: row.description,
           prixCout: row.prix_cout,
@@ -602,7 +499,7 @@ export class SQLAdapter implements IAdapter {
       
       for (const row of results) {
         const commande: Commande = {
-          id: `SQL_${row.id_commande}`,
+          idCommande: `SQL_${row.id_commande}`,
           sourceSystem: this.sourceSystem,
           dateCommande: new Date(row.date_commande).toISOString(),
           montant: row.montant,
@@ -640,10 +537,10 @@ export class SQLAdapter implements IAdapter {
       
       for (const row of results) {
         const detail: DetailCommande = {
-          id: `SQL_${row.id_commande}_${row.id_produit}`,
+          idDetail: `SQL_${row.id_commande}_${row.id_produit}`,
           sourceSystem: this.sourceSystem,
-          commandeId: `SQL_${row.id_commande}`,
-          produitId: `SQL_${row.id_produit}`,
+          idCommande: `SQL_${row.id_commande}`,
+          idProduit: `SQL_${row.id_produit}`,
           quantite: row.quantite
         };
         
@@ -676,7 +573,7 @@ export class SQLAdapter implements IAdapter {
       
       for (const row of results) {
         const facture: Facture = {
-          id: `SQL_${row.id_facture}`,
+          idFacture: `SQL_${row.id_facture}`,
           sourceSystem: this.sourceSystem,
           montantTotal: row.montant_total,
           dateFacture: (new Date(row.date_facture)).toISOString(),
@@ -712,7 +609,7 @@ export class SQLAdapter implements IAdapter {
       
       for (const row of results) {
         const livraison: Livraison = {
-          id: `SQL_${row.id_livraison}`,
+          idLivraison: `SQL_${row.id_livraison}`,
           sourceSystem: this.sourceSystem,
           dateEstimee: row.data_estimee ? (new Date(row.data_estimee)).toISOString() : undefined,
           statut: row.statut,
@@ -749,10 +646,10 @@ export class SQLAdapter implements IAdapter {
       
       for (const row of results) {
         const approvisionnement: Approvisionnement = {
-          id: `SQL_${row.id_produit}_${row.id_fournisseur}`,
+          idApprovisionnement: `SQL_${row.id_produit}_${row.id_fournisseur}`,
           sourceSystem: this.sourceSystem,
-          produitId: `SQL_${row.id_produit}`,
-          fournisseurId: `SQL_${row.id_fournisseur}`,
+          idProduit: `SQL_${row.id_produit}`,
+          idFournisseur: `SQL_${row.id_fournisseur}`,
           quantite: row.quantite,
         };
         
@@ -835,7 +732,8 @@ export class SQLAdapter implements IAdapter {
 
     const allItems = allItemsCollection.getItems();
     console.log(`SQLAdapter: Fetched ${allItems.length} total items for ${tableName}.`);
-
+    console.log('AllItems : ',allItems);
+    
     // 2. Apply filtering, sorting, limit, projection using TypeScript helper
     const filteredItems = applyTypeScriptFilter(allItems, filter);
     console.log(`SQLAdapter: ${filteredItems.length} items after TS filtering for ${tableName}.`);

@@ -4,7 +4,7 @@
  */
 
 import neo4j, { Driver, Session, Record as Neo4jRecord, QueryResult } from 'neo4j-driver';
-import { IAdapter, QueryFilter } from './IAdapter';
+import { IAdapter, QueryFilter, applyTypeScriptFilter } from './IAdapter';
 import {
   ClientCollection,
   Client,
@@ -27,116 +27,8 @@ import {
   ApprovisionnementCollection,
   Approvisionnement
 } from '../common/DataModel';
-import { existsSync, readFileSync } from 'fs';
 
-// Import the shared TypeScript filter function (assuming it's moved to a common location or copied here)
-// For now, let's copy the function definition here
-function applyTypeScriptFilter(items: any[], filter: QueryFilter): any[] {
-    let filteredItems = [...items]; // Start with a copy
-
-    // 1. Apply Conditions (WHERE)
-    if (filter.conditions && filter.conditions.length > 0) {
-        console.log('Neo4jAdapter: Applying TS Conditions:', filter.conditions);
-        filteredItems = filteredItems.filter(item => {
-            return filter.conditions?.every(condition => {
-                try {
-                    if (condition.type === 'binary_expr' && condition.left.type === 'column_ref') {
-                        const modelField = condition.left.column; // Assumes camelCase
-                        const operator = condition.operator;
-                        const filterValue = condition.right.value;
-                        const itemValue = item[modelField];
-
-                        if (itemValue === undefined || itemValue === null) return false;
-
-                        switch (operator.toUpperCase()) {
-                            case '=': return itemValue == filterValue;
-                            case '!=': return itemValue != filterValue;
-                            case '>': return itemValue > filterValue;
-                            case '<': return itemValue < filterValue;
-                            case '>=': return itemValue >= filterValue;
-                            case '<=': return itemValue <= filterValue;
-                            case 'LIKE':
-                                if (typeof itemValue === 'string' && typeof filterValue === 'string') {
-                                    if (filterValue.startsWith('%') && filterValue.endsWith('%')) {
-                                        return itemValue.toLowerCase().includes(filterValue.substring(1, filterValue.length - 1).toLowerCase());
-                                    } else if (filterValue.endsWith('%')) {
-                                        return itemValue.toLowerCase().startsWith(filterValue.substring(0, filterValue.length - 1).toLowerCase());
-                                    } else if (filterValue.startsWith('%')) {
-                                        return itemValue.toLowerCase().endsWith(filterValue.substring(1).toLowerCase());
-                                    } else {
-                                        return itemValue.toLowerCase() === filterValue.toLowerCase();
-                                    }
-                                }
-                                return false;
-                            default:
-                                console.warn(`Neo4jAdapter: Unsupported TS filter operator: ${operator}`);
-                                return true;
-                        }
-                    }
-                    console.warn(`Neo4jAdapter: Unsupported TS filter condition type: ${condition.type}`);
-                    return true;
-                } catch (evalError) {
-                    console.error("Error evaluating TS filter condition:", evalError, "Condition:", condition, "Item:", item);
-                    return false;
-                }
-            });
-        });
-        console.log(`Neo4jAdapter: ${filteredItems.length} items after TS conditions.`);
-    }
-
-    // 2. Apply Sorting (ORDER BY)
-    if (filter.orderBy && filter.orderBy.length > 0) {
-        console.log('Neo4jAdapter: Applying TS Sorting:', filter.orderBy);
-        const orderByFields = filter.orderBy; // Store in a local variable to satisfy TypeScript
-        filteredItems.sort((a, b) => {
-            for (const order of orderByFields) {
-                const field = order.column; // Assume camelCase
-                const propA = a[field];
-                const propB = b[field];
-
-                let comparison = 0;
-                if (propA === null || propA === undefined) comparison = (propB === null || propB === undefined) ? 0 : -1;
-                else if (propB === null || propB === undefined) comparison = 1;
-                else if (propA < propB) comparison = -1;
-                else if (propA > propB) comparison = 1;
-
-                if (comparison !== 0) {
-                    return order.type.toUpperCase() === 'DESC' ? -comparison : comparison;
-                }
-            }
-            return 0;
-        });
-    }
-
-    // 3. Apply Limit
-    if (filter.limit !== null && filter.limit !== undefined && filter.limit >= 0) {
-        console.log(`Neo4jAdapter: Applying TS Limit: ${filter.limit}`);
-        filteredItems = filteredItems.slice(0, filter.limit);
-    }
-
-    // 4. Apply Projections (SELECT)
-    if (filter.projections && filter.projections.length > 0 && !filter.projections.includes('*')) {
-        console.log(`Neo4jAdapter: Applying TS Projections: ${filter.projections.join(', ')}`);
-        
-        // Store projections in a local variable to satisfy TypeScript
-        const projections = filter.projections;
-        
-        filteredItems = filteredItems.map(item => {
-            const projectedItem: any = {
-                 id: item.id, // Always include id
-                 sourceSystem: item.sourceSystem // Always include sourceSystem
-            };
-            for (const projField of projections) {
-                 if (item.hasOwnProperty(projField)) {
-                    projectedItem[projField] = item[projField];
-                 }
-            }
-            return projectedItem;
-        });
-    }
-
-    return filteredItems;
-}
+// Using shared applyTypeScriptFilter from IAdapter
 
 export class Neo4jAdapter implements IAdapter {
   private driver: Driver | null = null;
@@ -359,7 +251,7 @@ export class Neo4jAdapter implements IAdapter {
     if (result) {
       for (const record of result) {
         const client: Client = {
-          id: `NEO_${record.get('id')}`,
+          idClient: `NEO_${record.get('id')}`,
           sourceSystem: this.sourceSystem,
           nomComplet: record.get('nom'),
           adresse: record.get('adresse'),
@@ -401,7 +293,7 @@ export class Neo4jAdapter implements IAdapter {
     if (result) {
       for (const record of result) {
         const employee: Employee = {
-          id: `NEO_${record.get('id')}`,
+          idEmploye: `NEO_${record.get('id')}`,
           sourceSystem: this.sourceSystem,
           nomComplet: record.get('nom') || record.get('nom').split(' ')[0],
           email: record.get('email'),
@@ -441,7 +333,7 @@ export class Neo4jAdapter implements IAdapter {
     if (result) {
       for (const record of result) {
         const agence: Agence = {
-          id: `NEO_${record.get('id')}`,
+          idAgence: `NEO_${record.get('id')}`,
           sourceSystem: this.sourceSystem,
           adresse: record.get('adresse'),
           ville: record.get('ville'),
@@ -478,7 +370,7 @@ export class Neo4jAdapter implements IAdapter {
     if (result) {
       for (const record of result) {
         const fournisseur: Fournisseur = {
-          id: `NEO_${record.get('id')}`,
+          idFournisseur: `NEO_${record.get('id_fournisseur')}`,
           sourceSystem: this.sourceSystem,
           nomFournisseur: record.get('nom'),
           adresse: record.get('adresse'),
@@ -516,7 +408,7 @@ export class Neo4jAdapter implements IAdapter {
     if (result) {
       for (const record of result) {
         const produit: Produit = {
-          id: `NEO_${record.get('id')}`,
+          idProduit: `NEO_${record.get('id')}`,
           sourceSystem: this.sourceSystem,
           description: record.get('description'),
           prixCout: parseFloat(record.get('prix')),
@@ -558,7 +450,7 @@ export class Neo4jAdapter implements IAdapter {
     if (result) {
       for (const record of result) {
         const commande: Commande = {
-          id: `NEO_${record.get('id')}`,
+          idCommande: `NEO_${record.get('id')}`,
           sourceSystem: this.sourceSystem,
           dateCommande: record.get('date'),
           statut: record.get('statut'),
@@ -598,10 +490,10 @@ export class Neo4jAdapter implements IAdapter {
     if (result) {
       for (const record of result) {
         const detail: DetailCommande = {
-          id: `NEO_${record.get('commande_id')}_${record.get('produit_id')}`,
+          idDetail: `NEO_${record.get('commande_id')}_${record.get('produit_id')}`,
           sourceSystem: this.sourceSystem,
-          commandeId: `NEO_${record.get('commande_id')}`,
-          produitId: `NEO_${record.get('produit_id')}`,
+          idCommande: `NEO_${record.get('commande_id')}`,
+          idProduit: `NEO_${record.get('produit_id')}`,
           quantite: record.get('quantite').toNumber(),
         };
         
@@ -636,7 +528,7 @@ export class Neo4jAdapter implements IAdapter {
     if (result) {
       for (const record of result) {
         const facture: Facture = {
-          id: `NEO_${record.get('id')}`,
+          idFacture: `NEO_${record.get('id')}`,
           sourceSystem: this.sourceSystem,
           dateFacture: record.get('date'),
           commandeRef: `NEO_${record.get('commande_id')}`,
@@ -675,7 +567,7 @@ export class Neo4jAdapter implements IAdapter {
     if (result) {
       for (const record of result) {
         const livraison: Livraison = {
-          id: `NEO_${record.get('id')}`,
+          idLivraison: `NEO_${record.get('id')}`,
           sourceSystem: this.sourceSystem,
           dateEstimee: record.get('date_estimee'),
           transporteur: record.get('transporteur'),
@@ -713,10 +605,10 @@ export class Neo4jAdapter implements IAdapter {
     if (result) {
       for (const record of result) {
         const approvisionnement: Approvisionnement = {
-          id: `NEO_${record.get('produit_id')}_${record.get('fournisseur_id')}`,
+          idApprovisionnement: `NEO_${record.get('produit_id')}_${record.get('fournisseur_id')}`,
           sourceSystem: this.sourceSystem,
-          produitId: `NEO_${record.get('produit_id')}`,
-          fournisseurId: `NEO_${record.get('fournisseur_id')}`,
+          idProduit: `NEO_${record.get('produit_id')}`,
+          idFournisseur: `NEO_${record.get('fournisseur_id')}`,
           quantite: record.get('quantite').toNumber(),
 
         };
