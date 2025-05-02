@@ -29,6 +29,115 @@ import {
 } from '../common/DataModel';
 import { existsSync, readFileSync } from 'fs';
 
+// Import the shared TypeScript filter function (assuming it's moved to a common location or copied here)
+// For now, let's copy the function definition here
+function applyTypeScriptFilter(items: any[], filter: QueryFilter): any[] {
+    let filteredItems = [...items]; // Start with a copy
+
+    // 1. Apply Conditions (WHERE)
+    if (filter.conditions && filter.conditions.length > 0) {
+        console.log('Neo4jAdapter: Applying TS Conditions:', filter.conditions);
+        filteredItems = filteredItems.filter(item => {
+            return filter.conditions?.every(condition => {
+                try {
+                    if (condition.type === 'binary_expr' && condition.left.type === 'column_ref') {
+                        const modelField = condition.left.column; // Assumes camelCase
+                        const operator = condition.operator;
+                        const filterValue = condition.right.value;
+                        const itemValue = item[modelField];
+
+                        if (itemValue === undefined || itemValue === null) return false;
+
+                        switch (operator.toUpperCase()) {
+                            case '=': return itemValue == filterValue;
+                            case '!=': return itemValue != filterValue;
+                            case '>': return itemValue > filterValue;
+                            case '<': return itemValue < filterValue;
+                            case '>=': return itemValue >= filterValue;
+                            case '<=': return itemValue <= filterValue;
+                            case 'LIKE':
+                                if (typeof itemValue === 'string' && typeof filterValue === 'string') {
+                                    if (filterValue.startsWith('%') && filterValue.endsWith('%')) {
+                                        return itemValue.toLowerCase().includes(filterValue.substring(1, filterValue.length - 1).toLowerCase());
+                                    } else if (filterValue.endsWith('%')) {
+                                        return itemValue.toLowerCase().startsWith(filterValue.substring(0, filterValue.length - 1).toLowerCase());
+                                    } else if (filterValue.startsWith('%')) {
+                                        return itemValue.toLowerCase().endsWith(filterValue.substring(1).toLowerCase());
+                                    } else {
+                                        return itemValue.toLowerCase() === filterValue.toLowerCase();
+                                    }
+                                }
+                                return false;
+                            default:
+                                console.warn(`Neo4jAdapter: Unsupported TS filter operator: ${operator}`);
+                                return true;
+                        }
+                    }
+                    console.warn(`Neo4jAdapter: Unsupported TS filter condition type: ${condition.type}`);
+                    return true;
+                } catch (evalError) {
+                    console.error("Error evaluating TS filter condition:", evalError, "Condition:", condition, "Item:", item);
+                    return false;
+                }
+            });
+        });
+        console.log(`Neo4jAdapter: ${filteredItems.length} items after TS conditions.`);
+    }
+
+    // 2. Apply Sorting (ORDER BY)
+    if (filter.orderBy && filter.orderBy.length > 0) {
+        console.log('Neo4jAdapter: Applying TS Sorting:', filter.orderBy);
+        const orderByFields = filter.orderBy; // Store in a local variable to satisfy TypeScript
+        filteredItems.sort((a, b) => {
+            for (const order of orderByFields) {
+                const field = order.column; // Assume camelCase
+                const propA = a[field];
+                const propB = b[field];
+
+                let comparison = 0;
+                if (propA === null || propA === undefined) comparison = (propB === null || propB === undefined) ? 0 : -1;
+                else if (propB === null || propB === undefined) comparison = 1;
+                else if (propA < propB) comparison = -1;
+                else if (propA > propB) comparison = 1;
+
+                if (comparison !== 0) {
+                    return order.type.toUpperCase() === 'DESC' ? -comparison : comparison;
+                }
+            }
+            return 0;
+        });
+    }
+
+    // 3. Apply Limit
+    if (filter.limit !== null && filter.limit !== undefined && filter.limit >= 0) {
+        console.log(`Neo4jAdapter: Applying TS Limit: ${filter.limit}`);
+        filteredItems = filteredItems.slice(0, filter.limit);
+    }
+
+    // 4. Apply Projections (SELECT)
+    if (filter.projections && filter.projections.length > 0 && !filter.projections.includes('*')) {
+        console.log(`Neo4jAdapter: Applying TS Projections: ${filter.projections.join(', ')}`);
+        
+        // Store projections in a local variable to satisfy TypeScript
+        const projections = filter.projections;
+        
+        filteredItems = filteredItems.map(item => {
+            const projectedItem: any = {
+                 id: item.id, // Always include id
+                 sourceSystem: item.sourceSystem // Always include sourceSystem
+            };
+            for (const projField of projections) {
+                 if (item.hasOwnProperty(projField)) {
+                    projectedItem[projField] = item[projField];
+                 }
+            }
+            return projectedItem;
+        });
+    }
+
+    return filteredItems;
+}
+
 export class Neo4jAdapter implements IAdapter {
   private driver: Driver | null = null;
   private connected: boolean = false;
@@ -629,534 +738,77 @@ export class Neo4jAdapter implements IAdapter {
     if (!this.connected) {
       throw new Error('Not connected to Neo4j database');
     }
-    
-    console.log(`Neo4jAdapter: Executing filtered query for ${tableName}`);
-    console.log('Filter:', JSON.stringify(filter));
-    
-    // Map the common table names to Neo4j node types and relationship patterns
-    const nodeMap: Record<string, string> = {
-      'clients': 'Client',
-      'employees': 'Employe',
-      'agences': 'Agence',
-      'fournisseurs': 'Fournisseur',
-      'produits': 'Produit',
-      'commandes': 'Commande',
-      'factures': 'Facture',
-      'livraisons': 'Livraison'
-    };
-    
-    // Special relationship patterns for "tables" that are modeled as relationships in Neo4j
-    const relationshipMap: Record<string, { pattern: string; fields: string[] }> = {
-      'details_commande': {
-        pattern: '(o:Commande)-[d:DETAIL]->(p:Produit)',
-        fields: ['o.id_commande', 'p.id_produit', 'd.quantité']
-      },
-      'approvisionnements': {
-        pattern: '(p:Produit)-[f:FOURNI_PAR]->(s:Fournisseur)',
-        fields: ['p.id_produit', 's.id_fournisseur', 'f.quantité']
-      }
-    };
-    
-    // Additional relationship patterns for joined queries
-    const joinPatterns: Record<string, Record<string, string>> = {
-      'commandes': {
-        'clients': '(c:Client)-[:PASSE]->(o:Commande)',
-        'employees': '(e:Employe)-[:GERE]->(o:Commande)'
-      },
-      'factures': {
-        'commandes': '(o:Commande)-[:FACTURE]->(f:Facture)'
-      },
-      'livraisons': {
-        'commandes': '(o:Commande)-[:LIVREE_PAR]->(l:Livraison)'
-      },
-      'employees': {
-        'agences': '(e:Employe)-[:TRAVAILLE_DANS]->(a:Agence)'
-      }
-    };
-    
-    // Map collection creation methods to table names
-    const methodMap: Record<string, keyof Neo4jAdapter & string> = {
-      'clients': 'getClients',
-      'employees': 'getEmployees',
-      'agences': 'getAgences',
-      'fournisseurs': 'getFournisseurs',
-      'produits': 'getProduits',
-      'commandes': 'getCommandes',
-      'details_commande': 'getDetailsCommande',
-      'factures': 'getFactures',
-      'livraisons': 'getLivraisons',
-      'approvisionnements': 'getApprovisionnements'
-    };
-    
-    // Field mapping from common model to Neo4j schema
-    const fieldMaps: Record<string, Record<string, string>> = {
-      'clients': {
-        'id': 'c.id_client',
-        'nom_complet': 'c.nom',
-        'adresse': 'c.adresse',
-        'email_contact': 'c.email',
-        'numero_telephone': 'c.telephone'
-      },
-      'employees': {
-        'id': 'e.id_employe',
-        'nom_complet': 'e.nom',
-        'email': 'e.email',
-        'poste': 'e.poste',
-        'agence_ref': 'a.id_agence'
-      },
-      'agences': {
-        'id': 'a.id_agence',
-        'ville': 'a.ville',
-        'adresse': 'a.adresse'
-      },
-      'fournisseurs': {
-        'id': 'f.id_fournisseur',
-        'nom_fournisseur': 'f.nom',
-        'adresse': 'f.adresse',
-        'numero_telephone': 'f.telephone'
-      },
-      'produits': {
-        'id': 'p.id_produit',
-        'description': 'p.description',
-        'prix_cout': 'p.prix',
-        'categorie': 'p.categorie'
-      },
-      'commandes': {
-        'id': 'o.id_commande', // Use 'o' consistently as the alias for Commande
-        'date_commande': 'o.date',
-        'montant': 'o.montant',
-        'statut': 'o.statut',
-        'mode_paiement': 'o.mode_paiement',
-        'client_ref': 'c.id_client', // Alias 'c' for Client
-        'employe_ref': 'e.id_employe' // Alias 'e' for Employe
-      },
-      'details_commande': {
-        'commande_id': 'o.id_commande',
-        'produit_id': 'p.id_produit',
-        'quantite': 'd.quantité'
-      },
-      'factures': {
-        'id': 'f.id_facture',
-        'montant_total': 'f.montant_total',
-        'date_facture': 'f.date',
-        'commande_ref': 'o.id_commande'
-      },
-      'livraisons': {
-        'id': 'l.id_livraison',
-        'transporteur': 'l.transporteur',
-        'date_estimee': 'l.date_estimee',
-        'statut': 'l.statut',
-        'commande_ref': 'o.id_commande'
-      },
-      'approvisionnements': {
-        'produit_id': 'p.id_produit',
-        'fournisseur_id': 's.id_fournisseur',
-        'quantite': 'f.quantité'
-      }
-    };
-    
-    // Helper to resolve generic field names to Neo4j properties with correct aliases
-    const resolveField = (genericTable: string, genericField: string): string | null => {
-      const map = fieldMaps[genericTable];
-      if (map && map[genericField]) {
-        return map[genericField]; // Returns alias.property, e.g., o.id_commande
-      }
-      // If not found, maybe it's a direct property name (less ideal but fallback)
-      // Or handle aggregate functions etc.
-      if (genericField.includes('(') || genericField.includes('*')) return genericField;
-      console.warn(`Could not resolve field '${genericField}' for table '${genericTable}'`);
-      return null;
-    };
 
-    // Helper to get the alias for a table
-    const getAlias = (genericTable: string): string | null => {
-        // Extract alias from the first field mapping for that table
-        const map = fieldMaps[genericTable];
-        if (map) {
-            const firstField = Object.values(map)[0]; // e.g., 'o.id_commande'
-            if (firstField && firstField.includes('.')) {
-                return firstField.split('.')[0]; // e.g., 'o'
-            }
-        }
-        // Fallback for relationship-based or simple node patterns
-        if (relationshipMap[genericTable]) return 'rel'; // Placeholder, adjust if needed
-        if (nodeMap[genericTable]) return genericTable.charAt(0); // Default: 'c' for clients
-        return null;
-    };
+    const lowerTableName = tableName.toLowerCase();
+    console.log(`Neo4jAdapter: executeFilteredQuery for ${lowerTableName} (TS filtering)`);
 
+    let allItemsCollection: any;
+    let CollectionConstructor: any;
+
+    // 1. Fetch ALL data using the appropriate get* method
     try {
-      // Build the Cypher query
-      let cypher = '';
-      const params: Record<string, any> = {};
-      let matchClauses: string[] = [];
-      let whereConditions: string[] = [];
-      let returnItems: string[] = [];
-      const involvedAliases: Set<string> = new Set(); // Keep track of defined aliases
-
-      // Determine the base pattern and alias
-      let baseAlias = getAlias(tableName);
-      let basePattern = '';
-
-      if (relationshipMap[tableName]) {
-        // Handle relationship-based tables (e.g., details_commande)
-        basePattern = relationshipMap[tableName].pattern;
-        // Extract aliases used in the pattern (e.g., 'o', 'd', 'p')
-        const relAliases = basePattern.match(/\((\w+):/g)?.map(m => m.substring(1, m.indexOf(':'))) || [];
-        relAliases.forEach(a => involvedAliases.add(a));
-        matchClauses.push(`MATCH ${basePattern}`);
-        baseAlias = 'rel'; // Use a generic alias for return mapping
-      } else if (nodeMap[tableName] && baseAlias) {
-        // Handle node-based tables (e.g., commandes)
-        basePattern = `(${baseAlias}:${nodeMap[tableName]})`;
-        involvedAliases.add(baseAlias);
-        matchClauses.push(`MATCH ${basePattern}`);
-      } else {
-        throw new Error(`Unknown table or missing alias configuration: ${tableName}`);
+      switch (lowerTableName) {
+        case 'clients':
+          allItemsCollection = await this.getClients();
+          CollectionConstructor = ClientCollection;
+          break;
+        case 'employees':
+          allItemsCollection = await this.getEmployees();
+          CollectionConstructor = EmployeeCollection;
+          break;
+        case 'agences':
+          allItemsCollection = await this.getAgences();
+          CollectionConstructor = AgenceCollection;
+          break;
+        case 'fournisseurs':
+          allItemsCollection = await this.getFournisseurs();
+          CollectionConstructor = FournisseurCollection;
+          break;
+        case 'produits':
+          allItemsCollection = await this.getProduits();
+          CollectionConstructor = ProduitCollection;
+          break;
+        case 'commandes':
+          allItemsCollection = await this.getCommandes();
+          CollectionConstructor = CommandeCollection;
+          break;
+        case 'details_commande':
+          allItemsCollection = await this.getDetailsCommande();
+          CollectionConstructor = DetailCommandeCollection;
+          break;
+        case 'factures':
+          allItemsCollection = await this.getFactures();
+          CollectionConstructor = FactureCollection;
+          break;
+        case 'livraisons':
+          allItemsCollection = await this.getLivraisons();
+          CollectionConstructor = LivraisonCollection;
+          break;
+        case 'approvisionnements':
+          allItemsCollection = await this.getApprovisionnements();
+          CollectionConstructor = ApprovisionnementCollection;
+          break;
+        default:
+          throw new Error(`Neo4jAdapter: Unknown table name: ${tableName}`);
       }
-
-      // Add joins if present - Ensure related nodes are MATCHed
-      const requiredJoinAliases: Record<string, string> = {}; // Map generic table name to required alias
-      if (filter.joins && filter.joins.length > 0) {
-        for (const join of filter.joins) {
-          if (join.on && join.on.table) {
-            const joinTable = join.on.table;
-            const joinAlias = getAlias(joinTable);
-            const joinNodeType = nodeMap[joinTable];
-
-            if (joinAlias && joinNodeType && !involvedAliases.has(joinAlias)) {
-              // Find appropriate relationship pattern
-              let joinMatch = '';
-              if (joinPatterns[tableName] && joinPatterns[tableName][joinTable]) {
-                  joinMatch = joinPatterns[tableName][joinTable]; // e.g., (c:Client)-[:PASSE]->(o:Commande)
-              } else if (joinPatterns[joinTable] && joinPatterns[joinTable][tableName]) {
-                  // Try reverse pattern
-                  joinMatch = joinPatterns[joinTable][tableName];
-              } else {
-                  // Generic pattern (less reliable)
-                  console.warn(`No specific join pattern found between ${tableName} and ${joinTable}. Using generic pattern.`);
-                  joinMatch = `(${baseAlias})-[]-(${joinAlias}:${joinNodeType})`;
-              }
-
-              // Use OPTIONAL MATCH for flexibility if join type isn't INNER
-              const matchType = (join.type || 'INNER').toUpperCase() === 'INNER' ? 'MATCH' : 'OPTIONAL MATCH';
-              matchClauses.push(`${matchType} ${joinMatch}`);
-              involvedAliases.add(joinAlias);
-            }
-            if(joinAlias) requiredJoinAliases[joinTable] = joinAlias;
-          }
-        }
-      }
-
-      // Add conditions - Resolve fields using correct aliases
-      if (filter.conditions && filter.conditions.length > 0) {
-        for (let i = 0; i < filter.conditions.length; i++) {
-          const condition = filter.conditions[i];
-          if (condition.type === 'binary_expr') {
-            let resolvedField = null;
-            let conditionTable = tableName; // Assume condition applies to the base table
-
-            // Determine which table the condition's column belongs to
-            if (condition.left.table) {
-                conditionTable = condition.left.table;
-            } else {
-                // Attempt to infer table if not specified (check base table first)
-                if (!fieldMaps[tableName]?.[condition.left.column]) {
-                    // Check joined tables
-                    for (const joinedTable of Object.keys(requiredJoinAliases)) {
-                        if (fieldMaps[joinedTable]?.[condition.left.column]) {
-                            conditionTable = joinedTable;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            resolvedField = resolveField(conditionTable, condition.left.column);
-
-            if (resolvedField) {
-              const paramName = `param${i}`;
-              // Ensure the alias used in resolvedField is actually defined
-              const fieldAlias = resolvedField.split('.')[0];
-              if (involvedAliases.has(fieldAlias)) {
-                  whereConditions.push(`${resolvedField} ${condition.operator} $${paramName}`);
-                  params[paramName] = condition.right.value;
-              } else {
-                  console.warn(`Alias '${fieldAlias}' for condition field '${resolvedField}' not defined in MATCH clauses. Skipping condition.`);
-              }
-            } else {
-              console.warn(`Could not resolve field '${condition.left.column}' for WHERE clause.`);
-            }
-          } else {
-            console.warn(`Unsupported condition type: ${condition.type}`);
-          }
-        }
-      }
-
-      // Build RETURN clause - Resolve fields using correct aliases
-      if (filter.projections && filter.projections.length > 0 && !filter.projections.includes('*')) {
-        returnItems = filter.projections.map(projField => {
-            let resolvedField = null;
-            let fieldTable = tableName; // Assume base table
-
-            // Check base table first
-            if (!fieldMaps[tableName]?.[projField]) {
-                 // Check joined tables
-                 for (const joinedTable of Object.keys(requiredJoinAliases)) {
-                     if (fieldMaps[joinedTable]?.[projField]) {
-                         fieldTable = joinedTable;
-                         break;
-                     }
-                 }
-            }
-
-            resolvedField = resolveField(fieldTable, projField);
-
-            if (resolvedField) {
-                // Ensure the alias used is defined
-                const fieldAlias = resolvedField.split('.')[0];
-                if (involvedAliases.has(fieldAlias)) {
-                    return `${resolvedField} AS ${projField}`; // Use original field name as alias
-                } else {
-                    console.warn(`Alias '${fieldAlias}' for projection field '${resolvedField}' not defined in MATCH clauses. Returning null.`);
-                    return `null AS ${projField}`; // Return null if alias is missing
-                }
-            } else {
-                // Handle aggregates or direct fields
-                if (projField.includes('(') || projField.includes('*')) {
-                    return projField; // e.g., COUNT(*)
-                }
-                console.warn(`Could not resolve projection field '${projField}'. Returning null.`);
-                return `null AS ${projField}`; // Return null if unresolved
-            }
-        });
-      } else {
-        // Default: Return all mapped fields from the base table/relationship
-        if (relationshipMap[tableName]) {
-            // For relationships, use the predefined fields
-            returnItems = relationshipMap[tableName].fields.map((field, index) => {
-                 const alias = ['commande_id', 'produit_id', 'quantite', 'fournisseur_id'][index] || `field${index}`;
-                 return `${field} AS ${alias}`;
-            });
-        } else if (fieldMaps[tableName]) {
-            // For nodes, return all fields defined in the map
-            returnItems = Object.entries(fieldMaps[tableName]).map(([alias, field]) => {
-                // Ensure the alias used is defined
-                const fieldAlias = field.split('.')[0];
-                if (involvedAliases.has(fieldAlias)) {
-                    return `${field} AS ${alias}`; // e.g., o.id_commande AS id
-                } else {
-                    console.warn(`Alias '${fieldAlias}' for default projection field '${field}' not defined. Returning null.`);
-                    return `null AS ${alias}`; // Return null if alias is missing
-                }
-            });
-        } else {
-            returnItems.push(`${baseAlias}.*`); // Fallback, might not work well
-        }
-      }
-
-      // Construct the final query
-      cypher = matchClauses.join('\n');
-      if (whereConditions.length > 0) {
-        cypher += `\nWHERE ${whereConditions.join(' AND ')}`;
-      }
-      cypher += `\nRETURN ${returnItems.join(', ')}`;
-
-      // Add ORDER BY - Resolve fields using correct aliases
-      if (filter.orderBy && filter.orderBy.length > 0) {
-        const orderClauses = filter.orderBy.map(order => {
-            let resolvedField = null;
-            let fieldTable = tableName; // Assume base table
-
-            // Check base table first
-            if (!fieldMaps[tableName]?.[order.column]) {
-                 // Check joined tables
-                 for (const joinedTable of Object.keys(requiredJoinAliases)) {
-                     if (fieldMaps[joinedTable]?.[order.column]) {
-                         fieldTable = joinedTable;
-                         break;
-                     }
-                 }
-            }
-
-            resolvedField = resolveField(fieldTable, order.column);
-
-            if (resolvedField) {
-                 // Ensure the alias used is defined
-                 const fieldAlias = resolvedField.split('.')[0];
-                 if (involvedAliases.has(fieldAlias)) {
-                    return `${resolvedField} ${order.type}`; // e.g., o.date DESC
-                 } else {
-                     console.warn(`Alias '${fieldAlias}' for ORDER BY field '${resolvedField}' not defined. Skipping order clause.`);
-                     return null;
-                 }
-            } else {
-                 // Allow ordering by aggregated fields or direct names if not resolved
-                 if (order.column.includes('(') || order.column.includes('*')) {
-                     return `${order.column} ${order.type}`;
-                 }
-                 console.warn(`Could not resolve ORDER BY field '${order.column}'. Skipping.`);
-                 return null;
-            }
-        }).filter(clause => clause !== null);
-
-        if (orderClauses.length > 0) {
-          cypher += `\nORDER BY ${orderClauses.join(', ')}`;
-        }
-      }
-
-      // Add LIMIT
-      if (filter.limit !== undefined && filter.limit !== null) {
-        cypher += `\nLIMIT ${filter.limit}`;
-      }
-
-      console.log(`Neo4jAdapter: Generated Cypher: ${cypher}`);
-      console.log('Parameters:', params);
-
-      // Execute the query
-      const result = await this.executeCypherQuery(cypher, params);
-
-      // ... rest of the result processing logic ...
-      // Ensure the result processing switch statement uses the correct aliases
-      // defined in the RETURN clause (which should match the DataModel field names)
-
-      // Create and populate the appropriate collection
-      const methodName = methodMap[tableName];
-      if (!methodName) {
-        throw new Error(`No method mapping found for table: ${tableName}`);
-      }
-
-      // Create an empty collection directly
-      let collection;
-      // ... (switch statement for creating collection remains the same)
-        switch (tableName) {
-            case 'clients': collection = new ClientCollection(); break;
-            case 'employees': collection = new EmployeeCollection(); break;
-            case 'agences': collection = new AgenceCollection(); break;
-            case 'fournisseurs': collection = new FournisseurCollection(); break;
-            case 'produits': collection = new ProduitCollection(); break;
-            case 'commandes': collection = new CommandeCollection(); break;
-            case 'details_commande': collection = new DetailCommandeCollection(); break;
-            case 'factures': collection = new FactureCollection(); break;
-            case 'livraisons': collection = new LivraisonCollection(); break;
-            case 'approvisionnements': collection = new ApprovisionnementCollection(); break;
-            default: throw new Error(`No collection type found for table: ${tableName}`);
-        }
-
-      // Process the query results into model objects
-      if (result) {
-        for (const record of result) {
-          let item: any;
-
-          // The switch statement should now work correctly as RETURN uses DataModel field names as aliases
-          switch (tableName) {
-            case 'clients':
-              item = {
-                id: `NEO_${record.get('id')}`,
-                sourceSystem: this.sourceSystem,
-                nomComplet: record.get('nom_complet'),
-                adresse: record.get('adresse'),
-                emailContact: record.get('email_contact'),
-                numeroTelephone: record.get('numero_telephone')
-              };
-              break;
-            case 'employees':
-              item = {
-                id: `NEO_${record.get('id')}`,
-                sourceSystem: this.sourceSystem,
-                nomComplet: record.get('nom_complet'),
-                email: record.get('email'),
-                post: record.get('poste'),
-                agenceRef: record.get('agence_ref') ? `NEO_${record.get('agence_ref')}` : undefined
-              };
-              break;
-            // ... other cases remain the same, relying on aliases matching DataModel fields ...
-             case 'agences':
-              item = {
-                id: `NEO_${record.get('id')}`,
-                sourceSystem: this.sourceSystem,
-                ville: record.get('ville'),
-                adresse: record.get('adresse'),
-              };
-              break;
-            case 'fournisseurs':
-              item = {
-                id: `NEO_${record.get('id')}`,
-                sourceSystem: this.sourceSystem,
-                nomFournisseur: record.get('nom_fournisseur'),
-                adresse: record.get('adresse'),
-                numeroTelephone: record.get('numero_telephone')
-              };
-              break;
-            case 'produits':
-              item = {
-                id: `NEO_${record.get('id')}`,
-                sourceSystem: this.sourceSystem,
-                description: record.get('description'),
-                categorie: record.get('categorie'),
-                prixCout: record.get('prix_cout') ? parseFloat(record.get('prix_cout')) : undefined
-              };
-              break;
-            case 'commandes':
-              item = {
-                id: `NEO_${record.get('id')}`,
-                sourceSystem: this.sourceSystem,
-                dateCommande: record.get('date_commande'),
-                montant: record.get('montant') ? parseFloat(record.get('montant')) : undefined,
-                statut: record.get('statut'),
-                modePaiement: record.get('mode_paiement'),
-                clientRef: record.get('client_ref') ? `NEO_${record.get('client_ref')}`: undefined, // Handle potential null if OPTIONAL MATCH was used
-                employeRef: record.get('employe_ref') ? `NEO_${record.get('employe_ref')}` : undefined // Handle potential null
-              };
-              break;
-            case 'details_commande':
-              item = {
-                id: `NEO_${record.get('commande_id')}_${record.get('produit_id')}`,
-                sourceSystem: this.sourceSystem,
-                commandeId: `NEO_${record.get('commande_id')}`,
-                produitId: `NEO_${record.get('produit_id')}`,
-                quantite: record.get('quantite')?.toNumber() || 0
-              };
-              break;
-            case 'factures':
-              item = {
-                id: `NEO_${record.get('id')}`,
-                sourceSystem: this.sourceSystem,
-                montantTotal: record.get('montant_total') ? parseFloat(record.get('montant_total')) : undefined,
-                dateFacture: record.get('date_facture'),
-                commandeRef: record.get('commande_ref') ? `NEO_${record.get('commande_ref')}` : undefined
-              };
-              break;
-            case 'livraisons':
-              item = {
-                id: `NEO_${record.get('id')}`,
-                sourceSystem: this.sourceSystem,
-                transporteur: record.get('transporteur'),
-                dateEstimee: record.get('date_estimee'),
-                statut: record.get('statut'),
-                commandeRef: record.get('commande_ref') ? `NEO_${record.get('commande_ref')}` : undefined
-              };
-              break;
-            case 'approvisionnements':
-              item = {
-                id: `NEO_${record.get('produit_id')}_${record.get('fournisseur_id')}`,
-                sourceSystem: this.sourceSystem,
-                produitId: `NEO_${record.get('produit_id')}`,
-                fournisseurId: `NEO_${record.get('fournisseur_id')}`,
-                quantite: record.get('quantite')?.toNumber() || 0
-              };
-              break;
-            default:
-              continue;
-          }
-
-          collection.addItem(item);
-        }
-      }
-
-      return collection;
     } catch (error) {
-      console.error(`Error executing filtered query for ${tableName}:`, error);
-      throw error;
+        console.error(`Neo4jAdapter: Error fetching all data for ${tableName}:`, error);
+        throw error;
     }
+
+    const allItems = allItemsCollection.getItems();
+    console.log(`Neo4jAdapter: Fetched ${allItems.length} total items for ${tableName}.`);
+
+    // 2. Apply filtering, sorting, limit, projection using TypeScript helper
+    const filteredItems = applyTypeScriptFilter(allItems, filter);
+    console.log(`Neo4jAdapter: ${filteredItems.length} items after TS filtering for ${tableName}.`);
+
+    // 3. Create a new collection of the correct type and add filtered items
+    const finalCollection = new CollectionConstructor();
+    for (const item of filteredItems) {
+      finalCollection.addItem(item);
+    }
+
+    return finalCollection;
   }
 }

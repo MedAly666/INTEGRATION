@@ -28,6 +28,111 @@ import {
   Approvisionnement
 } from '../common/DataModel';
 
+// Helper function to apply filtering, sorting, limit, and projection in TypeScript
+function applyTypeScriptFilter(items: any[], filter: QueryFilter): any[] {
+    let filteredItems = [...items]; // Start with a copy
+
+    // 1. Apply Conditions (WHERE)
+    if (filter.conditions && filter.conditions.length > 0) {
+        console.log('SQLAdapter: Applying TS Conditions:', filter.conditions);
+        filteredItems = filteredItems.filter(item => {
+            return filter.conditions?.every(condition => {
+                try {
+                    // Basic implementation for binary expressions using DataModel field names (camelCase)
+                    if (condition.type === 'binary_expr' && condition.left.type === 'column_ref') {
+                        const modelField = condition.left.column; // Assumes filter uses camelCase DataModel field names
+                        const operator = condition.operator;
+                        const filterValue = condition.right.value;
+                        const itemValue = item[modelField];
+
+                        if (itemValue === undefined || itemValue === null) return false;
+
+                        switch (operator.toUpperCase()) {
+                            case '=': return itemValue == filterValue;
+                            case '!=': return itemValue != filterValue;
+                            case '>': return itemValue > filterValue;
+                            case '<': return itemValue < filterValue;
+                            case '>=': return itemValue >= filterValue;
+                            case '<=': return itemValue <= filterValue;
+                            case 'LIKE':
+                                if (typeof itemValue === 'string' && typeof filterValue === 'string') {
+                                    if (filterValue.startsWith('%') && filterValue.endsWith('%')) {
+                                        return itemValue.toLowerCase().includes(filterValue.substring(1, filterValue.length - 1).toLowerCase());
+                                    } else if (filterValue.endsWith('%')) {
+                                        return itemValue.toLowerCase().startsWith(filterValue.substring(0, filterValue.length - 1).toLowerCase());
+                                    } else if (filterValue.startsWith('%')) {
+                                        return itemValue.toLowerCase().endsWith(filterValue.substring(1).toLowerCase());
+                                    } else {
+                                        return itemValue.toLowerCase() === filterValue.toLowerCase();
+                                    }
+                                }
+                                return false;
+                            // Add IN, BETWEEN etc. if needed
+                            default: 
+                                console.warn(`SQLAdapter: Unsupported TS filter operator: ${operator}`);
+                                return true; // Be permissive
+                        }
+                    }
+                    console.warn(`SQLAdapter: Unsupported TS filter condition type: ${condition.type}`);
+                    return true; // Default for unhandled conditions
+                } catch (evalError) {
+                    console.error("Error evaluating TS filter condition:", evalError, "Condition:", condition, "Item:", item);
+                    return false;
+                }
+            });
+        });
+        console.log(`SQLAdapter: ${filteredItems.length} items after TS conditions.`);
+    }
+
+    // 2. Apply Sorting (ORDER BY)
+    if (filter.orderBy && filter.orderBy.length > 0) {
+        console.log('SQLAdapter: Applying TS Sorting:', filter.orderBy);
+        filteredItems.sort((a, b) => {
+            for (const order of filter.orderBy!) {
+                const field = order.column; // Assume camelCase field name
+                const propA = a[field];
+                const propB = b[field];
+
+                let comparison = 0;
+                if (propA === null || propA === undefined) comparison = (propB === null || propB === undefined) ? 0 : -1;
+                else if (propB === null || propB === undefined) comparison = 1;
+                else if (propA < propB) comparison = -1;
+                else if (propA > propB) comparison = 1;
+
+                if (comparison !== 0) {
+                    return order.type.toUpperCase() === 'DESC' ? -comparison : comparison;
+                }
+            }
+            return 0;
+        });
+    }
+
+    // 3. Apply Limit
+    if (filter.limit !== null && filter.limit !== undefined && filter.limit >= 0) {
+        console.log(`SQLAdapter: Applying TS Limit: ${filter.limit}`);
+        filteredItems = filteredItems.slice(0, filter.limit);
+    }
+
+    // 4. Apply Projections (SELECT) - Joins are ignored here
+    if (filter.projections && filter.projections.length > 0 && !filter.projections.includes('*')) {
+        console.log(`SQLAdapter: Applying TS Projections: ${filter.projections.join(', ')}`);
+        filteredItems = filteredItems.map(item => {
+            const projectedItem: any = {
+                 id: item.id, // Always include id
+                 sourceSystem: item.sourceSystem // Always include sourceSystem
+            };
+            for (const projField of filter.projections! ) {
+                 if (item.hasOwnProperty(projField)) { // Check if property exists
+                    projectedItem[projField] = item[projField];
+                 }
+            }
+            return projectedItem;
+        });
+    }
+
+    return filteredItems;
+}
+
 export class SQLAdapter implements IAdapter {
   private pool: Pool | null = null;
   private connected: boolean = false;
@@ -667,395 +772,80 @@ export class SQLAdapter implements IAdapter {
    * @returns The appropriate data collection with filtered results
    */
   public async executeFilteredQuery(tableName: string, filter: QueryFilter): Promise<any> {
-    // Ensure we're connected first - don't check this.connected directly
-    try {
-      // Try to connect - this will be a no-op if already connected
-      await this.connect();
-    } catch (error) {
-      console.error('Failed to connect to SQL database:', error);
-      throw new Error('Cannot execute filtered query - unable to connect to database');
-    }
-    
-    console.log(`SQLAdapter: Executing filtered query for ${tableName}`);
-    console.log('Filter:', JSON.stringify(filter));
-    
-    // Map the common table names to SQL table names
-    const tableMap: Record<string, string> = {
-      'clients': 'Clients',
-      'employees': 'Employees',
-      'agences': 'Agences',
-      'fournisseurs': 'Fournisseurs', 
-      'produits': 'Produits',
-      'commandes': 'Commandes',
-      'details_commande': 'Details_Commande',
-      'factures': 'Factures',
-      'livraisons': 'Livraisons',
-      'approvisionnements': 'Approvisionnement'
-    };
-
-    // Map generic field names to actual SQL column names per table
-    const fieldMaps: Record<string, Record<string, string>> = {
-        'clients': {
-            'id': 'id_client',
-            'nom_complet': 'nom_complet',
-            'adresse': 'adresse',
-            'email_contact': 'email_contact',
-            'numero_telephone': 'numero_telephone'
-        },
-        'employees': {
-            'id': 'id_employe',
-            'nom_complet': 'nom_complet',
-            'email': 'email',
-            'poste': 'poste',
-            'agence_ref': 'agence_ref' // SQL foreign key
-        },
-        'agences': {
-            'id': 'id_agence',
-            'ville': 'ville',
-            'adresse': 'adresse',
-            'responsable_ref': 'responsable_ref' // SQL foreign key
-        },
-        'fournisseurs': {
-            'id': 'id_fournisseur',
-            'nom_fournisseur': 'nom_fournisseur',
-            'adresse': 'adresse',
-            'numero_telephone': 'numero_telephone'
-        },
-        'produits': {
-            'id': 'id_produit',
-            'description': 'description',
-            'categorie': 'categorie',
-            'prix_cout': 'prix_cout'
-        },
-        'commandes': {
-            'id': 'id_commande',
-            'date_commande': 'date_commande',
-            'montant': 'montant',
-            'statut': 'statut',
-            'mode_paiement': 'mode_paiement',
-            'client_ref': 'client_ref', // SQL foreign key
-            'employe_ref': 'employe_ref' // SQL foreign key
-        },
-        'details_commande': {
-            // Assuming composite key in SQL or separate ID
-            'commande_id': 'id_commande', // SQL foreign key
-            'produit_id': 'id_produit',   // SQL foreign key
-            'quantite': 'quantite'
-        },
-        'factures': {
-            'id': 'id_facture',
-            'montant_total': 'montant_total',
-            'date_facture': 'date_facture',
-            'commande_ref': 'commande_ref' // SQL foreign key
-        },
-        'livraisons': {
-            'id': 'id_livraison',
-            'transporteur': 'transporteur',
-            'date_estimee': 'data_estimee', // Corrected column name based on previous context
-            'statut': 'statut',
-            'commande_ref': 'commande_ref' // SQL foreign key
-        },
-        'approvisionnements': {
-            // Assuming composite key in SQL or separate ID
-            'produit_id': 'id_produit',     // SQL foreign key
-            'fournisseur_id': 'id_fournisseur', // SQL foreign key
-            'quantite': 'quantite'
-        }
-    };
-
-
-    // Get the SQL table name for the primary table
-    const sqlTableName = tableMap[tableName];
-    if (!sqlTableName) {
-      throw new Error(`Unknown table: ${tableName}`);
+    if (!this.connected) {
+      throw new Error('Not connected to SQL database');
     }
 
+    const lowerTableName = tableName.toLowerCase();
+    console.log(`SQLAdapter: executeFilteredQuery for ${lowerTableName} (TS filtering)`);
+
+    let allItemsCollection: any;
+    let CollectionConstructor: any;
+
+    // 1. Fetch ALL data using the appropriate get* method
     try {
-      let sql = 'SELECT ';
-      const mainTableAlias = sqlTableName.charAt(0).toLowerCase(); // e.g., 'c' for Clients
-      const involvedAliases: Record<string, string> = { [tableName]: mainTableAlias }; // Map generic name to alias, e.g., { 'clients': 'c' }
-
-      // --- 1. Build JOIN clause first to identify all aliases ---
-      let joinClause = '';
-      if (filter.joins && filter.joins.length > 0) {
-        for (const join of filter.joins) {
-          const joinGenericTable = join.on.table; // e.g., 'commandes'
-          const joinSqlTable = tableMap[joinGenericTable]; // e.g., 'Commandes'
-
-          if (joinSqlTable && join.on.left && join.on.right) {
-            // Create a unique alias for the joined table, e.g., 'c1'
-            const joinAlias = joinSqlTable.charAt(0).toLowerCase() + Object.keys(involvedAliases).length;
-            involvedAliases[joinGenericTable] = joinAlias; // Add to map, e.g., { 'clients': 'c', 'commandes': 'c1' }
-
-            // Get actual SQL column names from fieldMaps for the join condition
-            const leftSqlField = fieldMaps[tableName]?.[join.on.left.field] || join.on.left.field;
-            const rightSqlField = fieldMaps[joinGenericTable]?.[join.on.right.field] || join.on.right.field;
-
-            joinClause += ` ${join.type || 'INNER'} JOIN ${joinSqlTable} AS ${joinAlias} ON ${mainTableAlias}.${leftSqlField} = ${joinAlias}.${rightSqlField}`;
-          } else {
-             console.warn(`Skipping invalid join definition:`, join);
-          }
-        }
-      }
-
-      // --- 2. Helper to resolve generic column names to aliased SQL columns ---
-      const resolveColumn = (genericColumn: string): string | null => {
-        const trimmedColumn = genericColumn.trim();
-        // Handle aggregate functions or literals first
-        if (trimmedColumn.includes('(') || trimmedColumn.includes('*') || !isNaN(parseFloat(trimmedColumn))) {
-             return trimmedColumn; // Return as is (e.g., COUNT(*), 'literal', 123)
-        }
-
-        // Check main table
-        if (fieldMaps[tableName]?.[trimmedColumn]) {
-            return `${mainTableAlias}.${fieldMaps[tableName][trimmedColumn]}`; // e.g., c.nom_complet
-        }
-        // Check joined tables
-        for (const [genericTable, alias] of Object.entries(involvedAliases)) {
-            if (genericTable !== tableName && fieldMaps[genericTable]?.[trimmedColumn]) {
-                return `${alias}.${fieldMaps[genericTable][trimmedColumn]}`; // e.g., c1.date_commande
-            }
-        }
-        console.warn(`Column '${trimmedColumn}' could not be resolved to any known table/field.`);
-        return null; // Column not found in any involved table's map
-      };
-
-      // --- 3. Build SELECT clause ---
-      let columnsToSelect = '*';
-      if (filter.projections && filter.projections.length > 0 && !filter.projections.includes('*')) {
-        const projectedColumns = filter.projections
-            .map(p => resolveColumn(p)) // Resolve each projection
-            .filter(c => c !== null)    // Filter out unresolved columns
-            .join(', ');
-
-        if (projectedColumns.length > 0) {
-            columnsToSelect = projectedColumns;
-        } else {
-             console.warn("No valid columns found for projection, defaulting to '*'. Filter:", filter.projections);
-             columnsToSelect = `${mainTableAlias}.*`; // Fallback to selecting all from main table if resolution fails
-        }
-      } else {
-          // Default to selecting all columns from the main table if '*' or no projections
-          columnsToSelect = `${mainTableAlias}.*`;
-          // Optionally, select all from joined tables too if needed:
-          // columnsToSelect = Object.values(involvedAliases).map(alias => `${alias}.*`).join(', ');
-      }
-
-      sql += columnsToSelect + ' ';
-      sql += ` FROM ${sqlTableName} AS ${mainTableAlias}`;
-      sql += joinClause; // Add the joins
-
-      // --- 4. Build WHERE clause ---
-      const params: any[] = [];
-      if (filter.conditions && filter.conditions.length > 0) {
-        const whereClauses = filter.conditions.map((condition, index) => {
-            if (condition.type === 'binary_expr') {
-                const columnName = condition.left.column || (typeof condition.left === 'string' ? condition.left : '');
-                const resolvedCol = resolveColumn(columnName); // Resolve column with alias
-                if (resolvedCol) {
-                    params.push(condition.right.value);
-                    return `${resolvedCol} ${condition.operator} ?`; // Use resolved column (e.g., c1.status = ?)
-                } else {
-                     console.warn(`Could not resolve column '${columnName}' for WHERE clause.`);
-                     return null; // Skip condition if column is unknown
-                }
-            }
-            return null; // Skip unsupported condition types
-        }).filter(c => c !== null); // Filter out null/skipped conditions
-
-        if (whereClauses.length > 0) {
-             sql += ` WHERE ${whereClauses.join(' AND ')}`;
-        }
-      }
-
-      // --- 5. Build ORDER BY clause ---
-      if (filter.orderBy && filter.orderBy.length > 0) {
-        const orderClauses = filter.orderBy
-            .map(order => {
-                const resolvedCol = resolveColumn(order.column); // Resolve column with alias
-                return resolvedCol ? `${resolvedCol} ${order.type}` : null; // e.g., c1.date_commande DESC
-            })
-            .filter(c => c !== null) // Filter out unresolved columns
-            .join(', ');
-
-        if (orderClauses.length > 0) {
-             sql += ` ORDER BY ${orderClauses}`;
-        }
-      }
-
-      // --- 6. Build LIMIT clause ---
-      if (filter.limit !== null && filter.limit !== undefined) {
-        sql += ` LIMIT ${filter.limit}`;
-      }
-
-      console.log(`SQLAdapter: Generated SQL: ${sql}`);
-      console.log('Parameters:', params);
-
-      // Execute the query
-      const results = await this.executeQuery<any[]>(sql, params);
-
-      // --- 7. Process results ---
-      // (Keep existing result processing logic, ensuring it uses the correct SQL column names from 'results')
-      let collection;
-      switch(tableName) {
+      switch (lowerTableName) {
         case 'clients':
-          collection = new ClientCollection();
-          for (const row of results) {
-            // Access row data using actual SQL column names
-            const client: Client = {
-              id: `SQL_${row.id_client}`,
-              sourceSystem: this.sourceSystem,
-              nomComplet: row.nom_complet,
-              adresse: row.adresse,
-              emailContact: row.email_contact,
-              numeroTelephone: row.numero_telephone,
-              // Add fields from joined tables if selected and needed
-            };
-            collection.addItem(client);
-          }
+          allItemsCollection = await this.getClients();
+          CollectionConstructor = ClientCollection;
           break;
-        // ... other cases for employees, agences, etc. ...
-        // Ensure each case correctly maps the SQL column names from the 'row' object
-        // to the corresponding DataModel properties. If joins were used,
-        // columns from joined tables might also be present in 'row'.
         case 'employees':
-          collection = new EmployeeCollection();
-          for (const row of results) {
-            const employee: Employee = {
-              id: `SQL_${row.id_employe}`,
-              sourceSystem: this.sourceSystem,
-              nomComplet: row.nom_complet,
-              email: row.email,
-              post: row.poste,
-              agenceRef: row.agence_ref ? `SQL_${row.agence_ref}` : undefined
-            };
-            collection.addItem(employee);
-          }
+          allItemsCollection = await this.getEmployees();
+          CollectionConstructor = EmployeeCollection;
           break;
         case 'agences':
-          collection = new AgenceCollection();
-          for (const row of results) {
-            const agence: Agence = {
-              id: `SQL_${row.id_agence}`,
-              sourceSystem: this.sourceSystem,
-              ville: row.ville,
-              adresse: row.adresse,
-              responsableRef: row.responsable_ref ? `SQL_${row.responsable_ref}` : undefined
-            };
-            collection.addItem(agence);
-          }
+          allItemsCollection = await this.getAgences();
+          CollectionConstructor = AgenceCollection;
           break;
         case 'fournisseurs':
-          collection = new FournisseurCollection();
-          for (const row of results) {
-            const fournisseur: Fournisseur = {
-              id: `SQL_${row.id_fournisseur}`,
-              sourceSystem: this.sourceSystem,
-              nomFournisseur: row.nom_fournisseur,
-              adresse: row.adresse,
-              numeroTelephone: row.numero_telephone
-            };
-            collection.addItem(fournisseur);
-          }
+          allItemsCollection = await this.getFournisseurs();
+          CollectionConstructor = FournisseurCollection;
           break;
         case 'produits':
-          collection = new ProduitCollection();
-          for (const row of results) {
-            const produit: Produit = {
-              id: `SQL_${row.id_produit}`,
-              sourceSystem: this.sourceSystem,
-              description: row.description,
-              prixCout: row.prix_cout,
-              categorie: row.categorie
-            };
-            collection.addItem(produit);
-          }
+          allItemsCollection = await this.getProduits();
+          CollectionConstructor = ProduitCollection;
           break;
         case 'commandes':
-          collection = new CommandeCollection();
-          for (const row of results) {
-            const commande: Commande = {
-              id: `SQL_${row.id_commande}`,
-              sourceSystem: this.sourceSystem,
-              dateCommande: new Date(row.date_commande).toISOString(),
-              montant: row.montant,
-              statut: row.statut,
-              // modePaiement might be missing from SQL schema, add if exists
-              modePaiement: row.mode_paiement,
-              clientRef: `SQL_${row.client_ref}`,
-              employeRef: row.employe_ref ? `SQL_${row.employe_ref}` : undefined
-            };
-            collection.addItem(commande);
-          }
+          allItemsCollection = await this.getCommandes();
+          CollectionConstructor = CommandeCollection;
           break;
         case 'details_commande':
-          collection = new DetailCommandeCollection();
-          for (const row of results) {
-            const detail: DetailCommande = {
-              // Use actual SQL column names for composite ID generation
-              id: `SQL_${row.id_commande}_${row.id_produit}`,
-              sourceSystem: this.sourceSystem,
-              commandeId: `SQL_${row.id_commande}`,
-              produitId: `SQL_${row.id_produit}`,
-              quantite: row.quantite
-            };
-            collection.addItem(detail);
-          }
+          allItemsCollection = await this.getDetailsCommande();
+          CollectionConstructor = DetailCommandeCollection;
           break;
         case 'factures':
-          collection = new FactureCollection();
-          for (const row of results) {
-            const facture: Facture = {
-              id: `SQL_${row.id_facture}`,
-              sourceSystem: this.sourceSystem,
-              montantTotal: row.montant_total,
-              dateFacture: (new Date(row.date_facture)).toISOString(),
-              commandeRef: `SQL_${row.commande_ref}`
-            };
-            collection.addItem(facture);
-          }
+          allItemsCollection = await this.getFactures();
+          CollectionConstructor = FactureCollection;
           break;
         case 'livraisons':
-          collection = new LivraisonCollection();
-          for (const row of results) {
-            const livraison: Livraison = {
-              id: `SQL_${row.id_livraison}`,
-              sourceSystem: this.sourceSystem,
-              // Use correct SQL column name 'data_estimee'
-              dateEstimee: row.data_estimee ? (new Date(row.data_estimee)).toISOString() : undefined,
-              statut: row.statut,
-              commandeRef: `SQL_${row.commande_ref}`,
-              transporteur: row.transporteur
-            };
-            collection.addItem(livraison);
-          }
+          allItemsCollection = await this.getLivraisons();
+          CollectionConstructor = LivraisonCollection;
           break;
         case 'approvisionnements':
-          collection = new ApprovisionnementCollection();
-          for (const row of results) {
-            const approvisionnement: Approvisionnement = {
-              // Use actual SQL column names for composite ID generation
-              id: `SQL_${row.id_produit}_${row.id_fournisseur}`,
-              sourceSystem: this.sourceSystem,
-              produitId: `SQL_${row.id_produit}`,
-              fournisseurId: `SQL_${row.id_fournisseur}`,
-              quantite: row.quantite,
-            };
-            collection.addItem(approvisionnement);
-          }
+          allItemsCollection = await this.getApprovisionnements();
+          CollectionConstructor = ApprovisionnementCollection;
           break;
         default:
-          // Return raw results if no specific collection mapping exists
-          console.warn(`No specific collection mapping for ${tableName}, returning raw results.`);
-          return results;
-          // throw new Error(`Unsupported table for collection mapping: ${tableName}`);
+          throw new Error(`SQLAdapter: Unknown table name: ${tableName}`);
       }
-
-      return collection;
-
     } catch (error) {
-      console.error(`Error executing filtered query for ${tableName}:`, error);
-      throw error; // Re-throw the error after logging
+        console.error(`SQLAdapter: Error fetching all data for ${tableName}:`, error);
+        throw error;
     }
+
+    const allItems = allItemsCollection.getItems();
+    console.log(`SQLAdapter: Fetched ${allItems.length} total items for ${tableName}.`);
+
+    // 2. Apply filtering, sorting, limit, projection using TypeScript helper
+    const filteredItems = applyTypeScriptFilter(allItems, filter);
+    console.log(`SQLAdapter: ${filteredItems.length} items after TS filtering for ${tableName}.`);
+
+    // 3. Create a new collection of the correct type and add filtered items
+    const finalCollection = new CollectionConstructor();
+    for (const item of filteredItems) {
+      finalCollection.addItem(item);
+    }
+
+    return finalCollection;
   }
 }

@@ -380,7 +380,26 @@ export class ComplexQueryProcessor {
           
           // Create table with columns based on the first item's properties
           const firstItem = items[0];
-          const columns = Object.keys(firstItem);
+          
+          // Important change: we'll create a new array of items where BOTH camelCase and snake_case
+          // versions of each property exist, so queries can use either form
+          const enhancedItems = items.map(item => {
+            const enhanced: Record<string, any> = {...item}; // Start with all original properties
+            
+            // Add snake_case versions of camelCase properties if they don't already exist
+            for (const [key, value] of Object.entries(item)) {
+              if (/[A-Z]/.test(key)) { // Only if the key has uppercase letters (assuming it's camelCase)
+                const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+                if (!(snakeKey in enhanced)) {
+                  enhanced[snakeKey] = value;
+                }
+              }
+            }
+            return enhanced;
+          });
+          
+          // Get all unique column names from the enhanced first item
+          const columns = Object.keys(enhancedItems[0]);
           
           console.log(`Creating table ${tableName} with columns: ${columns.join(', ')}`);
           
@@ -391,13 +410,13 @@ export class ComplexQueryProcessor {
           
           alasql(createTableSQL);
           
-          // Insert the data
-          console.log(`Inserting ${items.length} records into table ${tableName}`);
+          // Insert the enhanced data
+          console.log(`Inserting ${enhancedItems.length} records into table ${tableName}`);
           
           // Insert records in batches to prevent issues with large datasets
           const batchSize = 1000;
-          for (let i = 0; i < items.length; i += batchSize) {
-            const batch = items.slice(i, i + batchSize);
+          for (let i = 0; i < enhancedItems.length; i += batchSize) {
+            const batch = enhancedItems.slice(i, i + batchSize);
             alasql.tables[tableName].data = alasql.tables[tableName].data || [];
             alasql.tables[tableName].data.push(...batch);
           }

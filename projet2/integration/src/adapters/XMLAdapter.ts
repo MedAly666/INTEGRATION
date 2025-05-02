@@ -31,6 +31,112 @@ import {
   Approvisionnement
 } from '../common/DataModel';
 
+// Import the shared TypeScript filter function (assuming it's moved to a common location or copied here)
+// For now, let's copy the function definition here
+function applyTypeScriptFilter(items: any[], filter: QueryFilter): any[] {
+    let filteredItems = [...items]; // Start with a copy
+
+    // 1. Apply Conditions (WHERE)
+    if (filter.conditions && filter.conditions.length > 0) {
+        console.log('XMLAdapter: Applying TS Conditions:', filter.conditions);
+        filteredItems = filteredItems.filter(item => {
+            return filter.conditions?.every(condition => {
+                try {
+                    if (condition.type === 'binary_expr' && condition.left.type === 'column_ref') {
+                        const modelField = condition.left.column; // Assumes camelCase
+                        const operator = condition.operator;
+                        const filterValue = condition.right.value;
+                        const itemValue = item[modelField];
+
+                        if (itemValue === undefined || itemValue === null) return false;
+
+                        switch (operator.toUpperCase()) {
+                            case '=': return itemValue == filterValue;
+                            case '!=': return itemValue != filterValue;
+                            case '>': return itemValue > filterValue;
+                            case '<': return itemValue < filterValue;
+                            case '>=': return itemValue >= filterValue;
+                            case '<=': return itemValue <= filterValue;
+                            case 'LIKE':
+                                if (typeof itemValue === 'string' && typeof filterValue === 'string') {
+                                    if (filterValue.startsWith('%') && filterValue.endsWith('%')) {
+                                        return itemValue.toLowerCase().includes(filterValue.substring(1, filterValue.length - 1).toLowerCase());
+                                    } else if (filterValue.endsWith('%')) {
+                                        return itemValue.toLowerCase().startsWith(filterValue.substring(0, filterValue.length - 1).toLowerCase());
+                                    } else if (filterValue.startsWith('%')) {
+                                        return itemValue.toLowerCase().endsWith(filterValue.substring(1).toLowerCase());
+                                    } else {
+                                        return itemValue.toLowerCase() === filterValue.toLowerCase();
+                                    }
+                                }
+                                return false;
+                            default:
+                                console.warn(`XMLAdapter: Unsupported TS filter operator: ${operator}`);
+                                return true;
+                        }
+                    }
+                    console.warn(`XMLAdapter: Unsupported TS filter condition type: ${condition.type}`);
+                    return true;
+                } catch (evalError) {
+                    console.error("Error evaluating TS filter condition:", evalError, "Condition:", condition, "Item:", item);
+                    return false;
+                }
+            });
+        });
+        console.log(`XMLAdapter: ${filteredItems.length} items after TS conditions.`);
+    }
+
+    // 2. Apply Sorting (ORDER BY)
+    if (filter.orderBy && filter.orderBy.length > 0) {
+        console.log('XMLAdapter: Applying TS Sorting:', filter.orderBy);
+        const orderByItems = filter.orderBy; // Create a non-null reference
+        filteredItems.sort((a, b) => {
+            for (const order of orderByItems) {
+                const field = order.column; // Assume camelCase
+                const propA = a[field];
+                const propB = b[field];
+
+                let comparison = 0;
+                if (propA === null || propA === undefined) comparison = (propB === null || propB === undefined) ? 0 : -1;
+                else if (propB === null || propB === undefined) comparison = 1;
+                else if (propA < propB) comparison = -1;
+                else if (propA > propB) comparison = 1;
+
+                if (comparison !== 0) {
+                    return order.type.toUpperCase() === 'DESC' ? -comparison : comparison;
+                }
+            }
+            return 0;
+        });
+    }
+
+    // 3. Apply Limit
+    if (filter.limit !== null && filter.limit !== undefined && filter.limit >= 0) {
+        console.log(`XMLAdapter: Applying TS Limit: ${filter.limit}`);
+        filteredItems = filteredItems.slice(0, filter.limit);
+    }
+
+    // 4. Apply Projections (SELECT)
+    if (filter.projections && filter.projections.length > 0 && !filter.projections.includes('*')) {
+        console.log(`XMLAdapter: Applying TS Projections: ${filter.projections.join(', ')}`);
+        const projections = filter.projections; // Create a non-null reference
+        filteredItems = filteredItems.map(item => {
+            const projectedItem: any = {
+                 id: item.id, // Always include id
+                 sourceSystem: item.sourceSystem // Always include sourceSystem
+            };
+            for (const projField of projections) {
+                 if (item.hasOwnProperty(projField)) {
+                    projectedItem[projField] = item[projField];
+                 }
+            }
+            return projectedItem;
+        });
+    }
+
+    return filteredItems;
+}
+
 export class XMLAdapter implements IAdapter {
   private connected: boolean = false;
   private sourceSystem: string = 'XML';
@@ -62,103 +168,78 @@ export class XMLAdapter implements IAdapter {
     if (!this.connected) {
       throw new Error('Not connected to XML data source');
     }
-    
-    let results: any;
-    
-    // Get the appropriate collection based on tableName
-    switch (tableName.toLowerCase()) {
-      case 'clients':
-        results = await this.getClients();
-        break;
-      case 'employees':
-        results = await this.getEmployees();
-        break;
-      case 'agences':
-        results = await this.getAgences();
-        break;
-      case 'fournisseurs':
-        results = await this.getFournisseurs();
-        break;
-      case 'produits':
-        results = await this.getProduits();
-        break;
-      case 'commandes':
-        results = await this.getCommandes();
-        break;
-      case 'details_commande':
-        results = await this.getDetailsCommande();
-        break;
-      case 'factures':
-        results = await this.getFactures();
-        break;
-      case 'livraisons':
-        results = await this.getLivraisons();
-        break;
-      case 'approvisionnements':
-        results = await this.getApprovisionnements();
-        break;
-      default:
-        throw new Error(`Unknown table name: ${tableName}`);
+
+    const lowerTableName = tableName.toLowerCase();
+    console.log(`XMLAdapter: executeFilteredQuery for ${lowerTableName} (TS filtering)`);
+
+    let allItemsCollection: any;
+    let CollectionConstructor: any;
+
+    // 1. Fetch ALL data using the appropriate get* method
+    try {
+      switch (lowerTableName) {
+        case 'clients':
+          allItemsCollection = await this.getClients();
+          CollectionConstructor = ClientCollection;
+          break;
+        case 'employees':
+          allItemsCollection = await this.getEmployees();
+          CollectionConstructor = EmployeeCollection;
+          break;
+        case 'agences':
+          allItemsCollection = await this.getAgences();
+          CollectionConstructor = AgenceCollection;
+          break;
+        case 'fournisseurs':
+          allItemsCollection = await this.getFournisseurs();
+          CollectionConstructor = FournisseurCollection;
+          break;
+        case 'produits':
+          allItemsCollection = await this.getProduits();
+          CollectionConstructor = ProduitCollection;
+          break;
+        case 'commandes':
+          allItemsCollection = await this.getCommandes();
+          CollectionConstructor = CommandeCollection;
+          break;
+        case 'details_commande':
+          allItemsCollection = await this.getDetailsCommande();
+          CollectionConstructor = DetailCommandeCollection;
+          break;
+        case 'factures':
+          allItemsCollection = await this.getFactures();
+          CollectionConstructor = FactureCollection;
+          break;
+        case 'livraisons':
+          allItemsCollection = await this.getLivraisons();
+          CollectionConstructor = LivraisonCollection;
+          break;
+        case 'approvisionnements':
+          allItemsCollection = await this.getApprovisionnements();
+          CollectionConstructor = ApprovisionnementCollection;
+          break;
+        default:
+          throw new Error(`XMLAdapter: Unknown table name: ${tableName}`);
+      }
+    } catch (error) {
+        console.error(`XMLAdapter: Error fetching all data for ${tableName}:`, error);
+        throw error;
     }
-    
-    // If no filter provided, return all results
-    if (!filter || Object.keys(filter).length === 0) {
-      return results;
-    }
-    
-    // Apply filtering - only if there's a limit, otherwise return all items
-    let filteredItems = results.getItems();
-    
-    // Apply limit filter if present
-    if (filter.limit && typeof filter.limit === 'number') {
-      filteredItems = filteredItems.slice(0, filter.limit);
-    }
-    
-    // Create a new collection of the same type
-    // Instead of using clone(), create a new collection of the appropriate type
-    let newCollection;
-    
-    switch (tableName.toLowerCase()) {
-      case 'clients':
-        newCollection = new ClientCollection();
-        break;
-      case 'employees':
-        newCollection = new EmployeeCollection();
-        break;
-      case 'agences':
-        newCollection = new AgenceCollection();
-        break;
-      case 'fournisseurs':
-        newCollection = new FournisseurCollection();
-        break;
-      case 'produits':
-        newCollection = new ProduitCollection();
-        break;
-      case 'commandes':
-        newCollection = new CommandeCollection();
-        break;
-      case 'details_commande':
-        newCollection = new DetailCommandeCollection();
-        break;
-      case 'factures':
-        newCollection = new FactureCollection();
-        break;
-      case 'livraisons':
-        newCollection = new LivraisonCollection();
-        break;
-      case 'approvisionnements':
-        newCollection = new ApprovisionnementCollection();
-        break;
-      default:
-        throw new Error(`Unknown table name: ${tableName}`);
-    }
-    
-    // Add filtered items to the new collection
+
+    const allItems = allItemsCollection.getItems();
+    console.log(`XMLAdapter: Fetched ${allItems.length} total items for ${tableName}.`);
+
+    // 2. Apply filtering, sorting, limit, projection using TypeScript helper
+    const filteredItems = applyTypeScriptFilter(allItems, filter);
+    console.log(`XMLAdapter: ${filteredItems.length} items after TS filtering for ${tableName}.`);
+
+    // 3. Create a new collection of the correct type and add filtered items
+    const finalCollection = new CollectionConstructor();
     for (const item of filteredItems) {
-      newCollection.addItem(item);
+      finalCollection.addItem(item);
     }
-    
-    return newCollection;
+
+    return finalCollection;
   }
 
   /**
