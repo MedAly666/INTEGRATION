@@ -18,6 +18,7 @@ import {
   ApprovisionnementCollection, Approvisionnement
 } from '../common/DataModel';
 import { SourceDescription, EntityAvailability, SourceCapabilities } from '../common/SourceDescription';
+import { formatDate } from '../common/DateUtils';
 
 export class SQLAdapter implements IAdapter {
   private pool: MariaDBPool | null = null;
@@ -924,7 +925,7 @@ export class SQLAdapter implements IAdapter {
           const commande = new Commande({
             idCommande: row.idCommande || `SQL_${row.id_commande || row.id}`,
             sourceSystem: this.sourceSystem,
-            dateCommande: row.dateCommande || row.date_commande || row.date,
+            dateCommande: formatDate(row.dateCommande || row.date_commande || row.date),
             montant: row.montant || 0,
             statut: row.statut || '',
             modePaiement: row.modePaiement || row.mode_paiement || row.mode_paiment,
@@ -958,7 +959,7 @@ export class SQLAdapter implements IAdapter {
             idFacture: row.idFacture || `SQL_${row.id_facture || row.id}`,
             sourceSystem: this.sourceSystem,
             montantTotal: row.montantTotal || row.montant_total || row.montant || 0,
-            dateFacture: row.dateFacture || row.date_facture || row.date,
+            dateFacture: formatDate(row.dateFacture || row.date_facture || row.date),
             commandeRef: row.commandeRef || (row.commande_ref ? `SQL_${row.commande_ref}` : null)
           });
           factureCollection.addItem(facture);
@@ -972,7 +973,7 @@ export class SQLAdapter implements IAdapter {
             idLivraison: row.idLivraison || `SQL_${row.id_livraison || row.id}`,
             sourceSystem: this.sourceSystem,
             transporteur: row.transporteur || '',
-            dateEstimee: row.dateEstimee || row.date_estimee || row.date_estimee,
+            dateEstimee: formatDate(row.dateEstimee || row.date_estimee || row.date),
             statut: row.statut || '',
             commandeRef: row.commandeRef || (row.commande_ref ? `SQL_${row.commande_ref}` : null)
           });

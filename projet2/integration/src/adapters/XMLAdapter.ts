@@ -1,6 +1,6 @@
 /**
  * XMLAdapter.ts
- * Adapter for XML data sources using xmldom and xpath packages
+ * Adapter for XML data sources
  */
 
 import fs from 'fs';
@@ -17,9 +17,10 @@ import {
   DetailCommandeCollection, DetailCommande,
   FactureCollection, Facture,
   LivraisonCollection, Livraison,
-  AgenceCollection
+  AgenceCollection, Agence
 } from '../common/DataModel';
 import { SourceDescription, EntityAvailability, SourceCapabilities } from '../common/SourceDescription';
+import { formatDate, formatDateTime, parseDate } from '../common/DateUtils';
 
 export class XMLAdapter implements IAdapter {
   private xmlDoc: Document | null = null;
@@ -477,7 +478,7 @@ export class XMLAdapter implements IAdapter {
       (node: Element): Commande => ({
         idCommande: `XML_${this.getNodeAttribute(node, 'id')}`,
         sourceSystem: this.sourceSystem,
-        dateCommande: this.getNodeText(node, 'date'),
+        dateCommande: formatDate(this.getNodeText(node, 'date')),
         montant: parseFloat(this.getNodeText(node, 'montant', '0')),
         statut: this.getNodeText(node, 'statut'),
         modePaiement: this.getNodeText(node, 'mode_paiement'),
@@ -530,7 +531,7 @@ export class XMLAdapter implements IAdapter {
         idFacture: `XML_${this.getNodeAttribute(node, 'id')}`,
         sourceSystem: this.sourceSystem,
         montantTotal: parseFloat(this.getNodeText(node, 'montant', '0')),
-        dateFacture: this.getNodeText(node, 'date'),
+        dateFacture: formatDate(this.getNodeText(node, 'date')),
         commandeRef: `XML_${this.getNodeAttribute(node, 'commandeID')}`
       }),
       FactureCollection
@@ -552,7 +553,9 @@ export class XMLAdapter implements IAdapter {
         idLivraison: `XML_${this.getNodeAttribute(node, 'id')}`,
         sourceSystem: this.sourceSystem,
         transporteur: this.getNodeText(node, 'transporteur'),
-        dateEstimee: undefined,  // XML data might not have this
+        dateEstimee: this.getNodeAttribute(node, 'date_estimee') ? 
+          formatDate(this.getNodeAttribute(node, 'date_estimee')) : 
+          undefined,
         statut: this.getNodeText(node, 'statut'),
         commandeRef: `XML_${this.getNodeAttribute(node, 'commandeID')}`
       }),

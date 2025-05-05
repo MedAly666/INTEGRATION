@@ -19,6 +19,7 @@ import {
   ApprovisionnementCollection, Approvisionnement
 } from '../common/DataModel';
 import { SourceDescription, EntityAvailability, SourceCapabilities } from '../common/SourceDescription';
+import { formatDate, formatDateTime, parseDate } from '../common/DateUtils';
 
 export class Neo4jAdapter implements IAdapter {
   private driver: Driver | null = null;
@@ -821,7 +822,7 @@ export class Neo4jAdapter implements IAdapter {
           const commande = new Commande({
             idCommande: `NEO_${row.id}`,
             sourceSystem: this.sourceSystem,
-            dateCommande: row.date,
+            dateCommande: row.date ? formatDate(row.date) : '',
             montant: row.montant || 0,
             statut: row.statut || '',
             modePaiement: row.mode_paiement || ''
@@ -851,7 +852,7 @@ export class Neo4jAdapter implements IAdapter {
             idFacture: `NEO_${row.id}`,
             sourceSystem: this.sourceSystem,
             montantTotal: row.montant_total || 0,
-            dateFacture: row.date
+            dateFacture: row.date ? formatDate(row.date) : ''
           });
           factureCollection.addItem(facture);
         }
@@ -864,7 +865,7 @@ export class Neo4jAdapter implements IAdapter {
             idLivraison: `NEO_${row.id}`,
             sourceSystem: this.sourceSystem,
             transporteur: row.transporteur || '',
-            dateEstimee: row.date_estimee,
+            dateEstimee: row.date_estimee ? formatDate(row.date_estimee) : '',
             statut: row.statut || ''
           });
           livraisonCollection.addItem(livraison);
@@ -1138,5 +1139,164 @@ export class Neo4jAdapter implements IAdapter {
     return filter ? 
       this.executeFilteredQuery('approvisionnements', filter) : 
       this.executeFilteredQuery('approvisionnements', {});
+  }
+
+  private convertRecordsToCollection(entityType: string, records: any[]): any {
+    // Normalize the entity type to handle plurals and casing
+    const normalizedEntityType = entityType.toLowerCase().replace(/s$/, '');
+    
+    switch (normalizedEntityType) {
+      case 'client':
+        const clientCollection = new ClientCollection();
+        for (const record of records) {
+          const client = new Client({
+            idClient: `Neo4j_${record.id}`,
+            sourceSystem: this.sourceSystem,
+            nomComplet: record.nom || '',
+            adresse: record.adresse || '',
+            emailContact: record.email || '',
+            numeroTelephone: record.telephone || ''
+          });
+          clientCollection.addItem(client);
+        }
+        return clientCollection;
+        
+      case 'employe':
+      case 'employee':
+        const employeeCollection = new EmployeeCollection();
+        for (const record of records) {
+          const employee = new Employee({
+            idEmploye: `Neo4j_${record.id}`,
+            sourceSystem: this.sourceSystem,
+            nomComplet: record.nom || '',
+            email: record.email || '',
+            poste: record.poste || '',
+            agenceRef: record.agence_id ? `Neo4j_${record.agence_id}` : null
+          });
+          employeeCollection.addItem(employee);
+        }
+        return employeeCollection;
+        
+      case 'agence':
+        const agenceCollection = new AgenceCollection();
+        for (const record of records) {
+          const agence = new Agence({
+            idAgence: `Neo4j_${record.id}`,
+            sourceSystem: this.sourceSystem,
+            ville: record.ville || '',
+            adresse: record.adresse || '',
+            responsableRef: record.responsable_id ? `Neo4j_${record.responsable_id}` : null
+          });
+          agenceCollection.addItem(agence);
+        }
+        return agenceCollection;
+        
+      case 'fournisseur':
+        const fournisseurCollection = new FournisseurCollection();
+        for (const record of records) {
+          const fournisseur = new Fournisseur({
+            idFournisseur: `Neo4j_${record.id}`,
+            sourceSystem: this.sourceSystem,
+            nomFournisseur: record.nom || '',
+            adresse: record.adresse || '',
+            numeroTelephone: record.telephone || ''
+          });
+          fournisseurCollection.addItem(fournisseur);
+        }
+        return fournisseurCollection;
+        
+      case 'produit':
+        const produitCollection = new ProduitCollection();
+        for (const record of records) {
+          const produit = new Produit({
+            idProduit: `Neo4j_${record.id}`,
+            sourceSystem: this.sourceSystem,
+            description: record.description || '',
+            prixCout: record.prix || 0,
+            categorie: record.categorie || ''
+          });
+          produitCollection.addItem(produit);
+        }
+        return produitCollection;
+        
+      case 'commande':
+        const commandeCollection = new CommandeCollection();
+        for (const record of records) {
+          const commande = new Commande({
+            idCommande: `Neo4j_${record.id}`,
+            sourceSystem: this.sourceSystem,
+            dateCommande: formatDate(record.date),
+            montant: record.montant || 0,
+            statut: record.statut || '',
+            modePaiement: record.mode_paiement || '',
+            clientRef: record.client_id ? `Neo4j_${record.client_id}` : null,
+            employeRef: record.employe_id ? `Neo4j_${record.employe_id}` : null
+          });
+          commandeCollection.addItem(commande);
+        }
+        return commandeCollection;
+        
+      case 'detail_commande':
+      case 'details_commande':
+      case 'detailscommande':
+      case 'detailcommande':
+        const detailCommandeCollection = new DetailCommandeCollection();
+        for (const record of records) {
+          const detailCommande = new DetailCommande({
+            idCommande: `Neo4j_${record.commande_id}`,
+            idProduit: `Neo4j_${record.produit_id}`,
+            sourceSystem: this.sourceSystem,
+            quantite: record.quantite || 0
+          });
+          detailCommandeCollection.addItem(detailCommande);
+        }
+        return detailCommandeCollection;
+        
+      case 'facture':
+        const factureCollection = new FactureCollection();
+        for (const record of records) {
+          const facture = new Facture({
+            idFacture: `Neo4j_${record.id}`,
+            sourceSystem: this.sourceSystem,
+            montantTotal: record.montant || 0,
+            dateFacture: formatDate(record.date),
+            commandeRef: record.commande_id ? `Neo4j_${record.commande_id}` : null
+          });
+          factureCollection.addItem(facture);
+        }
+        return factureCollection;
+        
+      case 'livraison':
+        const livraisonCollection = new LivraisonCollection();
+        for (const record of records) {
+          const livraison = new Livraison({
+            idLivraison: `Neo4j_${record.id}`,
+            sourceSystem: this.sourceSystem,
+            transporteur: record.transporteur || '',
+            dateEstimee: formatDate(record.date_estimee),
+            statut: record.statut || '',
+            commandeRef: record.commande_id ? `Neo4j_${record.commande_id}` : null
+          });
+          livraisonCollection.addItem(livraison);
+        }
+        return livraisonCollection;
+        
+      case 'approvisionnement':
+        const approvisionnementCollection = new ApprovisionnementCollection();
+        for (const record of records) {
+          const approvisionnement = new Approvisionnement({
+            idProduit: `Neo4j_${record.produit_id}`,
+            idFournisseur: `Neo4j_${record.fournisseur_id}`,
+            sourceSystem: this.sourceSystem,
+            quantite: record.quantite || 0
+          });
+          approvisionnementCollection.addItem(approvisionnement);
+        }
+        return approvisionnementCollection;
+        
+      default:
+        console.warn(`Unknown entity type: ${entityType}, returning original records`);
+        return records;
+    }
   }
 }

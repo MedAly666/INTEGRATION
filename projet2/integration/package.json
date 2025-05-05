@@ -11,6 +11,7 @@
     "test-sql": "bun run src/test-sql-query.ts"
   },
   "dependencies": {
+    "@xmldom/xmldom": "^0.9.8",
     "alasql": "^4.6.6",
     "fast-xml-parser": "^4.3.0",
     "mariadb": "^3.4.2",
