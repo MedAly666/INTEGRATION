@@ -332,17 +332,17 @@ export class Neo4jAdapter implements IAdapter {
               o.mode_paiement as mode_paiement, c.id_client as client_id, e.id_employe as employe_id`;
           break;
         case 'details_commande':
-          query = `MATCH (c:Commande)-[d:CONTIENT]->(p:Produit) RETURN c.id_commande as commande_id, p.id_produit as produit_id, d.quantite as quantite`;
+          query = `MATCH (c:Commande)-[d:DETAIL]->(p:Produit) RETURN c.id_commande as id_commande, p.id_produit as produit_id, d.quantite as quantite`;
           break;
         case 'factures':
-          query = `MATCH (f:Facture)-[:POUR]->(c:Commande) RETURN f.id_facture as id, f.montant_total as montant_total, f.date as date, c.id_commande as commande_ref`;
+          query = `MATCH (c:Commande)-[:FACTURE]->(f:Facture) RETURN f.id_facture as id, f.montant_total as montant_total, f.date as date, c.id_commande as commande_ref`;
           break;
         case 'livraisons':
-          query = `MATCH (l:Livraison)-[:POUR]->(c:Commande) RETURN l.id_livraison as id, l.transporteur as transporteur, 
-              l.date_estimee as date_estimee, l.statut, c.id_commande as commande_ref`;
+          query = `MATCH (c:Commande)-[:LIVREE_PAR]->(l:Livraison) RETURN l.id_livraison as id, l.transporteur as transporteur, 
+              l.date_estimee as date_estimee, l.statut as statut, c.id_commande as commande_ref`;
           break;
         case 'approvisionnements':
-          query = `MATCH (f:Fournisseur)-[a:FOURNIT]->(p:Produit) RETURN p.id_produit as produit_id, f.id_fournisseur as fournisseur_id, a.quantite as quantite`;
+          query = `MATCH (p:Produit)-[a:FOURNI_PAR]->(f:Fournisseur) RETURN p.id_produit as produit_id, f.id_fournisseur as fournisseur_id, a.quantite as quantite`;
           break;
         default:
           throw new Error(`Unknown entity type: ${entityName}`);
@@ -732,6 +732,8 @@ export class Neo4jAdapter implements IAdapter {
    * @returns Collection of the appropriate type
    */
   private convertCypherResultToCollection(entityName: string, records: Neo4jRecord[]): any {
+
+    
     // Normalize the entity name
     const normalizedEntityName = entityName.toLowerCase().replace(/s$/, '');
     
@@ -745,6 +747,10 @@ export class Neo4jAdapter implements IAdapter {
       obj.sourceSystem = this.sourceSystem;
       return obj;
     });
+
+
+
+    
     
     switch (normalizedEntityName) {
       case 'client':
@@ -820,7 +826,7 @@ export class Neo4jAdapter implements IAdapter {
         
       case 'commande':
         const commandeCollection = new CommandeCollection();
-        for (const row of results) {
+        for (const row of results) {         
           const commande = new Commande({
             idCommande: `NEO_${row.id}`,
             sourceSystem: this.sourceSystem,
@@ -836,11 +842,11 @@ export class Neo4jAdapter implements IAdapter {
         return commandeCollection;
         
       case 'detail_commande':
-      case 'detailcommande':
+      case 'details_commande':
         const detailCommandeCollection = new DetailCommandeCollection();
         for (const row of results) {
           const detailCommande = new DetailCommande({
-            idCommande: `NEO_${row.commande_id || row.idCommande}`,
+            idCommande: `NEO_${ row.id_commande || row.commande_id || row.idCommande}`,
             idProduit: `NEO_${row.produit_id || row.idProduit}`,
             sourceSystem: this.sourceSystem,
             quantite: row.quantite || 0
@@ -877,6 +883,20 @@ export class Neo4jAdapter implements IAdapter {
           livraisonCollection.addItem(livraison);
         }
         return livraisonCollection;
+      
+      case 'approvisionnement':
+        const approvisionnementCollection = new ApprovisionnementCollection();
+        for (const row of results) {
+          const approvisionnement = new Approvisionnement({
+            idProduit: `NEO_${row.produit_id}`,
+            idFournisseur: `NEO_${row.fournisseur_id}`,
+            sourceSystem: this.sourceSystem,
+            quantite: row.quantite.low || 0
+          });
+          approvisionnementCollection.addItem(approvisionnement);
+        }
+        return approvisionnementCollection;
+      
         
       default:
         console.warn(`Unknown entity type: ${entityName}, returning empty array`);
@@ -1287,7 +1307,7 @@ export class Neo4jAdapter implements IAdapter {
         }
         return livraisonCollection;
         
-      case 'approvisionnement':
+      case 'approvisionnements':
         const approvisionnementCollection = new ApprovisionnementCollection();
         for (const record of records) {
           const approvisionnement = new Approvisionnement({

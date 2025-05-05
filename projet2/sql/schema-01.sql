@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS Livraisons (
 );
 
 -- Create the Approvisionnement table
-CREATE TABLE IF NOT EXISTS Approvisionnement (
+CREATE TABLE IF NOT EXISTS Approvisionnements (
     id_produit INT,
     id_fournisseur INT,
     quantite INT,

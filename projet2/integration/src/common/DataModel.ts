@@ -41,7 +41,7 @@ export interface Employee extends BaseEntity {
   idEmploye: string;
   nomComplet: string;
   email?: string;
-  post?: string;
+  poste?: string;
   salaire?: number;
   agenceRef?: string;
 }
@@ -51,7 +51,7 @@ export class Employee implements Employee {
   idEmploye: string;
   nomComplet: string;
   email?: string;
-  post?: string;
+  poste?: string;
   salaire?: number;
   agenceRef?: string;
   sourceSystem: string;
@@ -60,7 +60,7 @@ export class Employee implements Employee {
     this.idEmploye = data.idEmploye || '';
     this.nomComplet = data.nomComplet || '';
     this.email = data.email;
-    this.post = data.post;
+    this.poste = data.poste;
     this.salaire = data.salaire;
     this.agenceRef = data.agenceRef;
     this.sourceSystem = data.sourceSystem || 'unknown';

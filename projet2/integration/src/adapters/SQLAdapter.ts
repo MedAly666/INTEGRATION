@@ -46,7 +46,7 @@ export class SQLAdapter implements IAdapter {
       'details_commande': 'Details_Commande',
       'factures': 'Factures',
       'livraisons': 'Livraisons',
-      'approvisionnement': 'Approvisionnement'
+      'approvisionnements': 'Approvisionnements'
     }
     // Additional source schemas can be added here
   };
@@ -239,7 +239,7 @@ export class SQLAdapter implements IAdapter {
         attributes: ['id_livraison', 'transporteur', 'date_estimee', 'statut', 'commande_ref']
       },
       {
-        entityName: 'Approvisionnement',
+        entityName: 'Approvisionnements',
         isComplete: true,
         attributes: ['id_produit', 'id_fournisseur', 'quantite']
       }
@@ -605,7 +605,7 @@ export class SQLAdapter implements IAdapter {
       'Commandes': 'id_commande',
       'Details_Commande': 'id_commande, id_produit',      'Factures': 'id_facture',
       'Livraisons': 'id_livraison',
-      'Approvisionnement': 'id_produit, id_fournisseur'    };
+      'Approvisionnements': 'id_produit, id_fournisseur'    };
     
     return tableMap[tableName] || 'id';
   }
@@ -719,7 +719,7 @@ export class SQLAdapter implements IAdapter {
       'details_commande': detailCommandeColumns,
       'factures': factureColumns,
       'livraisons': livraisonColumns,
-      'approvisionnement': approvisionnementColumns
+      'approvisionnements': approvisionnementColumns
     };
     
     // Check if the column belongs to the specified table
@@ -826,7 +826,7 @@ export class SQLAdapter implements IAdapter {
         return new FactureCollection();
       case 'livraison':
         return new LivraisonCollection();
-      case 'approvisionnement':
+      case 'approvisionnements':
         return new ApprovisionnementCollection();
       default:
         console.warn(`Unknown table type: ${tableName}, returning empty array`);
@@ -981,7 +981,7 @@ export class SQLAdapter implements IAdapter {
         }
         return livraisonCollection;
         
-      case 'approvisionnement':
+      case 'approvisionnements':
         const approvisionnementCollection = new ApprovisionnementCollection();
         for (const row of results) {
           const approvisionnement = new Approvisionnement({

@@ -146,7 +146,7 @@ INSERT INTO Livraisons (id_livraison, transporteur, date_estimee, statut, comman
 (15, 'UPS', '2023-08-05', 'Non expédié', 15);
 
 -- Insert data into Approvisionnement table
-INSERT INTO Approvisionnement (id_produit, id_fournisseur, quantite) VALUES
+INSERT INTO Approvisionnements (id_produit, id_fournisseur, quantite) VALUES
 (1, 1, 50),
 (2, 4, 75),
 (3, 1, 40),

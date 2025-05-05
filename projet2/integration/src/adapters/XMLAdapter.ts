@@ -405,7 +405,7 @@ export class XMLAdapter implements IAdapter {
         sourceSystem: this.sourceSystem,
         nomComplet: this.getNodeText(node, 'nom'),
         email: this.getNodeText(node, 'email'),
-        post: '',  // XML data might not have this
+        poste: '',  // XML data might not have this
         agenceRef: undefined  // XML data might not have this relationship
       }),
       EmployeeCollection
