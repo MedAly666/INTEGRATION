@@ -3,7 +3,6 @@
  * Interface for all data source adapters
  */
 
-import { log } from 'console';
 import {
   ClientCollection,
   EmployeeCollection,
@@ -90,7 +89,17 @@ export function applyTypeScriptFilter(items: any[], filter: QueryFilter): any[] 
                   const [start, end] = filterValue;
                   return itemValue >= start && itemValue <= end;
                 }
-                return false;                
+                return false; 
+              case 'IS NULL':
+                return itemValue === null;
+              case 'IS NOT NULL':
+                return itemValue !== null;
+              case 'IS':
+                if (typeof filterValue === 'string') {
+                  return itemValue.toString().toLowerCase() === filterValue.toLowerCase();
+                }
+                return false;
+
               default: 
                 console.warn(`Unsupported TS filter operator: ${operator}`);
                 return true; // Be permissive

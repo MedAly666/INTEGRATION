@@ -294,7 +294,7 @@ export class Neo4jAdapter implements IAdapter {
     // Special handling for JOIN operations
     if (filter && filter.joins && filter.joins.length > 0) {
       // For JOIN queries, only return the specific entity data needed for this adapter
-      return this.executeJoinAwareQuery(entityName, filter);
+      //return this.executeJoinAwareQuery(entityName, filter);
     }
     
     // Create a non-recursive implementation to prevent stack overflow
@@ -395,7 +395,7 @@ export class Neo4jAdapter implements IAdapter {
           break;
         case 'factures':
           query = `
-            MATCH (f:Facture) 
+            MATCH (c:Commande)-[:FACTURE]->(f:Facture) 
           `;
           returnClause = this.buildReturnClauseForFacture();
           break;
@@ -407,7 +407,7 @@ export class Neo4jAdapter implements IAdapter {
           break;
         case 'livraisons':
           query = `
-            MATCH (l:Livraison)
+            MATCH (c:Commande)-[:LIVREE_PAR]->(l:Livraison)
           `;
           returnClause = this.buildReturnClauseForLivraison();
           break;
@@ -463,14 +463,17 @@ export class Neo4jAdapter implements IAdapter {
    * Build the appropriate RETURN clause for Facture nodes
    */
   private buildReturnClauseForFacture(): string {
-    return `RETURN f.id_facture as id, f.montant_total as montant_total, f.date as date, f.commande_ref as commande_ref`;
+    return `RETURN f.id_facture as id, f.montant_total as montant_total, f.date as date, c.id_commande as commande_ref`
   }
   
   /**
    * Build the appropriate RETURN clause for Commande nodes
    */
   private buildReturnClauseForCommande(): string {
-    return `RETURN o.id_commande as id, o.date as date, o.montant as montant, o.statut as statut, o.mode_paiement as mode_paiement, o.client_ref as client_ref, o.employe_ref as employe_ref`;
+    return `OPTIONAL MATCH (c:Client)-[:PASSE]->(o)
+              OPTIONAL MATCH (e:Employe)-[:GERE]->(o) 
+              RETURN o.id_commande as id, o.date as date, o.montant as montant, o.statut as statut, 
+              o.mode_paiement as mode_paiement, c.id_client as client_id, e.id_employe as employe_id`;
   }
   
   /**
@@ -484,7 +487,12 @@ export class Neo4jAdapter implements IAdapter {
    * Build the appropriate RETURN clause for Livraison nodes
    */
   private buildReturnClauseForLivraison(): string {
-    return `RETURN l.id_livraison as id, l.transporteur as transporteur, l.date_estimee as date_estimee, l.statut as statut, l.commande_ref as commande_ref`;
+    return `RETURN
+      l.id_livraison as id,
+      l.transporteur as transporteur, 
+      l.date_estimee as date_estimee,
+      l.statut as statut,
+      c.id_commande as commande_ref`;
   }
   
   /**
@@ -849,7 +857,7 @@ export class Neo4jAdapter implements IAdapter {
             idCommande: `NEO_${ row.id_commande || row.commande_id || row.idCommande}`,
             idProduit: `NEO_${row.produit_id || row.idProduit}`,
             sourceSystem: this.sourceSystem,
-            quantite: row.quantite || 0
+            quantite: row.quantite.low || 0
           });
           detailCommandeCollection.addItem(detailCommande);
         }
