@@ -16,6 +16,7 @@ import {
   LivraisonCollection,
   ApprovisionnementCollection
 } from '../common/DataModel';
+import { SourceDescription } from '../common/SourceDescription';
 
 /**
  * Query filter structure that adapters can use to filter data
@@ -247,6 +248,35 @@ export interface IAdapter {
    * Get the source system identifier
    */
   getSourceSystem(): string;
+  
+  /**
+   * Get detailed source description including capabilities and available data
+   * This is important for the mediator to locate relevant information
+   * as described in the course material
+   */
+  getSourceDescription(): SourceDescription;
+  
+  /**
+   * Check if this adapter can handle a specific query
+   * Allows the mediator to determine if this adapter can process the requested operation
+   * before sending the query
+   * 
+   * @param filter Query filter to check
+   * @param entityName Entity/table being queried
+   * @returns Whether this adapter can handle the query
+   */
+  canHandleQuery(filter: QueryFilter, entityName: string): boolean;
+  
+  /**
+   * Translate a global query into source-specific query
+   * This follows the GAV approach where queries on the global schema
+   * are translated to queries on the source schemas
+   * 
+   * @param filter Query filter in global schema terms
+   * @param entityName Entity name in global schema
+   * @returns Source-specific query object
+   */
+  translateQuery(filter: QueryFilter, entityName: string): any;
   
   /**
    * Fetch clients data 

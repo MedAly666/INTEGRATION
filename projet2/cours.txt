@@ -1,0 +1,1848 @@
+I - Problématique de
+l'intégration des
+données
+I
+Contexte général 5
+Motivations 6
+Où est la difficulté ? 8
+Hétérogénéité des données 9
+Distribution des données 12
+Autonomie 13
+Cadre formel pour l'intégration des données 13
+Références bibliographiques 14
+A. Contexte général
+État des lieux
+Deux phénomènes majeurs :
+ Mondialisation conduit à la globalisation des données et des ressources
+(fusion d'entreprises, systèmes inter-organisationnels, ...etc.)
+ Internet et le WWW ont révolutionné les modes d'accès au données.
+Conséquences
+ Environnement informationnel actuel se caractérise par une forte distribution
+des données.
+ Nécessité de construire des ponts sémantiques entre les différentes sources.
+ Intégration de données.
+Où est le problème ? ?
+ Sources d'information sont nombreuses diversifiées (SGBDR, SGBDO, XML,
+fichiers texte, pages Web, etc.)
+ Les modes de consultation diffèrent en fonction des sources
+- Interrogation : Langages et modes de requêtes différents (SQL, moteurs
+de recherche, programme d'applications...)
+- Restitution : Différentes présentations des résultats des requêtes : pages
+Web, tableurs, relations...
+5
+ Les modes d'interaction diffèrent également
+- Protocoles de communication (JDBC, ODBC, IIOP)
+- Différentes interfaces (interface de programmation, interface graphique,
+invites, etc.)
+Exemple
+B. Motivations
+Exemple : Entreprise en expansion
+L'exemple ci dessous est extrait de [1] :
+FullServe compagnie américaine spécialisée dans :
+ Fourniture d'accès internet,
+ Vente de produits informatiques (routeur, modem,...etc.)
+FullServe décide de s'étendre en Europe par l'acquisition de la compagnie
+européenne EuroCard spécialisée dans la fourniture de cartes de crédit.
+Une partie de la base de données de FullServe
+Quelles sont les principales différences entre les deux bases de données ? ? ?
+Besoins de données intégrées : Peut on travailler sur deux bases de données sans
+intégration ? ?
+ Requêtes sur l'ensemble des employés (USA+ Europe)
+ Avoir une vue globale sur les clients (360°)
+ Création d'un site avec vue entière sur les produits de l'entreprise
+Problématique de l'intégration des donnéesProblématique de l'intégration des données
+66
+Problématique de l'intégration des données
+6
+ Besoins d'aide à la décision (exemple taux de réclamation élevé à cause
+d'une mauvaise formation des agents)
+Exemple : Recherche d'emploi sur un ensemble de sites web
+Plusieurs sites d'offre d'emploi utilisent des attributs différents comme mots clés de
+recherche, et des modes d'accès différents [1].
+Définition : Intégration de données
+L'intégration de données consiste à fournir un accès uniforme à des sources
+multiples autonomes hétérogènes structurées.
+Décortiquons la définition...
+ un accès : (requêtes, éventuellement mises à jour)
+ uniforme : (les sources sont transparentes à l'utilisateur)
+ à des sources : (pas seulement des BD)
+ multiples : (même 2 est un problème, mais l'objectif final est d'arriver à une
+intégration à l'échelle du web : web_scale integration)
+ autonomes : (sans affecter le comportement des sources)
+ hétérogènes : (différents modèles de données, schémas)
+ structurées : (ou au moins semi-structurées)
+Remarque : BD intégrée VS BD distribuée
+Contrairement aux bases de données distribuées où la distribution est établie d'une
+façon organisée et connue, dans l'intégration de données il faut faire face à une
+collection de sources préexistantes et une organisation plus complexe et non
+forcément bien connue.
+7
+Problématique de l'intégration des données
+C. Où est la difficulté ?
+ Niveau conceptuel et logique
+ Niveau physique
+ Niveau social et administratif
+Niveau conceptuel et logique
+L'organisation logique des données diffèrent d'une source à une autre, soit à cause
+de l'utilisation de modèles logiques différents (relationnel, XML,...), soit à cause de
+conception différentes même dans un même modèle logique.
+Exemple : FULLSERVE vs EUROCARD
+FULLSERVE EUROCARD
+Tables Employés permanents et
+temporaires dans deux
+tables différentes
+Employés permanents et
+temporaires dans la même
+table
+Attributs différents ISSN pour identifier un
+employé
+ID pour identifier un
+employé
+Noms d'attributs différents Text et Action Follow up
+Formats différents Dollars Euro
+Niveau physique (systèmes)
+Même dans le cas où le modèle de données des sources est identique (relationnel
+par exemple), les différentes implémentations nécessitent un travail de
+réconciliation.
+Exemple
+Des sources relationnelles peuvent être implémentées dans différents SGBD
+(Oracle, SQL Server, MySQL...etc). Même si SQL est un standard, il y a des
+différences entre ces implémentations (types de données spécifiques,
+implémentation des opérateurs 'interrogation...etc).
+Niveau social et administratif
+L'une des difficultés les plus importantes dans l'intégration des données réside au
+niveau administratif. La volonté des propriétaires des données à coopérer est
+nécessaire pour la réussite des projets d’intégration.
+Pourquoi refuser de coopérer ?
+ Les requêtes provenant d'un système d'intégration peuvent constituer une
+charge supplémentaire qui alourdirait le système local.
+ La peur de remettre en cause la confidentialité de certaines données.
+ ...
+Remarque
+Dans certains cas les raisons du refus de partage de données peuvent être
+légitimes, voire même imposées par la loi, par exemple dans le domaine médical.
+Problématique de l'intégration des donnéesProblématique de l'intégration des données
+88
+Problématique de l'intégration des données
+8
+D. Hétérogénéité des données
+L'hétérogénéité concerne les données, les modèles et les langages.
+Qu'est ce qu'un système homogène ?
+ même logiciel gérant les données sur tous les sites
+ même modèle de données
+ même univers de discours
+Qu'est ce qu'un système hétérogène ?
+ n'adhère pas à toutes les caractéristiques d'un système homogène
+ langages de programmation et d'interrogation différents, modèles différents,
+SGBD différents
+le problème de l'hétérogénéité peut concerner deux catégories : [2]
+ Hétérogénéité structurelle ou schématique
+ Hétérogénéité sémantique
+Hétérogénéité structurelle ou schématique
+Elle provient quand les sources adoptent différents modèles de données, structures
+de données ou schémas, par exemple les modèles de bases de données
+relationnelles ou orientées objets. De nombreux travaux concernant ce type
+d'hétérogénéité ont été proposés dans les contextes des bases de données fédérées
+et des multi-bases de données. [2]
+Remarque
+ Bases de données fédérées : Plusieurs BD hétérogènes capables
+d interopérer via une vue commune (modèle commun)ʼ
+ Multibase de données :Plusieurs BD (hétérogènes ou non) capables
+d interopérer sans une vue commune (absence de modèle commun)ʼ
+Lorsque les schémas à intégrer sont exprimés dans des modèles de données
+différents, on parle alors de correspondance d'hétérogénéité des modèles de
+données. La traduction de ces schémas dans un modèle pivot permet de résoudre
+ce type de conflits.
+Hétérogénéité sémantique
+Elle est due aux conflits sémantiques dans les termes, les expressions, etc., qui
+sont adoptés par différents schémas de données mais exprimés de diverses
+manières. Autrement dit, elle est due aux différentes interprétations pour les objets
+du monde réel.
+En effet, les sources de données ont été conçues indépendamment par des
+concepteurs différents ayant des objectifs applicatifs différents. Chacun peut donc
+avoir un point de vue différent sur le même concept. [2]
+Types de relations sémantiques
+ R1 identique à R2 : même constructeur, même concept
+ R1 équivalente à R2 : constructeurs différents, même concept
+ R1 compatible avec R2 : ni identiques, ni équivalents
+ R1 incompatible avec R2 : contradictoires
+9
+Problématique de l'intégration des données
+Exemple
+Pour illustrer ce problème d'hétérogénéité de sources, considérons une entreprise
+de commerce électronique qui vend des disques durs sur Internet.
+Les disques durs mis en vente sont fournis par des fournisseurs différents, où
+chacun organise ses produits dans son catalogue selon ses propres critères décidés
+localement.
+Cette entreprise doit donc traduire ces catalogues vers son format, appelé schéma
+global.
+Les trois catalogues décrivent un disque dur différemment.
+Cette différence concerne le nombre de concepts utilisés pour définir chaque
+source, ainsi que l'aspect sémantique de chaque concept.
+1. Taxinomie de conflits
+Différentes taxonomies de conflits sémantiques ont été proposées dans la
+littérature parmi lesquelles :
+ Conflits de représentation
+ Conflits de Données/méta-données,
+ Conflits descriptifs
+ Conflits classification
+ Conflits de contexte
+Problématique de l'intégration des donnéesProblématique de l'intégration des données
+1010
+Problématique de l'intégration des données
+10
+Conflits de représentation
+Ces conflits se trouvent dans le cas où nous utilisons des propriétés différentes ou
+des schémas différents pour décrire le même concept. Cela signifie que le nombre
+de classes et propriétés et les classes et propriétés représentant un concept C dans
+les sources ne sont pas égaux. [2]
+Exemple
+Pour décrire un disque dur le fournisseur S1 utilise
+ 2 classes : Composants et DisqueDur
+ 4 propriétés : situation, fournisseur, prix, et capacité .
+Le fournisseur S2 utilise
+ une seule classe : HardDisk
+ 5 propriétés : situation, supplier, price, tax, et capacity.
+Exemple
+Pour calculer le prix d'un disque :
+ S2 utilise deux propriétés : price et tax.
+ S1 n'utilise qu'une seule : prix.
+Conflits Données/Méta-données,
+Il existe des conflits de type données/méta-données lorsqu'une donnée dans un
+schéma correspond à une une méta - donnée dans un autre schéma.
+Exemple
+Article_conférence est une valeur associée à l'attribut type_publication dans un
+schéma S1 alors que ce concept est modélisée comme étant un attribut dans un
+autre schéma.
+Conflits descriptifs
+Les conflits descriptifs apparaissent entre concepts possédant des caractéristiques
+différentes bien qu'ils soient proches sémantiquement :
+ Nommage. Un même nom peut être utilisé pour dénoter deux concepts
+différents (problème d'homonymie) ou un même concept est décrit par des
+noms différents (problème de synonymie).
+ Identité. Un même concept peut être identifié dans deux schémas différents
+avec deux identificateurs différents.
+ Échelle . Ce type de conflits décrit un même objet qui est représenté par des
+unités différentes.
+ Conflit de précision.
+Exemple
+ Nommage : Le même concept de disque dur est nommé par DisqueDur dans
+la S1, et par HardDisk dans la S2. La propriété Situation se trouve dans les
+deux sources, mais avec deux significations différentes.
+11
+Problématique de l'intégration des données
+ Identité : le même concept employé est identifié dans un schéma S1 par un
+numéro matricule et dans un schéma S2 par un nss (numéro de sécurité
+sociale).
+ Échelle : L'unité de mesure de la capacité dans la S1 est le méga octets
+tandis que celle dans la S2 est le giga octets.
+Conflits de contexte
+Le contexte est une notion très importante dans les systèmes d'information
+répartis. En effet, un même objet du monde réel peut être représenté dans les
+sources de données par plusieurs représentations selon un contexte local à chaque
+source. Ces conflits de contexte se trouvent dans le cas où les concepts semblent
+avoir la même signification, mais ils sont évalués dans différents contextes.
+Exemple
+La propriété prix de disque dur ne s'applique que pour un disque dur neuf dans S1,
+mais peut l'être pour tous les disques soit neufs ou d'occasions dans S2.
+E. Distribution des données
+Avantages
+ Disponibilité: ne tombent pas en panne en même temps
+ Temps d'accès: partage de la charge, parallélisme
+Difficultés
+ Localiser quelle source fournira la donnée demandée :nécessité de méta-
+données permettant de localiser les données , parfois plusieurs sources
+candidates (copies).
+ Les temps de communication
+ Intégrer des sources de performances différentes temps d'exécution
+différents.
+ Intégrer des sources de puissances d'interrogation différentes capacités
+fonctionnelles différentes
+ Prendre en compte des sources indisponibles temporairement
+F. Autonomie
+Conception
+les sources décident de leur propre :
+ Modèle de données,
+ Langage d'interrogation,
+ Sémantique des données.
+Communication
+les sources décident quand et comment répondre aux questions d'autres sources.
+Exécution
+les sources décident de l'ordre d'exécution des transactions locales ou des
+Problématique de l'intégration des donnéesProblématique de l'intégration des données
+1212
+Problématique de l'intégration des données
+12
+opérations externes.
+ Peu ou pas d'informations fournies sur les détails internes d'exécution
+Association des sources
+ Connexion et déconnexion des sources
+ Partage de données et des fonctions
+G. Cadre formel pour l'intégration des données
+Un système d'intégration de données est un triplet (G,S,M) où : [14]
+ G est un schéma global exprimé à travers un ensemble de prédicats et de de
+formules bien formées de la logique du 1er ordre.
+ S est le schéma source, composé des schémas d'un ensemble de sources.
+Les schémas sources sont des ensembles de symboles de prédicats (ou
+relations), d'un alphabet As.
+ M est la fonction de mappage entre G et S, c'est un ensemble d'assertions
+dans lesquelles les requêtes exprimées sur G sont mises en correspondance
+avec les requêtes exprimées en S.
+Exemple
+Considérons un système d'intégration de données Io = (G0, S0 , M0), où l'alphabet
+du schéma global AG0 comprends les trois symboles de relations binaires :
+DeptDirector, EmployeeDept et DeptLocation, qui indiquent respectivement
+directeur de département, les employés des départements, et lieu des
+départements. Les formules suivantes sont spécifiées à travers l'alphabet AG0. [14]
+Considérons le schéma source S0, tel que son alphabet AS0 comprend les trois
+symboles de relations binaires. IsBossOf , IsMemberOf et WorksIn.
+définissons le mappage M0 avec les formules suivantes :14 [14]
+La requête suivante exprimée sur le schéma global {x,y | EmployeeDept(x, y))
+recherche les paires employé-département. [14]
+H. Références bibliographiques
+1. AnHai Doan, Alon Halevy, Zachary G. Ives, Principles of Data Integration.,
+Elsevier, 2012.
+2. Nguyen Xuan D. Intégration de bases de données hétérogènes par articulation à
+priori d'ontologies : application aux catalogues de composants industriels.‘ Thèse de
+doctorat, ENSMA/Université de Poitiers, 2006.
+3. C. Goh, S. Bressan, E. Madnick, and M. D. Siegel. Context interchange : New
+features and formalisms for the intelligent integration of information. ACM
+13
+Problématique de l'intégration des données
+Transactions on Information Systems, 17(3) :270–293, 1999.
+4. Parent , C. and Spaccapietra, S. 1996. Integration de bases de données:
+panorama des problèmes et des approches. Ingénierie des Systèmes d'Information
+(ISI ) , 4: 1 - 18 .
+14. Andrea Cali, Domenico Lembo, Riccardo Rosati, A Comprehensive Semantic
+Framework for Data Integration Systems, in Journal of Applied Logic 3(2):308-328
+· June 2005
+Problématique de l'intégration des donnéesProblématique de l'intégration des données
+1414
+Problématique de l'intégration des données
+14
+
+
+II - Classification des
+systèmes
+d'intégration
+II
+Degré de matérialisation 15
+Correspondance entre schéma global et schémas locaux 19
+Automaticité du processus de mapping 21
+Références Bibliographiques 23
+Plusieurs classifications des systèmes d'intégration existent dans la littérature , en
+fonction des critères de classification choisis. Nous citons trois critères :
+ La représentation de données intégrées : virtuelle ou matérialisée,
+ Le sens de la mise en correspondance entre schéma global et les schémas
+locaux
+ La nature du processus d'intégration. [5]
+A. Degré de matérialisation
+Il existe essentiellement deux principales approches pour intégrer des données
+provenant de différentes sources:
+ Les systèmes de médiation et les entrepôts de données (architecture
+virtuelle).
+ Les entrepôts de données (architecture matérialisée).
+ Les systèmes de médiation permettent d'accéder par une même requête à
+des données se trouvant dans des sources différentes.
+ Les entrepôts de données intègrent au sein d'une même base des données
+provenant de sources différentes, permettant ainsi d'effectuer des analyses
+et des fouilles de données sur la nouvelle base.
+1. Architecture matérialisée
+Cette architecture consiste à centraliser physiquement, dans un entrepôt de
+données, l'ensemble de données consolidées à partir de diverses sources
+(catalogues électroniques, bases de données relationnelles, Web, etc.).
+15
+Principe
+L'utilisateur interroge une base de données réelle (l'entrepôt) contenant une copie
+des données pertinentes des différentes sources considérées .
+Le processus de construction d'un système d'intégration matérialisé se compose en
+quatre étapes principales [7]:
+ Extraction des données des sources de données,
+ Transformation des données au niveau structurel,
+ Intégration sémantique des données,
+ Stockage des données intégrées dans le système cible.
+Ces étapes correspondent aux outils d'ETL (extract, transform and load). Les deux
+premières étapes sont habituellement prises en charge par le même composant
+logiciel, appelé adaptateur. Chaque adaptateur fournit ainsi une interface d'accès et
+de requêtes sur la source. Les données extraites sont ensuite intégrées en
+éliminant les conflits, puis stockées dans l'entrepôt.
+Remarque
+Comme dans l'approche médiateur, l'objectif d'un adaptateur est d'aboutir à des
+données représentées dans un même format.
+Avantage de la matérialisation
+L'interrogation d'un entrepôt de données se fait directement sur les données de
+l'entrepôt et non sur les sources originales. Il est donc possible d'utiliser les
+techniques d'interrogation et d'optimisation des bases de données traditionnelles.
+Inconvénient de la matérialisation
+Cette approche exige :
+ Un coût de stockage supplémentaire
+ Un coût de maintenance causé par les opérations de mises à jour au niveau
+de sources de données (toute modification dans les sources locales doit être
+répercutée sur l'entrepôt de données).
+Pour résumer
+Dans les entrepôts de données, les données sont extraites à partir de sources de
+données disparates et matérialisées dans l'entrepôt de données. Le principe de la
+matérialisation est l'intégration réelle de données conformément au schéma global.
+Classification des systèmes d'intégrationClassification des systèmes d'intégration
+1616
+Classification des systèmes d'intégration
+16
+2. Architecture virtuelle
+Cette architecture consiste à développer une application chargée de jouer le rôle
+d'interface entre les sources de données locales et les applications d'utilisateurs.
+Principe
+L'utilisateur interroge un médiateur chargé de traduire la requête pour interroger
+les différentes sources et de combiner les résultats obtenus.
+le principe repose sur deux composants essentiels : [5]
+ Le médiateur
+ L'adaptateur
+Définition : Le médiateur
+Est chargé de la localisation des sources de données et des données pertinentes par
+rapport à une requête, il résout de manière transparente les conflits de données.
+Un ensemble de connaissances sur les sources permet au médiateur de générer un
+plan d'exécution pour traiter les requêtes d'utilisateurs. [5]
+Définition : L'adaptateur
+Est un outil permettant à un (ou plusieurs) médiateur(s) d'accéder au contenu des
+sources d'informations dans un langage uniforme. Il fait le lien entre la
+représentation locale des informations et leur représentation dans le modèle de
+médiation. [5]
+Remarque
+Dans cette approche, les données ne sont pas stockées au niveau du médiateur.
+Elles restent dans les sources de données et ne sont accessibles qu'à ce niveau.
+L'intégration d'information est fondée sur l'exploitation de vues abstraites décrivant
+de façon homogène et uniforme le contenu des sources d'information dans les
+termes du médiateur. Les sources d'information pertinentes, pour répondre à une
+requête, sont calculées en fonction de la définition de ces vues.
+Le problème consiste à trouver une requête qui est équivalente à la requête de
+l'utilisateur.
+Les réponses à la requête sont obtenues en évaluant cette requête sur les
+extensions des vues. [5]
+17
+Classification des systèmes d'intégration
+Remarque
+Le problème d'hétérogénéité sémantique entre les différentes sources d'information
+ne se pose pas pour l'utilisateur puisqu'il est résolu par le médiateur.
+Avantage de l'approche médiateur
+Permet de construire un système d'interrogation de sources de données sans
+toucher aux données qui restent stockées dans leur source d'origine. [5]
+Inconvénient de l'approche médiateur
+Le médiateur ne peut pas évaluer directement les requêtes qui lui sont posées car il
+ne contient pas de données, ces dernières étant stockées de façon distribuée dans
+des sources indépendantes.
+Classification des systèmes d'intégrationClassification des systèmes d'intégration
+1818
+Classification des systèmes d'intégration
+18
+Défis
+Dans cette approche, deux problèmes apparaissent : comment construire le
+schéma intégré et comment effectuer la mise en correspondance entre les termes
+utilisés dans ce schéma et les structures des schémas des sources qui contiennent
+les données. [5]
+Pour résumer
+Un système de médiation est constitué d'un système global de gestion le
+médiateur, d'un ensemble d'adaptateurs et d'un ensemble de sources locales. Les
+sources locales sont intégrées dans le sens qu'un seul schéma global est construit à
+partir des schémas exportés par les sources locales. Des requêtes sont ainsi posées
+sur le schéma global et traitées par le médiateur. Les schémas des sources sont
+construits par des adaptateurs qui établissent la correspondance entre la source et
+le médiateur. [5]
+3. Comparaison des deux approches
+Approche virtuelle préférable si :
+ Les sources sont mises à jour fréquemment.
+ Les sources sont très nombreuses.
+ Il est impossible de prédire les requêtes de l'utilisateur.
+B. Correspondance entre schéma global et schémas
+locaux
+Un autre critère de classification est le mapping dans l'intégration de données qui
+sert à définir la relation entre le modèle global et celui des sources. Plusieurs
+approches et systèmes d'intégration ont été proposés dans la littérature :
+ Global As View (GAV)
+ Local As View (LAV)
+ Approches hybrides :
+ Generalized-Local-as-View (GLAV)
+ Both As View (BAV)
+ Both Global
+19
+Classification des systèmes d'intégration
+1. Approche GAV
+Dans l'approche GAV , le mapping fait correspondre à chaque concept ConceptG du
+schéma global G une vue VueL sur le schéma local.
+Dans cette approche, la transformation d'une requête sur le schéma global en
+requêtes sur les schémas locaux est une simple opération faite par le gestionnaire
+de vues.
+Remarque
+Dans une architecture GAV, une modification sur les sources locales ou sur leur
+schéma entraîne une reconsidération du schéma global.
+Concrètement
+L'approche GAV consiste à définir à la main (ou de façon semi-automatique) le
+schéma global en fonction des schémas des sources de données à intégrer puis à le
+connecter aux différentes sources. Pour cela, les prédicats du schéma global, aussi
+appelés relations globales, sont définis comme des vues sur les prédicats des
+schémas des sources à intégrer. [5]
+Comme les requêtes d'un utilisateur s'expriment en termes des prédicats du
+schéma global, nous obtenons facilement une requête en termes du schéma des
+sources de données intégrées, en remplaçant les prédicats du schéma global par
+leurs définitions. [5]
+2. Approche LAV
+L'approche LAV fait correspondre à chaque concept ConceptL du schéma local une
+vue VueG sur le schéma global. Le traitement de la requête exprimée en termes du
+schéma global est plus complexe car il se fait par une réécriture en termes de vues,
+autrement dit, la requête sur le schéma global doit être reformulée suivant les
+schémas des sources locales.
+Classification des systèmes d'intégrationClassification des systèmes d'intégration
+2020
+Classification des systèmes d'intégration
+20
+Remarque
+ LAV a une basse performance quand l'utilisateur pose des requêtes
+complexes [5].
+ Dans cette approche, chaque source est spécifiée de manière indépendante.
+Un changement local de schéma est considéré en mettant à jour la vue
+locale. [5]
+ L'approche LAV est l'approche duale de GAV, elle suppose l'existence d'un
+schéma global et elle consiste à définir les schémas des sources de données
+à intégrer comme des vues du schéma global. [5]
+3. Approches d'intégration hybrides
+Il y a eu des tentatives de fusionner les approches LAV et GAV de sorte qu'il serait
+facile de reformuler la requête, comme c'est le cas dans l'approche GAV, ainsi que
+pour modifier les schémas locaux, comme c'est le cas dans l'approche LAV. [5]
+a) Approche GLAV
+GLAV (Generalized-Local-as-View), se base sur des vues au niveau global et local.
+Une correspondance entre les vues au niveau global et local est requise. Ces
+correspondances n'ont pas de direction et s'appliquent dans les deux sens. [5]
+Dans l'approche GLAV, l'indépendance du schéma global (permet l'ajout et la
+suppression de sources), l'adaptation de nouvelles sources et la complexité pour
+reformuler des requêtes sont les mêmes que dans l'approche LAV .
+b) Approche BAV
+Both As View (BAV) est une autre approche d'intégration de données. C'est un
+cadre riche d'intégration, qui est basé sur l'utilisation des séquences réversibles des
+transformations primitives de schéma, appelé "transformation pathways". [5]
+C. Automaticité du processus de mapping
+Ce dernier critère permet de distinguer les approches d'intégration selon le degré
+d'automaticité du processus d'intégration. Cette automaticité concerne la résolution
+ou l'élimination des conflits sémantiques entre les sources durant le processus
+d'intégration.
+21
+Classification des systèmes d'intégration
+On distingue 3 types d'approches
+ Manuelle.
+ Semi-automatique.
+ Automatique. [5]
+Remarque
+En pratique la création du mapping prend > 50% de l'effort d'intégration!
+1. Les approches manuelles
+Les premières approches proposées étaient des approches manuelles. Ces
+approches permettent d'automatiser l'intégration des données au niveau
+syntaxique. Les conflits sémantiques sont gérés manuellement et nécessitent la
+présence d'un expert humain pour interpréter la sémantique des données. [5]
+Remarque
+Ces approches manuelles deviennent impraticables lorsque le nombre de sources de
+données à intégrer est important, ou lorsque les sources évoluent fréquemment.
+2. Approches semi-automatiques
+Afin d'apporter plus d'automatisation dans la résolution des conflits sémantiques,
+plusieurs travaux se sont tournés vers les ontologies.
+Une ontologie permet de fournir la sémantique des concepts d'un domaine de
+manière formelle.
+Les approches semi-automatiques reposent sur des ontologies linguistiques et
+permettent d'automatiser partiellement la gestion des conflits sémantiques.
+Remarque
+Les ontologies linguistiques traitent des termes, et non des concepts. Ceci peut
+créer des conflits de noms.
+3. Approches automatiques
+Les approches automatiques consistent à associer aux données des sources une
+ontologie conceptuelle qui en définit le sens. Une ontologie conceptuelle traite les
+concepts d'un domaine donné. Elle est définie comme « une spécification formelle
+et explicite d'une conceptualisation partagée d'un domaine de connaissance ».
+La sémantique du domaine est ainsi spécifiée formellement à travers des concepts,
+leurs propriétés ainsi que les relations entre les concepts. La référence à une
+ontologie permet d'éliminer automatiquement les conflits sémantiques entre les
+sources.
+La connexion entre les sources et les ontologies peut se faire de plusieurs
+manières : [5]
+ Définition des termes de la BD par les concepts ontologiques
+ Annotation des données
+ Enrichissement de la source par des règles logiques (logique de description)
+[5]
+Classification des systèmes d'intégrationClassification des systèmes d'intégration
+2222
+Classification des systèmes d'intégration
+22
+Remarque : Les difficultés de la génération automatique du
+mapping
+ Hétérogénéité des schémas et des modèles.
+ Les schémas ne captent jamais complètement la sémantique ? il faut la
+chercher partout, dans les données, les commentaires.
+ Il faut combiner plusieurs critères, proposer plusieurs variantes avec des
+degrés de confiance différents.
+D. Références Bibliographiques
+ AnHai Doan, Alon Halevy, Zachary G. Ives, Principles of Data Integration.,
+Elsevier, 2012.
+ Nguyen Xuan D. Intégration de bases de données hétérogènes par
+articulation à priori d'ontologies : application aux catalogues de composants
+industriels.‘ Thèse de doctorat, ENSMA/Université de Poitiers, 2006.
+ C. Goh, S. Bressan, E. Madnick, and M. D. Siegel. Context interchange : New
+features and formalisms for the intelligent integration of information. ACM
+Transactions on Information Systems, 17(3) :270–293, 1999.
+ Parent , C. and Spaccapietra, S. 1996. Integration de bases de données:
+panorama des problèmes et des approches. Ingénierie des Systèmes
+d'Information (ISI ) , 4: 1 - 18 .
+ Lahmar Fatima, Une approche Hybride d'intégration de sources de données
+hétérogènes dans les datawarehouses,THESE Présentée à l'Université
+Mentouri de Constantine Pour l'Obtention du diplôme de DOCTORAT en
+SCIENCES Spécialité : Informatique,2011
+ Fatiha SAÏS, Intégration Sémantique de Données guidée par une
+Ontologie,thèse pour l'obtention du Doctorat de l'Université Paris-Sud
+Spécialité : informatique,2007
+ M.-S. Hacid and C. Reynaud. L'intégration de sources de données. La revue
+I3 : Information - Interaction - Intelligence, Vol5 n˚1, 2005
+ Bleiholder, J. and Naumann, F. 2008. Data fusion. ACM Comput. Surv., 41, 1
+ G. Wiederhold, “Mediators in the architecture of future information systems
+», IEEE Computer, vol.25, n°3, pp 38-49, 1992.
+ Bleiholder, J. and Naumann, F. 2008. Data fusion. ACM Comput. Surv., 41,
+1, Article 1 (December 2008)
+ LIM, E.-P., SRIVASTAVA, J., AND SHEKHAR, S. 1994. Resolving attribute
+incompatibility in database integration: An evidential reasoning approach. In
+Proceedings of the International Conference on Data Engineering (ICDE).
+IEEE Computer Society, 154–163.
+ DEMICHIEL, L. G. 1989. Resolving database incompatibility: An approach to
+performing relational operations over mismatched domains. IEEE Trans.
+Knowl. Data Eng. 1, 4, 485–493.
+ ARENAS, M., BERTOSSI, L. E., AND CHOMICKI, J. 1999. Consistent query
+answers in inconsistent databases. In Proceedings of the ACM SIGACT-
+SIGMOD-SIGART Symposium on Principles of Database Systems (PODS).
+ACM Press, 68–79.
+ Andrea Cali, Domenico Lembo, Riccardo Rosati, A Comprehensive Semantic
+Framework for Data Integration Systems, in Journal of Applied Logic
+3(2):308-328 · June 2005
+23
+Classification des systèmes d'intégration
+
+
+III - Architecture de
+médiation III
+Concepts de base 25
+Communication médiateur / adaptateur 29
+Intégration de schémas 30
+Médiateurs existants 41
+Références Bibliographiques 43
+A. Concepts de base
+L'architecture de médiation fut conçue en 1992 par Gio Wiederhold dans l'article
+fondateur «Mediator in the architecture of future information systems» [9]. Il y
+développe une nouvelle vision de l'architecture du traitement de l'information en
+entreprise, il tente de régler la problématique de l'accès et de l'intégration de
+l'information en introduisant la notion de médiateur.
+Cette architecture est basée sur deux concepts fondamentaux :
+ Médiateurs (Mediators)
+ Adaptateurs (Wrappers)
+Définition : Médiateur
+C' est un module logiciel recevant directement la requête d'un utilisateur et devant
+la traiter. Celui-ci doit localiser l'information nécessaire pour répondre à la requête,
+résoudre les conflits schématiques et sémantiques, interroger les différentes
+sources et intégrer les résultats partiels dans une réponse homogène et cohérente.
+Définition : Adaptateur (Wrapper)
+Il s'agit ici d'un composant logiciel qui permet à un système local de distribuer ses
+informations à une collectivité d'usagers. L'adaptateur permet de présenter les
+données dans le format syntaxique de la médiation.
+C'est donc une interface permettant l'interrogation d'une base de données grâce à
+un langage normalisé (langage pivot).
+25
+1. Médiateurs
+Il existe plusieurs sortes de médiateurs accomplissant des tâches
+distinctes, voici les principales :
+ Accès et intégration de plusieurs BD.
+ Traitement des données supportant un haut niveau d'abstraction et de
+généralisation (traitement intelligent de l'information).
+ Gestion de l'incertitude reliée aux données absentes ou incomplètes et aux
+données mal comprises.
+Rôle du médiateur
+ Un médiateur exporte un schéma médiateur ou (schéma global) qui est une
+représentation intégrée des sources de données .
+ Les applications accèdent aux sources de données sous-jacentes à travers
+les médiateurs.
+ Les médiateurs traitent les requêtes sur la représentation intégrées.
+Fonctions d'un médiateur
+ Interfaçage avec l'utilisateur
+ Conception d'un schéma de médiation
+ Adaptation des données sources
+ Expression de mappage
+ Exécution de requêtes
+Interfaçage avec l'utilisateur
+ Accepte les requêtes des utilisateurs
+ Affiche les résultats des requêtes
+Conception d'un schéma de médiation
+ Schéma exprimé dans le modèle pivot
+ Possibilité d'inclure des contraintes d'intégrité
+Adaptation des données sources
+ Localisation des sources
+ Traitement de l'hétérogénéité des systèmes
+ Traduction des modèles locaux en modèle pivot
+ Interrogation des sources via le modèle pivot
+Architecture de médiationArchitecture de médiation
+2626
+Architecture de médiation
+26
+Expression de mappage
+ Définition des opérations de calcul de la vue exportée en fonction des
+sources
+Exécution de requêtes
+ Optimisation et exécution de requêtes sur le schéma intégré
+ Décomposition en sous-requêtes sur les vues locales
+ Envoie les plans d'exécution à faire exécuter par les wrappers des
+différentes sources
+ Combine (recompose) les résultats des wrappers et effectue éventuellement
+quelques opérations supplémentaires
+Pour résumer
+Le rôle d'un médiateur est de collecter, nettoyer et combiner les données attendues
+par le système de médiation et produites par les différents adaptateurs.
+C'est un module logiciel recevant directement la requête d'un usager et devant la
+traiter. Celui-ci doit localiser l'information nécessaire pour répondre à la requête,
+résoudre les conflits schématiques et sémantiques, interroger les différentes
+sources et intégrer les résultats partiels dans une réponse homogène et cohérente.
+Attention
+Attention : le médiateur ne comprend pas de code spécifique aux sources!
+27
+Architecture de médiation
+2. Adaptateurs
+Adaptateur (Wrapper)
+Un adaptateur prend en compte les dimensions Distribution, Autonomie et
+Interopérabilité. Son objectif est d'accéder à une source, d'extraire les données
+appropriées et de les présenter dans un format spécifié.
+Un adaptateur est donc un composant qui :
+ Réalise la transformation entre le modèle de données dans lequel sont
+représentées les données de la source et le modèle choisi au niveau
+médiateur.
+ Effectue la transformation entre les expressions de requêtes du niveau
+global en expressions compréhensibles par les sources. Inversement, il
+traduit les réponses des sources au format du niveau global.
+ Assure les traitements spécifiques non disponibles au niveau local et
+nécessaires pour le niveau global (augmentation du pouvoir d'expression et
+de traitement de la source locale).
+Exemple
+Caractéristiques d'un adaptateur
+ Traduit le schéma des sources en termes du schéma global.
+ Traduit les requêtes du médiateur en termes compréhensibles par les
+sources.
+ Traduit les résultats renvoyés par la source en termes du schéma global.
+Remarque : Les adaptateurs sont également :
+ Assez difficiles à écrire.
+ Éventuellement « intelligent » : effectuer des optimisations spécifiques aux
+sources.
+ Généralement associés aux sources, mais peuvent aussi se trouver dans le
+médiateur.
+Remarque
+Le besoin d'avoir un adaptateur par source peut constituer un obstacle à
+l'intégration d'un nombre important de sources.
+Architecture de médiationArchitecture de médiation
+2828
+Architecture de médiation
+28
+B. Communication médiateur / adaptateur
+Pour faciliter le travail d'intégration, on doit définir
+ Un langage commun dans lequel le médiateur interrogera les adaptateurs.
+ Un format de résultat commun dans lequel les adaptateurs répondront au
+médiateur.
+Remarque
+Le langage et le format du résultat peuvent être standardisés ou propriétaires.
+Schéma global : Choix d'un modèle commun (et du langage de
+requêtes)
+ Relationnel (Information Manifold, Le Select,XPeranto),
+ Orienté-objet (Garlic, Disco),
+ Semi-structuré (Tsimmis, Yat, Nimble, Xylème),
+ Logiques de description (SIMS, Observer)
+Modèle pivot relationnel
+Atouts :
+ Capitalise sur la technologie des BD relationnelles
+ Connecteurs relationnels standards
+ Drivers ODBC et JDBC pour les applications
+ Capitalise sur le savoir-faire en conception de bases de données
+ Bien adapté aux données structurées
+Limites
+ Support faible des documents et des données faiblement structurées
+Modèle pivot XML
+Atouts
+ Un modèle complet (XML Schema) et normalisé plus riche que le relationnel
+ Permet de mixer documents et données structurées
+ Langage de requêtes normalisé: XQuery
+Limites
+ Technologie plus complexe à maîtriser
+ Manque d'outils et de méthodologies de conception
+ Manque d'expérience dans les entreprises
+Modèle pivot mixte
+ Schéma de médiation objet-relationnel
+ Tables avec colonnes objet
+ Document XML de type standard XMLType
+ Interfaces applicatives XML
+ Utilisation de SQL/XML (ECMA) intégrant tables à colonne XMLType
+ Apportent des vues XML du schéma de médiation relationnel
+ Interfaces de type services Web sur le médiateur
+Plusieurs approches pour définir le schéma global :
+ Global as View (Tsimmis, Disco, Yat, Garlic, XPeranto)
+29
+Architecture de médiation
+ Local as View (AGORA, Information Manifold)
+ Combinaison des deux
+Remarque
+Ces approches sont déterminantes pour la réécriture des requêtes, et pour
+l'évolution du système d'intégration (ajout de sources).
+Architectures GAV et LAV
+GAV : Global as View
+ Schéma global défini comme une vue intégrante sur schémas locaux
+ Approche ascendante depuis les sources vers le médiateur
+ Difficulté pour ajouter une source
+LAV : Local As View
+ Chaque source locale est définie comme une vue locale du schéma global
+ Approche descendante depuis le médiateur vers les sources
+ Difficulté pour réconcilier source et vue locale
+C. Intégration de schémas
+Définition
+L'intégration des schéma est l'activité consistant à intégrer les schémas des bases
+de données existantes dans un schéma global unifié.
+Stratégies de processus d'intégration de schémas
+Étapes du processus d'intégration de schémas
+ Pré-intégration.
+ Comparaison des schémas.
+ Mise en conformité des schémas.
+ Fusion et Restructuration.
+Architecture de médiationArchitecture de médiation
+3030
+Architecture de médiation
+30
+Pré-intégration
+Choix de la stratégie du processus d'intégration, ce qui guide le choix des schémas
+à intégrer.
+Comparaison des schémas.
+Les schémas sont analysés et comparés afin de déterminer les correspondances
+entre concepts et détecter les conflits.
+Mise en conformité des schémas.
+Une fois les conflits détectés, on s'efforce de les résoudre pour que la fusion de
+divers schémas soit possible.
+La résolution automatique des conflits n'est généralement pas réalisable car
+l'interaction avec les concepteurs est nécessaire.
+Fusion et Restructuration.
+Les schémas sont prêts à être superposés, donnant lieu à un ou plusieurs schéma
+(s) intermédiaire (s) intégré (s).
+Les résultats intermédiaires sont analysés et, si nécessaire, restructurés afin
+d'atteindre les critères suivant :
+ Exhaustivité et exactitude.
+ Minimalité.
+ Compréhensibilité.
+Exhaustivité et exactitude
+Le schéma intégré doit contenir tous les concepts apparaissant correctement dans
+n'importe quel schéma de composant.
+Minimalité
+Pas de redondance dans le schéma intégré.
+Compréhensibilité
+Le schéma intégré doit être facile à comprendre pour le concepteur et les
+utilisateurs finaux.
+Remarque : Hypothèses d'intégration :
+ Toutes les vues (schémas) sont correctes, mais différentes de la base de
+données globale.
+ Certaines vues peuvent avoir moins d'informations que d'autres.
+1. Comparaison et mise en conformité des schémas
+Vérifiez tous les conflits dans la représentation des mêmes objets dans différents
+schémas.
+a) Conflits de noms
+31
+Architecture de médiation
+Exemple : Homonymes : Le même nom est utilisé pour deux
+concepts (objets).
+Le même «équipement» dans les deux schémas se réfère à des choses différentes.
+Le premier équipement se réfère à l'ordinateur, copieurs, etc et le deuxième
+équipement se réfère à climatiseurs, meubles, etc...
+Exemple : Synonymes : Le même concept est décrit par des noms
+différent
+EMPNO et EMP# (attribut)
+EMP et EMPLOYEE (entité)
+TAKE et ENROLL (relation)
+b) Conflits de type de données
+Exemple : Le même attribut avec différents types de données
+ Entier & réel
+ Char (20) & char (30)
+Solutions : cast (choisir le plus restrictif ou le plus expressif)
+ Entier positif & [1,100]
+c) Généralisation & Spécialisation
+Exemple
+ Entité EMPLOYEE dans une source S1
+ Entité MANAGER dans une source S2
+Peuvent être associées par un lien ISA (Est un) : MANAGER ISA EMPLOYEE
+d) Conflits de cardinalités
+Architecture de médiationArchitecture de médiation
+3232
+Architecture de médiation
+32
+Exemple
+Remarque
+Dans l'exemple ci dessous il n'y a pas de conflits car les deux relations sont
+différentes.
+e) Les conflits de structure
+Exemple : Le même concept est représenté par différentes
+constructeurs dans différents schémas
+La classe d'objets Child est représentée comme une entité type dans un schéma et
+un attribut dans un autre schéma.
+Exemple
+L'attribut start_date est représenté sous la forme d'un attribut d'une relation type
+dans un schéma et comme un attribut d'une entité type dans un autre schéma.
+33
+Architecture de médiation
+Laquelle est correcte ?
+f) Conflits d'identifiants
+Exemple
+Des clés différentes sont attribuées en tant qu'identificateurs du même type d'entité
+dans différents schémas.
+Quelle clé (EMP # ou IC #) est l'identifiant ?
+2. Fusion et restructuration des schémas
+Les étapes :
+ Superposer les schémas (Exhaustivité et Exactitude)
+ Supprimer les redondances (Minimalité)
+ Restructurer le schéma intégré intermédiaire pour le rendre compréhensible.
+a) Jointures
+Architecture de médiationArchitecture de médiation
+3434
+Architecture de médiation
+34
+Exemple
+E-D devient une vue.
+b) Projection
+35
+Architecture de médiation
+Exemple
+c) Redondance de sous type
+Exemple
+A ISA B & B ISA C A ISA C⇒
+Architecture de médiationArchitecture de médiation
+3636
+Architecture de médiation
+36
+Exemple
+A = UNION(B, C) B ISA A et C ISA A⇒
+d) Attributs simples composites
+37
+Architecture de médiation
+Exemple
+Exemple
+e) Améliorer la lisibilité
+Exemple
+Le schéma (B) est plus lisible que le schéma (A).
+Architecture de médiationArchitecture de médiation
+3838
+Architecture de médiation
+38
+Remarque
+Difficile de faire la transformation automatiquement.
+3. Exemple Complet
+Exemple : Source S1
+Les données portent sur les livres. Les livres ont des titres. Ils sont publiés par des
+éditeurs avec des noms et adresses. Les livres sont adoptés par les universités
+ayant un nom et appartenant à un État. Les livres se rapportent à certains sujets.
+Exemple : Source S2
+Les données sont les publications de différents types. Chaque publication a un titre,
+un éditeur et une liste de mots-clés. Chaque mot clé se compose d'un nom, d'un
+code et d'un domaine de recherche.
+Exemple : Schémas initiaux
+39
+Architecture de médiation
+Exemple : Choisir "Topics" plutôt que "Keyword (Schema S2)
+Exemple : Introduire "Publisher" dans une entité (Schéma S2)
+Exemple : Superposition des schémas
+Architecture de médiationArchitecture de médiation
+4040
+Architecture de médiation
+40
+Exemple : Création d'une relation "ISA"
+Exemple : Suppression des attributs en double entre "Book" et
+"Publication"
+D. Médiateurs existants
+Génération relationnelle (1975-1990)
+Souvent centré sur un SGBD qui joue le rôle d'un médiateur
+ SDD1, Sirius Delta, R*, Ingres/Star
+ Mermaid, Multibase, MSQ
+Génération relationnelle étendue (1990-2000)
+Fédère des BD hétérogènes autour de SQL3
+ Objet : TSIMMIS, GARLIC, OLE-DB, pegasus, IRO-DB, DISCO
+ XML : Medience Server, Information Integrator (IBM), XPeranto
+Génération XML XQuery (2000- ...)
+ OLE-DB.NET (Microsoft), Nimble, Xquark Fusion,XLive, LeSelect
+ Liquid Data (BEA), Enosys Software
+EII (Enterprise Information Integrator)
+Nom commercial donné aux médiateurs et environnements de
+conception/développement
+41
+Architecture de médiation
+Caractéristiques des EII
+ Accès en temps réel aux données
+ Informations les plus récentes disponibles
+ Plus économique en coût de maintenance
+Différents des ETL (Extract, Tansform and Load)
+ Kit d'alimentation de datawarehouse
+ Extraction périodique des données
+ Nettoyage et stockage en datawarehouse
+Liquid Data de BEA
+DB2 Information Integrator
+ Fédération de données
+ Réplication
+ Event Publishing
+Architecture de médiationArchitecture de médiation
+4242
+Architecture de médiation
+42
+Principaux autres EII
+E. Références Bibliographiques
+ AnHai Doan, Alon Halevy, Zachary G. Ives, Principles of Data Integration.,
+Elsevier, 2012.
+ Nguyen Xuan D. Intégration de bases de données hétérogènes par
+articulation à priori d'ontologies : application aux catalogues de composants
+industriels.‘ Thèse de doctorat, ENSMA/Université de Poitiers, 2006.
+ C. Goh, S. Bressan, E. Madnick, and M. D. Siegel. Context interchange : New
+features and formalisms for the intelligent integration of information. ACM
+Transactions on Information Systems, 17(3) :270–293, 1999.
+ Parent , C. and Spaccapietra, S. 1996. Integration de bases de données:
+panorama des problèmes et des approches. Ingénierie des Systèmes
+d'Information (ISI ) , 4: 1 - 18 .
+ Lahmar Fatima, Une approche Hybride d'intégration de sources de données
+hétérogènes dans les datawarehouses,THESE Présentée à l'Université
+Mentouri de Constantine Pour l'Obtention du diplôme de DOCTORAT en
+SCIENCES Spécialité : Informatique,2011
+ Fatiha SAÏS, Intégration Sémantique de Données guidée par une
+Ontologie,thèse pour l'obtention du Doctorat de l'Université Paris-Sud
+Spécialité : informatique,2007
+ M.-S. Hacid and C. Reynaud. L'intégration de sources de données. La revue
+I3 : Information - Interaction - Intelligence, Vol5 n˚1, 2005
+ Bleiholder, J. and Naumann, F. 2008. Data fusion. ACM Comput. Surv., 41, 1
+ G. Wiederhold, “Mediators in the architecture of future information systems
+», IEEE Computer, vol.25, n°3, pp 38-49, 1992.
+ Bleiholder, J. and Naumann, F. 2008. Data fusion. ACM Comput. Surv., 41,
+1, Article 1 (December 2008)
+ LIM, E.-P., SRIVASTAVA, J., AND SHEKHAR, S. 1994. Resolving attribute
+incompatibility in database integration: An evidential reasoning approach. In
+43
+Architecture de médiation
+Proceedings of the International Conference on Data Engineering (ICDE).
+IEEE Computer Society, 154–163.
+ DEMICHIEL, L. G. 1989. Resolving database incompatibility: An approach to
+performing relational operations over mismatched domains. IEEE Trans.
+Knowl. Data Eng. 1, 4, 485–493.
+ ARENAS, M., BERTOSSI, L. E., AND CHOMICKI, J. 1999. Consistent query
+answers in inconsistent databases. In Proceedings of the ACM SIGACT-
+SIGMOD-SIGART Symposium on Principles of Database Systems (PODS).
+ACM Press, 68–79.
+ Andrea Cali, Domenico Lembo, Riccardo Rosati, A Comprehensive Semantic
+Framework for Data Integration Systems, in Journal of Applied Logic
+3(2):308-328 · June 2005
+Architecture de médiationArchitecture de médiation
+4444
+Architecture de médiation
+44
+
+
+IV - Traitement des
+requêtes IV
+Processus de traitement des requêtes 45
+Reformulation de requêtes 45
+Décomposition des requêtes 54
+Optimisation 54
+Références Bibliographiques 57
+A. Processus de traitement des requêtes
+Étapes du traitement
+ Analyse syntaxique et sémantique
+ Reformulation de requête
+ Décomposition de requête
+ Optimisation et Exécution des requêtes sur les sources
+ Recomposition des résultats
+B. Reformulation de requêtes
+Un utilisateur du système d'intégration de données pose des requêtes en termes du
+45
+schéma de médiation, plutôt que directement dans le schéma où résident les
+données.
+En conséquence, un système d'intégration de données doit d'abord reformuler une
+requête utilisateur dans une requête qui fait référence directement aux schémas
+dans les sources.
+Les inputs de la reformulation
+ Une requête Q posée sur le schéma de médiation
+ Descriptions des sources de données
+Les résultats de la reformulation
+Une requête Q' sur les relations des sources de données, tel que:
+ Q' ne fournit que des réponses correctes à Q, et
+ Q' fournit toutes les réponses possibles de Q en fonction des sources.
+Remarque
+Pour effectuer l'étape de reformulation, le système d'intégration de données utilise
+les descriptions des sources.
+Les catalogues contiennent des descriptions suivantes :
+ Le contenu logique des sources
+ Les capacités des sources
+ La complétude des sources
+ Les propriétés physiques des sources et du réseau
+ Les statistiques sur les données
+ La fiabilité des sources
+ Les sources miroirs
+Exemple : Éléments de la description des sources
+ Contenu : la source contient des films, leurs réalisateurs, ...
+ Contraintes : tous les films produits après 1965.
+ Complétude : la source contient tous les films américains,
+ Capacités : la source doit recevoir le titre du film ou le directeur comme
+entrée, la source peut effectuer des sélections.
+Deux approches duales
+GAV : Global as View
+ Schéma global défini comme une vue intégrante sur schémas locaux
+ Approche ascendante depuis les sources vers le médiateur
+ Difficulté pour ajouter une source
+LAV : Local As View
+ Chaque source locale est définie comme une vue locale du schéma global
+ Approche descendante depuis le médiateur vers les sources
+ Difficulté pour réconcilier source et vue locale
+1. GAV : Global as View
+ Définir le schéma global en fonction du schéma des sources à intégrer : les
+relations du schéma global sont définies comme des vues sur les relations
+Traitement des requêtesTraitement des requêtes
+4646
+Traitement des requêtes
+46
+sources.
+ Approche ascendante depuis les sources vers le médiateur
+ Les données restent dans les sources.
+ Une requête sur le schéma global se traduit en termes de schémas de
+sources en remplaçant les vues par leurs définitions (dépliement des
+requêtes). La requête dépliée est évaluée sur les sources. Il peut y avoir des
+redondances.
+Remarque
+Hypothèse : les sources sont connues à l'avance.
+Exemple : Exemple 1
+Exemple : Exemple 2
+47
+Traitement des requêtes
+Exemple : Exemple 3
+Avantages de GAV
+ Conception facile
+ La réécriture des requêtes est simple (dépliement des vues)
+ Possibilité de construire des hiérarchies de schémas de médiation
+Inconvénients
+ Risque de perdre de l'information
+ L'ajout de sources est difficile, et demande de prendre en compte l'ensemble
+des sources disponibles-----------> Passe mal à l'échelle.
+Exemple : Exemple de requête en GAV
+Quelles sont les critiques des films
+réalisés par W. Allen ?
+SELECT Films.titre, Critiques.critique
+FROM Films, Articles
+WHERE Films.Realisateur = ‘W. Allen' AND Films.titre=Articles.titre ;
+Traduction de la requête :
+SELECT S1.Film.titre, S2.Film.titre, S3.Critiques.critique
+FROM S1.Film, S2.Film, S3.Critiques
+WHERE (S1.Realisateur=‘W.Allen' AND S1.Film.Fid=S3.Critiques.Fid) OR
+(S2.Directeur=‘W.Allen' AND S2.Film.Fid=S3.Critiques.Fid)
+Traduction de la requête :
+SELECT S1.Film.titre, S2.Film.titre,
+S3.Critiques.critique
+FROM S1.Film, S2.Film, S3.Critiques
+WHERE (S1.Realisateur=‘W.Allen' AND
+S1.Film.Fid=S3.Critiques.Fid) OR
+(S2.Directeur=‘W.Allen' AND S2.Film.Fid=S3.Critiques.Fid)
+2. Local as View (LAV)
+Définir les schémas locaux en fonction du schéma global : les relations des schémas
+locaux (sources) sont définies comme des vues (requêtes) sur le schéma global.
+Traitement des requêtesTraitement des requêtes
+4848
+Traitement des requêtes
+48
+ Les données restent dans les sources
+ Une requête sur le schéma global doit être traduite en termes des schémas
+locaux (réécriture des requêtes)
+Exemple
+Exemple
+Exemple : Exemple de requête en LAV
+Quelles sont les critiques des comédies
+depuis 1950 ?
+SELECT Films.titre, Critiques.article
+FROM Film, Critiques
+WHERE Film.Fid=Critiques.Fid AND Film.genre=‘comedie' AND Film.annee
+>=1950 ;
+Traduction de la requête :
+SELECT S1.Film.titre,
+S3.Critiques.article
+FROM S1.Film, S3.Critiques
+WHERE S1.Film.Fid=S3.Critiques.Fid ;
+Pb: la requête reformulée n'est pas équivalente à la requête originale, car elle
+renvoie seulement les critiques des films depuis 1990
+49
+Traitement des requêtes
+3. GaV vs LaV
+Global as View
+ + La réécriture d'une requête est simple : dépliage
+ + Conception naturelle et intuitive
+ - Évolution difficile (l'ajout d'une source est compliqué et nécessite de
+reconstruire le schéma global)
+ - nombre de sources limité (passage à l'échelle difficile)
+Local as View
+ + Très souple. On dispose de toute la puissance du langage de requêtes
+pour définir le contenu des sources.
+ + Chaque source est décrite de façon isolée
+ + Évolution facile : ajouter une source = écriture d'une requête, pas d'effet
+sur le schéma global
+ + Le contenu des sources est bien spécifié (spécifier des conditions dans la
+requête)
+ - La reformulation des requêtes est complexe (réécriture en termes de vues)
+4. Algorithmes de réécriture
+Les requêtes et les sources sont écrites sous forme de requêtes conjonctives. A
+priori, le nombre de réécritures possibles de la requête en fonction des vues est
+exponentiel par rapport à la taille de la requête.
+Principe des algorithmes
+Réduire le nombre de possibilités en considérant les sous-requêtes (buts partiels) et
+en déterminant quelles vues sont pertinentes pour répondre à ces sous requêtes
+Conceptuellement : on dispose d'un ensemble de requêtes pré-calculées (les
+sources) et on souhaite les utiliser pour répondre aux requêtes.
+Exemple : Quelques algorithmes
+ Bucket,
+ Inverse-Rules,
+ MiniCon
+Complétude locale
+En principe, il est nécessaire d'interroger toutes les sources pertinentes. En
+exploitant l'information sur la complétude locale, on peut éviter des accès inutiles
+aux sources.
+Remarque
+Pb : les sources ne sont pas toutes complètes, ou au contraire, elles ont des
+données qui se recouvrent.
+Exemple
+Film (Fid, titre, réalisateur, année) sur la source S1 est complète pour année >
+1960
+Traitement des requêtesTraitement des requêtes
+5050
+Traitement des requêtes
+50
+Film(Fid, titre, annee, producteur, genre) est complète.
+Exemple : Réponse incomplète
+Film(titre, réalisateur, année) (incomplète avant 1960)
+Salle(titre, cinéma, ville, heure)
+ R1 : Quels sont les films (et leurs réalisateurs) qu'on peut voir à Paris ?
+SELECT F.titre, F.realisateur
+FROM FILM F, SALLE S
+WHERE F.titre=S.Titre AND ville=‘Paris' ;
+Des modifications dans la relation Film peuvent modifier la réponse.
+Exemple : Réponse complète
+Film(titre, réalisateur, année)
+Oscar(titre, année)
+ R2: Quels sont les réalisateurs qui ont eu des oscars depuis 1965 ?
+SELECT F.realisateur FROM Film F, oscar O
+WHERE F. titre = O. titre AND F. annee = O.annee AND O. Annee >= 1965 ;
+Ce n'est pas parce qu'une source est incomplète que les réponses sont forcément
+incomplètes
+a) Concepts élémentaires
+Requêtes conjonctives
+Dans un système d'intégration, l'interrogation s'effectue généralement en utilisant
+des requêtes conjonctives à base de règles définies à l'aide du vocabulaire du
+schéma global qui exprime les vues sur les différentes sources.
+Une requête conjonctive a la forme d'une règle se présentant comme suit :
+ q , et r1,....rn sont des noms de
+prédicats
+ Les prédicats r1(X1),...rn(Xn) sont les subgoals (sous requêtes) du corps de
+la requête.
+Remarque
+Dans cette notation, les prédicats de jointure de SQL sont exprimés par les
+occurrences multiples de la même variable dans différents subgoals du corps
+Exemple : Requête : Quelles sont les acteurs (nom) dirigés par le
+réalisateur James Cameron
+Film (titre, année, genre, réalisateur)
+Acteur (nom, titre)
+Requête conjonctive : Q(n) :- Acteur(n, t), Film(t, a, g, r), r='James Cameron'
+Inclusion et équivalence
+Les notions d'inclusion et d'équivalence de requêtes, permettent la comparaison
+entre les différentes reformulations de requêtes.
+Elles seront utilisées lors du test de la justesse d'une réécriture d'une requête en
+termes d'un ensemble de vues. Dans les définitions qui suivent, nous supposons
+que les réponses aux requêtes sont des ensembles de tuples.
+51
+Traitement des requêtes
+Définition : Inclusion et équivalence de requêtes
+Une requête Q1 est dite incluse dans une requête Q2, si pour une base de données
+D , l'ensemble des tuples calculé pour Q1 est un sous ensemble de l'ensemble des
+tuples calculé pour Q2.
+Les deux requêtes sont dites équivalentes si Q1 est incluse dans Q2 et Q2 est
+incluse dans Q1.
+b) Algorithme "Bucket"
+L'algorithme Bucket a été développé dans le cadre du système Information
+Manifold. Son idée principale, est la suivante : le nombre de réécritures qui ont
+besoin d'être considérées, peut être extrêmement réduit si nous considérons
+chaque subgoal en isolation, et nous déterminons quelles vues peuvent être
+pertinentes pour chaque subgoal. [15]
+Algorithme Bucket
+ Input : Une Requête conjonctive R, et un ensembles de vues, V1,...Vn
+ Output :un ensemble de réécritures de Q en terme d'un sous ensemble des
+vues V1,...,Vn
+Étapes de l'algorithme
+ Étape 1 : Pour chaque sous-requête de R (à part les prédicats de
+comparaison), créer un bucket (seau) comprenant les vues (sources)
+pertinentes pour la sous requête.
+ Étape 2 : Union de toutes les combinaisons valides des sources avec
+élimination des redondances
+Étape 1
+Créer un bucket ("seau") pour chaque subgoal de Q qui ne figure pas dans les
+subgoals des prédicats de comparaison. Ce bucket contient les vues qui sont
+pertinentes pour répondre au subgoal particulier.
+D'une façon générale, une vue V est mise dans un bucket d'un subgoal g de la
+requête si la définition de V contient un subgoal g1 tel que : [15]
+ g et g1 peuvent être unifiés, et
+ après l'application de l'unification à la requête et aux variables de la vue qui
+apparaissent dans l'entête, les prédicats dans Q et dans V sont
+mutuellement satisfiables
+Étape 2
+L'algorithme considère des réécritures de la requête qui sont des requêtes
+conjonctives.
+Il calcule le produit cartésien de tous les buckets et élimine les combinaisons qui ne
+satisfont pas la requête, et celles qui sont redondantes.
+Exemple : Source Globale S
+ Enrolled(student, dept)
+ Registered(student, course, year)
+ Course(course, number)
+Traitement des requêtesTraitement des requêtes
+5252
+Traitement des requêtes
+52
+Exemple : Sources décrites en LAV
+ V1(student,number,year) :- Registered(student,course,year),
+Course(course,number), number>=500, year>=1992.
+ V2(student,dept,course) :- Registered(student,course,year),
+Enrolled(student,dept)
+ V3(student,course) :- Registered(student,course,year), year <= 1990.
+ V4(student,course,number) :- Registered(student,course,year),
+Course(course,number), Enrolled(student,dept), number <= 100
+Exemple : Requête (sur le schéma global)
+Quelles sont les acteurs dirigés par le réalisateur James Cameron :
+q(S,D) :- Enrolled(S,D), Registered(S,C,Y), Course(C,N), N>=300, Y>=1995.
+Exemple
+Le bucket Enrolled (S, D) inclura les vues V2 et V4, à cause des mappings : {S -->
+student, D--> dept }
+Exemple : Identifier les sources pour chaque sous-requête
+Enrolled(S,D) Registered(S,C,Y) Course(C,N)
+V2(S,D,C')
+V4(S,C',N')
+V1(S,N',Y)
+V2(S,D',C))
+V4(S,C,N')
+V1(S',N,Y')
+Remarque
+Les variables marquées (C',N'...) se trouvant dans les entêtes des vues sont celles
+qui ne figurent pas dans le domaine du mapping unifiant un subgoal de la requête
+et un autre de la vue.
+Remarque
+La vue V3 n'est pas incluse dans le bucket de Registered (S, C, Y) parce que Les
+prédicats Y> = 1995 et année <= 1990 sont mutuellement incohérents.
+Par contre V4 est incluse malgré l'inconsistance des conditions Number<=100 et
+N>=300, ceci est dû au fait qu'il n y a pas de mappage entre N et Number dans ce
+bucket.
+Exemple : Union de toutes les combinaisons valides des sources
+avec élimination des redondances
+Dans la deuxième étape de l'algorithme, nous combinons des éléments des seaux.
+Dans notre cas, la seule combinaison qui donnerait une solution est de joindre V1
+et V2 comme suit:
+q'(S,D) :- V1(S, N, Y), V2(S,D,C), Y>=1995.
+La seule autre option qui n'impliquerait pas un sous-objectif de vue redondante
+dans la réécriture est la jointure entre V1 et V4 et est rejetée car les deux vues
+contiennent des nombres disjoints de cours (supérieur à 500 pour V1 et inférieur à
+100 pour V4).
+53
+Traitement des requêtes
+Remarque
+Dans ce cas, les vues V1 et V4 sont pertinentes pour la requête isolément, mais, si
+elles sont jointes, produisent la réponse vide.
+Notons que dans cet exemple, comme cela se produit habituellement dans le
+contexte d'intégration de données, q' est incluse dans q et non équivalente.
+C. Décomposition des requêtes
+Exemple
+Difficultés
+Toutes les sources n'ont pas les mêmes possibilités d'interrogation
+ SGBD : possibilité de requêtes souvent complexes
+ Moteur de recherche : par mots-clefs
+ Fichiers : via champ indexé
+Remarque
+Le médiateur ou l'adaptateur de la source doit pallier aux déficiences de la sources
+si adaptateur : implémentation complexes de chaque adaptateur, intégration simple
+au niveau médiateur
+si médiateur : implémentation simple des adaptateurs, intégration complexe au
+niveau médiateur. Nécessite une communication des capacités de la source au
+médiateur.
+D. Optimisation
+Un système de base de données relationnelle traditionnel accepte une requête
+déclarative en SQL. Le système analyse d'abord la requête avant de la transmettre
+à l'optimiseur de requêtes.
+L'optimiseur produit un plan d'exécution de requête efficace pour la requête, qui est
+un programme impératif qui spécifie exactement comment évaluer la requête.
+En particulier, le plan spécifie l'ordre d'exécution des opérations de la requête
+(jointure, sélection et projection), la méthode de mise en œuvre de chaque
+opération (telle que la jointure par tri ou par hachage) et l'ordonnancement des
+différents opérateurs (où le parallélisme est possible).
+Traitement des requêtesTraitement des requêtes
+5454
+Traitement des requêtes
+54
+En général, l'optimiseur sélectionne un plan d'exécution de requêtes en recherchant
+un espace de plans possibles et en comparant leurs coûts estimés.
+Pour évaluer le coût d'un plan d'exécution de requête, l'optimiseur s'appuie sur des
+statistiques étendues sur les données sous-jacentes, telles que
+ La taille des relations,
+ La taille des domaines
+ La sélectivité des prédicats.
+Enfin, le plan d'exécution des requêtes passe au moteur d'exécution de requêtes,
+qui évalue la requête.
+Le cas des bases de données traditionnelles diffère de celui de l'intégration des
+données.
+Dans le contexte d'intégration, l'optimiseur a peu d'informations sur les données,
+car les données se trouvent dans des sources autonomes distantes plutôt que
+localement.
+De plus, comme les sources de données ne sont pas nécessairement des systèmes
+de base de données, les sources peuvent avoir des capacités de traitement
+différentes.
+Exemple
+Une source de données peut être une interface Web pour un système d'information
+classique, tandis qu'une autre peut être un programme qui analyse des données
+stockées dans un fichier structuré.
+Remarque
+Les optimiseurs de requêtes dans les systèmes de base de données distribués
+tiennent compte également où les parties de la requête sont exécutées, mais dans
+ce contexte, les différents processeurs ont des capacités identiques.
+Enfin, comme les données doivent être transférées sur un réseau, l'optimiseur de
+requêtes et le moteur d'exécution doivent pouvoir s'adapter aux délais de transfert
+de données.
+Comment optimiser ?
+ Stratégies classiques de remonté de projection, restriction, etc.
+ Ordonnancement des jointures
+ Stratégie sur les jointures inter-sites
+ par interrogation multiples d'une source avec les résultats du premier
+ par boucles imbriquées
+ par tri fusion
+Optimisation statique de requêtes hétérogènes
+ Ajout de vues transitoires
+ Décomposition d'une requête
+ Simplification d'une requête
+ Prise en compte des capacités réduites des sources
+ Parallélisation d'une requête
+Finalité : Élaboration d'un plan optimisé
+55
+Traitement des requêtes
+Optimisation dynamique
+ Reformulation dynamique du plan d'exécution
+ Prise en compte de sources indisponibles
+ Ordonnancement dynamique des jointures
+ Optimisation adaptative
+1. Modèles de coût
+Un modèle de coût permet d'estimer le coût que prendra un plan d'exécution, en
+s’appuyant sur les statistiques et des formules de coûts, dan le but de choisir parmi
+tous les plans d'exécution celui de coût minimal pour l'exécution.
+Quelles statistiques
+ Du système : Système d'exploitation (CPU, E/S), SGBD (taille d'une page,
+taille cache)
+ Des données : cardinalité d'une collection, sélectivité d'un attribut, etc.
+Modèle de coût pour un médiateur
+Coût d'exécution d'une requête = coût de communication + opérations du
+médiateur + coûts sur les adaptateurs + congestion du réseau
+ Coût de communication : Dépend du débit et de la taille des données
+ Opérations du médiateur : Formule classique de coût de calcul d'opérateurs
+en mémoire
+ Coûts sur les adaptateurs : coûts_fils inclus dans [max
+(coût_filsi),Σ(coût_filsi)] suivant degré de parallélisme.
+ Congestion du réseau : Difficile à gérer : latence et temps d'attente au
+moment de l'exécution de la requête .
+Coût des adaptateurs
+Les sources sont indépendantes et ne communiquent pas forcément leurs
+informations de coûts.
+Différentes stratégies permettant d'estimer le coût d'une requête sur une source
+ Estimation analytique (Soumission de formules)
+ Apprentissage progressif (Gestion d'historique)
+2. Gestion de caches
+Cache de données
+ Cache de pages : adapté `a des SGBD classiques, peu adapté aux autres
+sources (Web, ou opaques)
+ Cache de tuples : classique en relationnel avec tid, faisable pour les pages
+web (proxy). Mais difficile de préciser quels sont les tuples déjà dans le
+cache.
+ Cache sémantique : Garder un historique des prédicats de requêtes déjà
+posées.
+ requête dans le cache local
+ requête complémentaire
+ actualiser le cache
+Traitement des requêtesTraitement des requêtes
+5656
+Traitement des requêtes
+56
+Prédicats sémantiques
+Prédicat plus ou moins restrictif qu'autre (where)
+ requête dans le cache local
+ requête complémentaire
+Résultat renvoyé (select)
+demander les attributs qui ne sont pas dans le cache quelque soit le prédicat
+Exemple
+Requête en cache :
+select * from Livres
+where date > 1995 and date < 2005
+ Sur cache, pas de source : select * from Livres where date > 1995 and date
+< 2002
+ Sur cache, sur source (R-Rc) : select * from Livres where date >2002 and
+date < 2007
+ Pas de cache, sur source : select * from Livres where date > 2005
+E. Références Bibliographiques
+ AnHai Doan, Alon Halevy, Zachary G. Ives, Principles of Data Integration.,
+Elsevier, 2012.
+ Nguyen Xuan D. Intégration de bases de données hétérogènes par
+articulation à priori d'ontologies : application aux catalogues de composants
+industriels.‘ Thèse de doctorat, ENSMA/Université de Poitiers, 2006.
+ C. Goh, S. Bressan, E. Madnick, and M. D. Siegel. Context interchange : New
+features and formalisms for the intelligent integration of information. ACM
+Transactions on Information Systems, 17(3) :270–293, 1999.
+ Parent , C. and Spaccapietra, S. 1996. Integration de bases de données:
+panorama des problèmes et des approches. Ingénierie des Systèmes
+d'Information (ISI ) , 4: 1 - 18 .
+ Lahmar Fatima, Une approche Hybride d'intégration de sources de données
+hétérogènes dans les datawarehouses,THESE Présentée à l'Université
+Mentouri de Constantine Pour l'Obtention du diplôme de DOCTORAT en
+SCIENCES Spécialité : Informatique,2011
+ Fatiha SAÏS, Intégration Sémantique de Données guidée par une
+Ontologie,thèse pour l'obtention du Doctorat de l'Université Paris-Sud
+Spécialité : informatique,2007
+ M.-S. Hacid and C. Reynaud. L'intégration de sources de données. La revue
+I3 : Information - Interaction - Intelligence, Vol5 n˚1, 2005
+ Bleiholder, J. and Naumann, F. 2008. Data fusion. ACM Comput. Surv., 41, 1
+ G. Wiederhold, “Mediators in the architecture of future information systems
+», IEEE Computer, vol.25, n°3, pp 38-49, 1992.
+ Bleiholder, J. and Naumann, F. 2008. Data fusion. ACM Comput. Surv., 41,
+1, Article 1 (December 2008)
+ LIM, E.-P., SRIVASTAVA, J., AND SHEKHAR, S. 1994. Resolving attribute
+incompatibility in database integration: An evidential reasoning approach. In
+Proceedings of the International Conference on Data Engineering (ICDE).
+IEEE Computer Society, 154–163.
+ DEMICHIEL, L. G. 1989. Resolving database incompatibility: An approach to
+performing relational operations over mismatched domains. IEEE Trans.
+Knowl. Data Eng. 1, 4, 485–493.
+57
+Traitement des requêtes
+ ARENAS, M., BERTOSSI, L. E., AND CHOMICKI, J. 1999. Consistent query
+answers in inconsistent databases. In Proceedings of the ACM SIGACT-
+SIGMOD-SIGART Symposium on Principles of Database Systems (PODS).
+ACM Press, 68–79.
+ Andrea Cali, Domenico Lembo, Riccardo Rosati, A Comprehensive Semantic
+Framework for Data Integration Systems, in Journal of Applied Logic
+3(2):308-328 · June 2005
+ Abdelaali BRIACHE, Médiation à base d'ontologie pour l'intégration
+sémantique des données de Saccharomyces cerevisiae, thèse de doctorat,
+UNIVERSITE ABDELMALEK ESSAADI FACULTE DES SCIENCES et
+TECHNIQUES TANGER, 2012
+Traitement des requêtesTraitement des requêtes
+5858
+Traitement des requêtes
+58
+
+
+V - Réconciliation des
+données V
+Problème de la réconciliation 59
+Evaluation des méthodes de réconciliation 60
+Mesures de similarité 63
+Références Bibliographiques 65
+A. Problème de la réconciliation
+Le problème de réconciliation de références a été étudié dans une multitude de
+domaines et sous différentes terminologies. [6]
+ Dans le domaine d'Intégration de Données, lors de la fusion de plusieurs
+bases ou de leur nettoyage, on cherche à détecter les enregistrements qui
+se réfèrent à la même entité du monde réel ; on parle alors d'appariement
+de données, de merge/purge et de détection de doublons.
+ Dans le domaine du Traitement Automatique du Langage Naturel, lorsqu'on
+souhaite trouver quels sont les groupes nominaux qui se réfèrent à la même
+entité, on parle de co-référence et de résolution des anaphores.
+ En Traitement d'Images, la recherche de correspondances d'objets permet
+de détecter que deux régions dans deux images différentes représentent le
+même objet.
+Remarque
+Le problème réconciliation de références est étudiés dans différents travaux sous
+différentes appellations parmi lesquelles :
+ Résolution d'entités
+ Détection de doubles
+ Appariement d'entités
+Dans les approches traditionnelles, pour décider de la réconciliation de paires de
+références, on mesure leur similarité en se fondant uniquement sur leur description
+syntaxique structurée (ou non) en attributs. Dans ce cas, on parlera alors
+d'approches locales. [6]
+Remarque
+Une mesure de similarité est une fonction qui calcule le degrés de rapprochement
+entre deux entités.
+59
+Des travaux plus récents ont souligné le fait que la plupart des décisions de
+réconciliation et de non réconciliation doivent être effectuées de manière
+dépendantes les unes des autres. En effet, des informations relationnelles sont
+souvent représentées dans les données. Il s'agit alors d'approches de réconciliation
+de références dites globales où l'on exploite à la fois la similarité des valeurs des
+attributs mais aussi celles des références reliées par des relations.
+Exemple
+Par exemple, la peinture "La Joconde" est présentée au musée du "Louvre" et elle a
+été réalisée par le peintre "Leonardo Da Vinci". Afin d'améliorer la qualité des
+résultats de la réconciliation de références, ces informations relationnelles peuvent
+être exploitées et ainsi compléter les informations prises en compte pour les
+décisions de réconciliation des références.
+Pour réconcilier deux titres de peintures (par exemple "La Joconde" et "jocande"),
+on exploite la similarité des musées où elles sont présentées et la similarité de leur
+peintre ; pour réconcilier deux musées, on exploite la similarité des peintures qui y
+sont présentées, de leur villes de localisation, et ainsi de suite.
+Remarque
+Cette interdépendance des décisions rend la tâche de réconciliation plus complexe.
+D'une part, les tâches élémentaires (e.g. calcul de similarité) deviennent plus
+coûteuses et d'autre part, elles doivent être itérées pour prendre en compte
+l'interdépendance entre réconciliations. [6]
+Le développement de nouvelles techniques de classification en apprentissage
+automatique et en statistique a conduit à l'apparition de nouvelles techniques de
+réconciliation de références fondées sur l'apprentissage automatique supervisé ou
+semi-supervisé. Ces techniques exploitent des échantillons de données sous la
+forme d'un ensemble de paires de références étiquetées manuellement par un
+expert comme réconciliées ou non réconciliées.6 [6]
+B. Evaluation des méthodes de réconciliation
+Dans ce qui suit nous présentons brièvement quelques approches de réconciliation
+de références.
+1. Réconciliation de références et exploitation des
+relations entre les données
+ Méthodes locales de réconciliation de références.
+ Méthodes globales de réconciliation de références.
+a) Méthodes locales de réconciliation de références
+Les méthodes locales de réconciliation de références sont des méthodes qui
+exploitent les descriptions syntaxiques des références.
+Ces méthodes considèrent les descriptions des références représentées en terme
+d'ensemble de couples (attribut, valeur).
+Réconciliation des donnéesRéconciliation des données
+6060
+Réconciliation des données
+60
+Exemple
+Les descriptions de deux paires de références de musées m1 et m2 sont
+représentées par :
+ desc(m1) = {(Nom,"Arts Premiers"), (Adresse,"27, quai Branly 75007
+Paris"), (AnnéeIn,"2006 ")}
+ desc(m2) = {(Nom,"Musée Quai Branly"), (Adresse,"27, quai Branly 7ème
+arr. Paris"), (AnnéeIn ,"2006")}
+Pour pouvoir décider de la réconciliation (ou non) d'une paire de références, les
+méthodes locales de réconciliation comparent les valeurs des attributs deux à deux
+afin de capturer la similitude ou la différence des valeurs des attributs décrivant la
+paire de références.
+Exemple
+Pour réconcilier la paire de références m1 et m2, on compare les paires de valeurs
+de leurs attributs : ("Arts Premiers", "Musée Quai Branly"), ("27, quai Branly 75007
+Paris", "27, quai Branly 7ème arr. Paris"), etc.
+Les méthodes s'appuient généralement sur des mesures de similarité appliquées
+aux attributs ce qui donne un vecteur de comparaison représentant le score de
+similarité ou la probabilité concordance des attributs deux à deux.
+Différentes méthodes peuvent être utilisées pour décider de la réconciliation ou non
+des paires de références.
+ Certaines méthodes s'appuient sur un modèle probabiliste pour estimer les
+probabilités de réconciliation et sur des règles de décision appliquées sur ces
+probabilités.
+ D'autres méthodes exploitent des fonctions d'agrégation de ces similarités
+(e.g. moyenne, moyenne pondérée, calcul de rangs).
+b) Méthodes globales de réconciliation de références
+Les approches locales présentées, considèrent chaque référence comme une entité
+complètement indépendante des autres entités et ignorent le fait que les données
+sont souvent représentées dans des schémas qui permettent d'exprimer des
+relations entre les données.
+Exemple
+Dans une base de données relationnelle, les données sont stockées dans différentes
+tables liées par des relations (clé-étrangères).
+De même des données décrites en RDF forment un graphe où les ressources (URIs)
+sont reliées entre elles.
+Des approches récentes de réconciliation de références exploitent la description des
+références en terme d'attributs, mais également les relations liant les différentes
+références afin de décider de leur réconciliation.
+Exemple
+Lorsqu'on cherche à réconcilier "Le Musée du Louvre" avec "Le Louvre", on est
+encore plus sûr de leur réconciliation s'ils contiennent tous les deux la peinture "La
+Joconde" et si celle-ci a été réalisée par le même peintre "Leonardo Da Vinci".
+61
+Réconciliation des données
+L'exploitation des relations entre références permet aux méthodes de réconciliation
+de réduire à la fois le nombre de fausses réconciliations (Faux Positifs) mais aussi le
+nombre de fausses non réconciliations (Faux Négatifs).
+Parmi ces méthodes globales nous en distinguons deux types :
+ Méthodes globales non itératives de réconciliation de références.
+ Méthodes globales itératives de réconciliation de références.
+i Méthodes globales non itératives de réconciliation de
+références
+Il s'agit des approches de réconciliation de références qui exploitent les relations
+entre les références et où le calcul est fait une seule fois pour une paire de
+références.
+En d'autres termes, aucune mise à jour n'est effectuée sur les scores de similarité
+(ou probabilité de (non) réconciliation) ni sur les décisions de (non) réconciliation
+une fois que ce calcul est réalisé.
+ii Méthodes globales itératives de réconciliation de
+références
+Il s'agit des approches de réconciliation de références qui exploitent les relations
+entre les références de manière itérative, en parcourant plusieurs fois les
+références.
+Toute modification concernant les scores de similarité (ou les probabilités) et
+concernant les décisions de (non) réconciliation, est propagée à d'autres
+références.
+Ceci est itéré jusqu'à ce qu'un point fixe soit atteint : il n'y a alors plus de mise à
+jour possible des scores de similarité et/ou plus aucune décision de (non)
+réconciliation ne peut être inférée.
+2. Réconciliation de références et exploitation de
+connaissances
+ Méthodes supervisées de réconciliation de références.
+ Méthodes déclaratives de réconciliation de références.
+a) Méthodes supervisées de réconciliation de références
+Les méthodes supervisées de réconciliation de références supposent l'existence de
+données sous forme d'un ensemble de paires de références étiquetées comme
+réconciliées ou non réconciliées.
+En exploitant cet ensemble d'exemples positifs et négatifs ces méthodes utilisent
+des algorithmes d'apprentissage supervisé pour apprendre des connaissances ou
+des paramètres nécessaires pour la prise de décision de (non) réconciliation.
+Ces connaissances peuvent correspondre soit à des paramètres de mesures de
+similarité soit à des règles de (non) réconciliation pour les approches s'appuyant
+sur les mesures de similarité. 6 [6]
+b) Méthodes déclaratives de réconciliation de références
+Dans ce type d'approche de réconciliation de références, au lieu d'utiliser des
+algorithmes supervisés pour apprendre les connaissances nécessaires à la
+réconciliation de références, on considère que ces connaissances peuvent être
+données par un expert du domaine sous forme de règles de réconciliation plus ou
+Réconciliation des donnéesRéconciliation des données
+6262
+Réconciliation des données
+62
+moins complexes. [6]
+C. Mesures de similarité
+Une des difficultés les plus importantes auxquelles sont confrontées les méthodes
+de réconciliation est la variation syntaxique du vocabulaire utilisé pour décrire les
+données.
+Ces variations peuvent être dues à différentes raisons :
+ Erreurs de saisie
+ Abréviations (e.g. bd. pour boulevard),
+ Présence d'acronymes (e.g. JSK pour Jeunesse Sportive de Kabylie),
+ Synonymes.
+Remarque
+La plupart des méthodes de réconciliation de références s'appuient sur des
+techniques de mesure de similarité entre valeurs.
+Définition
+Une mesure de similarité S est une fonction X × X R qui satisfait les→
+propriétés suivantes :
+ Positivité : x, y X , S(x, y) ≥ 0∀ ∈
+ Symétrie : x, y X , S(x, y) = S(y, x)∀ ∈
+ Maximalité : x, y X , S(x, x) ≥ S(x, y)∀ ∈
+( En général la mesure de similarité et évaluée dans l'intervalle [0..1], donc
+S(x,x)=1)
+Remarque
+On appelle score de similarité, la valeur réelle calculée par une mesure de similarité
+pour une paire d'éléments.
+Nous identifions différents types de mesures, parmi lesquelles :
+ Les mesures fondées sur les caractères
+ Les mesures fondées sur les chaînes atomiques
+ Les mesures fondées sur la description non strucurées
+1. Mesures fondées sur les caractères
+Mesures d'édition.
+Il s'agit de mesures conçues pour traiter les erreurs typographiques apparaissant
+dans les chaînes de caractères.
+Le score de similarité entre deux chaînes de caractères est le coût minimum d'une
+conversion d'une des deux chaînes en l'autre par une séquence d'insertions, de
+suppressions et de remplacements de caractères.
+A chacune de ces opérations est assigné un coût.
+Sim(σ1,σ2)=1-distance(σ1,σ2)/Max(|σ1|,|σ2|)
+63
+Réconciliation des données
+Exemple : La mesure dite de Levenshtein est une mesure
+d'édition où le coût de toutes les opérations est identique et égal à 1.
+La distance de Levenshtein appliquée aux chaînes Marie et Marria est de 2. En effet,
+Marie est obtenue par la suppression d'un caractère r et par le remplacement du
+caractère a par le caractère e de la chaîne Marria.
+Sim(Marie , Marria)=1-2/6=0.66
+Mesures par affinement de gaps
+Les mesures d'édition sont inefficaces dans le cas où les chaînes de caractères sont
+abrégées ou raccourcies (e.g., "MCF. en informatique" vs "Maître de conférence en
+informatique").
+La mesure par affinement de gaps proposée par Smith et Waterman fournit une
+solution à ce problème en introduisant deux opérations d'édition :
+ Ouvrir un gap
+ Étendre un gap.
+Le coût de l'extension d'un gap est en général plus faible que le coût d'ouverture
+d'un gap, ainsi le coût des pénalités du non appariement des gaps est plus faible
+que celui considéré par les distances d'éditions classiques.
+Exemple
+Les deux chaînes σ1='Bd de Paris' et σ2='Boulevard de Paris' peuvent être alignées
+comme présenté dans la figure
+Mesure de Jaro
+Jaro a introduit un algorithme de mesure de similarité entre chaînes de caractères
+qui est très utilisée pour la comparaison de noms et prénoms de personnes.
+L'algorithme basique pour calculer le score de similarité par la mesure de Jaro pour
+deux chaînes de caractères σ1 et σ2 s'effectue en trois étapes :
+. Calculer la longueur des chaînes σ1 et σ2 ;
+. Calculer le nombre des "caractères communs" dans les deux chaînes ; les
+caractères communs sont tous les caractères σ1[i] et σ2[j] pour lesquels
+σ1[i] = σ2[j] et |i-j|<=(1/2 * min(|σ1|,|σ2|) ;
+. Calculer le nombre de transpositions t ; un caractère transposé est un
+caractère commun qui apparaît dans différentes positions.
+Soit Nc (resp. Nt) le nombre de caractères communs (resp. le nombre de
+transpositions) entre les deux chaînes les deux chaînes σ1 et σ2. La mesure de Jaro
+est définie comme suit :
+Exemple
+Les chaînes Marie et Maires ont cinq caractères communs dont deux transpositions
+(les caractères r et i).
+Réconciliation des donnéesRéconciliation des données
+6464
+Réconciliation des données
+64
+2. Mesures fondées sur les chaînes atomiques
+Les mesures fondées sur les caractères sont efficaces pour le traitement des
+erreurs typographiques. Cependant, il arrive souvent que les différences
+typographiques entre les chaînes de caractères soient dues à l'ordre d'apparition
+des mots (e.g. "Prof. Marie-Christine Rousset" vs "Rousset Marie-Christine Prof.").
+Les mesures fondées sur les caractères sont incapables de capturer la similarité de
+telles chaînes de caractères.
+Afin de tenir compte de ce type de problèmes, des mesures appliquées sur des
+ensembles de chaînes atomiques ont été proposées. [6]
+Définition
+Une chaîne atomique (ou token) est une séquence de caractères alphanumériques
+délimitée par un caractère de ponctuation. Il s'agit en général des mots formant la
+chaîne de caractères. [6]
+Mesure de Jaccard.
+Jaccard a proposé une mesure de similarité appliquée sur les mots qui est
+simplement le rapport entre le cardinal de l'ensemble des mots communs entre les
+deux chaînes et le cardinal de l'union des mots des deux chaînes :
+| σ1 inter σ2|/ |σ union σ2|.
+Exemple
+Par exemple, Jaccard("bd de Paris", "boulevard de Paris") = 2/4.
+D. Références Bibliographiques
+. AnHai Doan, Alon Halevy, Zachary G. Ives, Principles of Data Integration.,
+Elsevier, 2012.
+. Nguyen Xuan D. Intégration de bases de données hétérogènes par
+articulation à priori d'ontologies : application aux catalogues de composants
+industriels.‘ Thèse de doctorat, ENSMA/Université de Poitiers, 2006.
+. C. Goh, S. Bressan, E. Madnick, and M. D. Siegel. Context interchange : New
+features and formalisms for the intelligent integration of information. ACM
+Transactions on Information Systems, 17(3) :270–293, 1999.
+. Parent , C. and Spaccapietra, S. 1996. Integration de bases de données:
+panorama des problèmes et des approches. Ingénierie des Systèmes
+d'Information (ISI ) , 4: 1 - 18 .
+. Lahmar Fatima, Une approche Hybride d'intégration de sources de données
+hétérogènes dans les datawarehouses,THESE Présentée à l'Université
+Mentouri de Constantine Pour l'Obtention du diplôme de DOCTORAT en
+SCIENCES Spécialité : Informatique,2011
+. Fatiha SAÏS, Intégration Sémantique de Données guidée par une
+Ontologie,thèse pour l'obtention du Doctorat de l'Université Paris-Sud
+Spécialité : informatique,2007
+. M.-S. Hacid and C. Reynaud. L'intégration de sources de données. La revue
+I3 : Information - Interaction - Intelligence, Vol5 n˚1, 2005
+65
+Réconciliation des données
+. Bleiholder, J. and Naumann, F. 2008. Data fusion. ACM Comput. Surv., 41, 1
+. G. Wiederhold, “Mediators in the architecture of future information systems
+», IEEE Computer, vol.25, n°3, pp 38-49, 1992.
+. Bleiholder, J. and Naumann, F. 2008. Data fusion. ACM Comput. Surv., 41,
+1, Article 1 (December 2008)
+. LIM, E.-P., SRIVASTAVA, J., AND SHEKHAR, S. 1994. Resolving attribute
+incompatibility in database integration: An evidential reasoning approach. In
+Proceedings of the International Conference on Data Engineering (ICDE).
+IEEE Computer Society, 154–163.
+. DEMICHIEL, L. G. 1989. Resolving database incompatibility: An approach to
+performing relational operations over mismatched domains. IEEE Trans.
+Knowl. Data Eng. 1, 4, 485–493.
+. ARENAS, M., BERTOSSI, L. E., AND CHOMICKI, J. 1999. Consistent query
+answers in inconsistent databases. In Proceedings of the ACM SIGACT-
+SIGMOD-SIGART Symposium on Principles of Database Systems (PODS).
+ACM Press, 68–79.
+. Andrea Cali, Domenico Lembo, Riccardo Rosati, A Comprehensive Semantic
+Framework for Data Integration Systems, in Journal of Applied Logic
+3(2):308-328 · June 2005
+. Abdelaali BRIACHE, Médiation à base d'ontologie pour l'intégration
+sémantique des données de Saccharomyces cerevisiae, thèse de doctorat,
+UNIVERSITE ABDELMALEK ESSAADI FACULTE DES SCIENCES et
+TECHNIQUES TANGER, 2012
+Réconciliation des donnéesRéconciliation des données
+6666
+Réconciliation des données
+66

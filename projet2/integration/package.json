@@ -13,7 +13,7 @@
   "dependencies": {
     "alasql": "^4.6.6",
     "fast-xml-parser": "^4.3.0",
-    "mariadb": "^3.4.1",
+    "mariadb": "^3.4.2",
     "neo4j-driver": "^5.28.1",
     "node-sql-parser": "^5.3.8",
     "pug": "^3.0.3",

@@ -318,8 +318,29 @@ export class ComplexQueryProcessor {
           try {
             // Call the adapter's executeFilteredQuery with the table name and filter
             const collection = await adapter.executeFilteredQuery(tableName, filter);
-            if (collection) {
+            
+            // Validate that the collection implements the expected interface
+            if (collection && typeof collection.getItems === 'function') {
               collections.push(collection);
+            } else if (collection) {
+              console.warn(`Adapter ${adapter.getSourceSystem()} returned an invalid collection for ${tableName}: missing getItems() method`);
+              
+              // Try to convert to a compatible collection format if it has items directly
+              if (Array.isArray(collection)) {
+                // If collection is an array, wrap it in a compatible object
+                collections.push({
+                  getItems: () => collection,
+                  count: () => collection.length,
+                  merge: () => {} // No-op merge since this is a wrapper
+                });
+              } else if (collection.items && Array.isArray(collection.items)) {
+                // If collection has an 'items' array property
+                collections.push({
+                  getItems: () => collection.items,
+                  count: () => collection.items.length,
+                  merge: () => {} // No-op merge since this is a wrapper
+                });
+              }
             }
           } catch (error) {
             console.warn(`Adapter ${adapter.getSourceSystem()} failed to process filtered query for ${tableName}:`, error);

@@ -1,41 +1,30 @@
 /**
  * Neo4jAdapter.ts
- * Adapter for Neo4j graph database using the Neo4j JavaScript driver
+ * Adapter for Neo4j graph database
  */
 
-import neo4j, { Driver, Session, Record as Neo4jRecord, QueryResult } from 'neo4j-driver';
-import { IAdapter, QueryFilter, applyTypeScriptFilter } from './IAdapter';
+import { Driver, Session, Record as Neo4jRecord } from 'neo4j-driver';
+import neo4j from 'neo4j-driver';
+import { IAdapter, QueryFilter } from './IAdapter';
 import {
-  ClientCollection,
-  Client,
-  EmployeeCollection,
-  Employee,
-  AgenceCollection,
-  Agence,
-  FournisseurCollection,
-  Fournisseur,
-  ProduitCollection,
-  Produit,
-  CommandeCollection,
-  Commande,
-  DetailCommandeCollection,
-  DetailCommande,
-  FactureCollection,
-  Facture,
-  LivraisonCollection,
-  Livraison,
-  ApprovisionnementCollection,
-  Approvisionnement
+  ClientCollection, Client,
+  EmployeeCollection, Employee,
+  AgenceCollection, Agence,
+  FournisseurCollection, Fournisseur,
+  ProduitCollection, Produit,
+  CommandeCollection, Commande,
+  DetailCommandeCollection, DetailCommande,
+  FactureCollection, Facture,
+  LivraisonCollection, Livraison,
+  ApprovisionnementCollection, Approvisionnement
 } from '../common/DataModel';
-
-// Using shared applyTypeScriptFilter from IAdapter
+import { SourceDescription, EntityAvailability, SourceCapabilities } from '../common/SourceDescription';
 
 export class Neo4jAdapter implements IAdapter {
   private driver: Driver | null = null;
   private connected: boolean = false;
   private sourceSystem: string = 'NEO4J';
   
-  // Neo4j connection settings
   private uri: string;
   private username: string;
   private password: string;
@@ -43,12 +32,6 @@ export class Neo4jAdapter implements IAdapter {
 
   /**
    * Constructor - Initialize with connection settings
-   * 
-   * @param sourceSystem Source system identifier
-   * @param uri Neo4j connection URI (e.g., neo4j://localhost:7687)
-   * @param username Neo4j username
-   * @param password Neo4j password
-   * @param database Neo4j database name
    */
   constructor(
     sourceSystem: string,
@@ -62,109 +45,49 @@ export class Neo4jAdapter implements IAdapter {
     this.username = username;
     this.password = password;
     this.database = database;
-    
   }
 
   /**
-   * Connect to the Neo4j graph database
-   * 
-   * @returns Whether the connection was successful
+   * Connect to the Neo4j database
    */
   public async connect(): Promise<boolean> {
     try {
-      // Connect to Neo4j
+      console.log(`Connecting to Neo4j at ${this.uri}...`);
+      
       this.driver = neo4j.driver(
-        this.uri,
-        neo4j.auth.basic(this.username, this.password)
+        this.uri, 
+        neo4j.auth.basic(this.username, this.password),
+        {
+          maxConnectionLifetime: 60 * 60 * 1000,
+          maxConnectionPoolSize: 50,
+          connectionAcquisitionTimeout: 30 * 1000
+        }
       );
       
-      // Test connection
-      const session = this.driver.session({ database: this.database });
-      const result = await session.run('RETURN 1 as test');
-      await session.close();
+      const session = this.driver.session({
+        database: this.database,
+        defaultAccessMode: neo4j.session.READ
+      });
       
-      if (!result || result.records.length === 0) {
-        throw new Error('Could not connect to Neo4j database');
-      }
-      
-      // Check if we need to load data from CQL file
-      const countSession = this.driver.session({ database: this.database });
-      const countResult = await countSession.run('MATCH (n) RETURN count(n) as count');
-      await countSession.close();
-      
-      const count = countResult.records[0].get('count').toNumber();
-      if (count <= 1) {
-        // Database is empty or has very few nodes, load data from CQL file
-        throw new Error('Database is empty or has very few nodes, loading data from CQL file');
+      try {
+        const result = await session.run('RETURN 1 as test');
+        console.log('Neo4j connection test successful:', result.records[0].get('test').toNumber());
+      } finally {
+        await session.close();
       }
       
       this.connected = true;
-      console.log(`Connected to Neo4j data source successfully.`);
+      console.log(`Connected to Neo4j database (${this.database}) successfully.`);
       return true;
     } catch (error) {
       console.error('Neo4j Connection Error:', error);
       this.connected = false;
-      if (error instanceof Error) {
-        throw new Error(`Failed to connect to Neo4j database: ${error.message}`);
-      } else {
-        throw new Error(`Failed to connect to Neo4j database: ${String(error)}`);
-      }
+      throw new Error(`Failed to connect to Neo4j: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  
-
   /**
-   * Split CQL content into individual statements based on semicolons
-   * 
-   * @param cqlContent The full content of the CQL file
-   * @returns Array of individual CQL statements
-   */
-  private splitCqlStatements(cqlContent: string): string[] {
-    // Remove comments and split by semicolons
-    const lines = cqlContent.split('\n');
-    let cleanedContent = '';
-    
-    for (const line of lines) {
-      // Remove comments starting with //
-      const cleanedLine = line.replace(/\/\/.*$/, '');
-      cleanedContent += cleanedLine + '\n';
-    }
-    
-    // Split by semicolon, but keep in mind that semicolons can appear within quotes
-    const statements: string[] = [];
-    let currentStatement = '';
-    let inSingleQuote = false;
-    let inDoubleQuote = false;
-    
-    for (let i = 0; i < cleanedContent.length; i++) {
-      const char = cleanedContent[i];
-      
-      if (char === "'" && (i === 0 || cleanedContent[i-1] !== '\\')) {
-        inSingleQuote = !inSingleQuote;
-      } else if (char === '"' && (i === 0 || cleanedContent[i-1] !== '\\')) {
-        inDoubleQuote = !inDoubleQuote;
-      }
-      
-      if (char === ';' && !inSingleQuote && !inDoubleQuote) {
-        // End of statement
-        statements.push(currentStatement);
-        currentStatement = '';
-      } else {
-        currentStatement += char;
-      }
-    }
-    
-    // Add the last statement if it doesn't end with semicolon
-    if (currentStatement.trim()) {
-      statements.push(currentStatement);
-    }
-    
-    return statements;
-  }
-
-  /**
-   * Disconnect from the data source
+   * Disconnect from Neo4j
    */
   public disconnect(): void {
     if (this.driver) {
@@ -172,535 +95,971 @@ export class Neo4jAdapter implements IAdapter {
       this.driver = null;
     }
     this.connected = false;
-    console.log('Disconnected from Neo4j data source.');
+    console.log('Disconnected from Neo4j.');
   }
 
-  /**
-   * Check if connected to the data source
-   */
   public isConnected(): boolean {
     return this.connected;
   }
 
-  /**
-   * Get the source system identifier
-   */
   public getSourceSystem(): string {
     return this.sourceSystem;
   }
 
   /**
-   * Execute a Cypher query on the Neo4j database
+   * Get source description for this adapter
+   * This provides information about what data is available in this source
+   * Following the formal framework (G,S,M) from the course material
    * 
-   * @param query The Cypher query to execute
-   * @param parameters Optional parameters for the query
-   * @returns Query results or null if not connected
+   * @returns Source description
    */
-  private async executeCypherQuery(query: string, parameters: Record<string, any> = {}): Promise<Neo4jRecord[] | null> {
+  public getSourceDescription(): SourceDescription {
+    // Define capabilities of Neo4j source
+    const capabilities: SourceCapabilities = {
+      canFilter: true,
+      canProject: true,
+      canSort: true,
+      canJoin: true,    // Neo4j is good at traversing relationships
+      canAggregate: true,
+      maxComplexity: 7  // High complexity handling due to graph nature
+    };
+    
+    // Define available entities and their attributes
+    const entities: EntityAvailability[] = [
+      {
+        entityName: 'Client',
+        isComplete: true,
+        attributes: ['id_client', 'nom', 'adresse', 'email', 'telephone']
+      },
+      {
+        entityName: 'Employe',
+        isComplete: true,
+        attributes: ['id_employe', 'nom', 'email', 'poste']
+      },
+      {
+        entityName: 'Agence',
+        isComplete: true,
+        attributes: ['id_agence', 'ville', 'adresse']
+      },
+      {
+        entityName: 'Fournisseur',
+        isComplete: true,
+        attributes: ['id_fournisseur', 'nom', 'adresse', 'telephone']
+      },
+      {
+        entityName: 'Produit',
+        isComplete: true,
+        attributes: ['id_produit', 'description', 'prix', 'categorie']
+      },
+      {
+        entityName: 'Commande',
+        isComplete: true,
+        attributes: ['id_commande', 'date', 'montant', 'statut', 'mode_paiement']
+      },
+      {
+        entityName: 'Facture',
+        isComplete: true,
+        attributes: ['id_facture', 'montant_total', 'date']
+      },
+      {
+        entityName: 'Livraison',
+        isComplete: true,
+        attributes: ['id_livraison', 'transporteur', 'date_estimee', 'statut']
+      }
+    ];
+    
+    return new SourceDescription(
+      this.sourceSystem,
+      'Neo4j Graph Database',
+      entities,
+      capabilities
+    );
+  }
+
+  /**
+   * Execute a Cypher query
+   */
+  private async executeCypherQuery(query: string, params: Record<string, any> = {}): Promise<Neo4jRecord[]> {
     if (!this.connected || !this.driver) {
       throw new Error('Not connected to Neo4j database');
     }
     
+    const session = this.driver.session({
+      database: this.database,
+      defaultAccessMode: neo4j.session.READ
+    });
+    
     try {
-      const session = this.driver.session({ database: this.database });
-      try {
-        const result = await session.run(query, parameters);
-        return result.records;
-      } catch (error) {
-        console.error('Cypher Query Error:', error);
-        if (error instanceof Error) {
-          throw new Error(`Cypher query failed: ${error.message}`);
-        } else {
-          throw new Error(`Cypher query failed: ${String(error)}`);
+      console.log(`Executing Cypher query: ${query}`);
+      console.log('With parameters:', params);
+      
+      const result = await session.run(query, params);
+      return result.records;
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
+   * Translate camelCase property to Neo4j property
+   */
+  private translateProperty(property: string): string {
+    const propertyMap: Record<string, string> = {
+      'nomComplet': 'nom',
+      'emailContact': 'email',
+      'numeroTelephone': 'telephone',
+      'prixCout': 'prix',
+      'dateCommande': 'date',
+      'modePaiement': 'mode_paiement',
+      'montantTotal': 'montant_total',
+      'dateFacture': 'date',
+      'dateEstimee': 'date_estimee'
+    };
+    return propertyMap[property] || property;
+  }
+
+  /**
+   * Convert filter conditions to Cypher WHERE clause
+   */
+  private buildWhereClause(filter: QueryFilter, nodeAlias: string): { whereClause: string, params: Record<string, any> } {
+    const params: Record<string, any> = {};
+    const conditions: string[] = [];
+
+    if (filter.conditions && filter.conditions.length > 0) {
+      filter.conditions.forEach((condition, index) => {
+        if (condition.type === 'binary_expr' && condition.left.type === 'column_ref') {
+          const property = this.translateProperty(condition.left.column);
+          const paramName = `param${index}`;
+          params[paramName] = condition.right.value;
+          
+          switch (condition.operator.toUpperCase()) {
+            case '=':
+              conditions.push(`${nodeAlias}.${property} = $${paramName}`);
+              break;
+            case '!=':
+              conditions.push(`${nodeAlias}.${property} <> $${paramName}`);
+              break;
+            case '>':
+              conditions.push(`${nodeAlias}.${property} > $${paramName}`);
+              break;
+            case '<':
+              conditions.push(`${nodeAlias}.${property} < $${paramName}`);
+              break;
+            case '>=':
+              conditions.push(`${nodeAlias}.${property} >= $${paramName}`);
+              break;
+            case '<=':
+              conditions.push(`${nodeAlias}.${property} <= $${paramName}`);
+              break;
+            case 'LIKE':
+              if (typeof condition.right.value === 'string') {
+                const value = condition.right.value;
+                if (value.startsWith('%') && value.endsWith('%')) {
+                  params[paramName] = `(?i).*${value.slice(1, -1)}.*`;
+                  conditions.push(`${nodeAlias}.${property} =~ $${paramName}`);
+                } else if (value.startsWith('%')) {
+                  params[paramName] = `(?i).*${value.slice(1)}$`;
+                  conditions.push(`${nodeAlias}.${property} =~ $${paramName}`);
+                } else if (value.endsWith('%')) {
+                  params[paramName] = `(?i)^${value.slice(0, -1)}.*`;
+                  conditions.push(`${nodeAlias}.${property} =~ $${paramName}`);
+                } else {
+                  conditions.push(`${nodeAlias}.${property} = $${paramName}`);
+                }
+              }
+              break;
+            case 'IN':
+              conditions.push(`${nodeAlias}.${property} IN $${paramName}`);
+              break;
+          }
         }
-      } finally {
-        await session.close();
+      });
+    }
+    
+    return {
+      whereClause: conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '',
+      params
+    };
+  }
+  
+  /**
+   * Execute filtered query that translates mediator's filter to Neo4j Cypher
+   */
+  public async executeFilteredQuery(tableName: string, filter: QueryFilter): Promise<any> {
+    const entityName = tableName.toLowerCase();
+    
+    // Special handling for JOIN operations
+    if (filter && filter.joins && filter.joins.length > 0) {
+      // For JOIN queries, only return the specific entity data needed for this adapter
+      return this.executeJoinAwareQuery(entityName, filter);
+    }
+    
+    // Create a non-recursive implementation to prevent stack overflow
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+    
+    console.log(`Neo4jAdapter: executeFilteredQuery for ${entityName}`);
+    
+    try {
+      let query = '';
+      const params: Record<string, any> = {};
+      
+      switch(entityName) {
+        case 'clients':
+          query = `MATCH (c:Client) RETURN c.id_client as id, c.nom as nom, c.adresse as adresse, c.email as email, c.telephone as telephone`;
+          break;
+        case 'employees':
+          query = `MATCH (e:Employe) RETURN e.id_employe as id, e.nom as nom, e.email as email, e.poste as poste`;
+          break;
+        case 'agences':
+          query = `MATCH (a:Agence) RETURN a.id_agence as id, a.ville as ville, a.adresse as adresse`;
+          break;
+        case 'fournisseurs':
+          query = `MATCH (f:Fournisseur) RETURN f.id_fournisseur as id, f.nom as nom, f.adresse as adresse, f.telephone as telephone`;
+          break;
+        case 'produits':
+          query = `MATCH (p:Produit) RETURN p.id_produit as id, p.description as description, p.prix as prix, p.categorie as categorie`;
+          break;
+        case 'commandes':
+          query = `MATCH (o:Commande) OPTIONAL MATCH (c:Client)-[:PASSE]->(o) OPTIONAL MATCH (e:Employe)-[:GERE]->(o) 
+              RETURN o.id_commande as id, o.date as date, o.montant as montant, o.statut as statut, 
+              o.mode_paiement as mode_paiement, c.id_client as client_ref, e.id_employe as employe_ref`;
+          break;
+        case 'details_commande':
+          query = `MATCH (c:Commande)-[d:CONTIENT]->(p:Produit) RETURN c.id_commande as commande_id, p.id_produit as produit_id, d.quantite as quantite`;
+          break;
+        case 'factures':
+          query = `MATCH (f:Facture)-[:POUR]->(c:Commande) RETURN f.id_facture as id, f.montant_total as montant_total, f.date as date, c.id_commande as commande_ref`;
+          break;
+        case 'livraisons':
+          query = `MATCH (l:Livraison)-[:POUR]->(c:Commande) RETURN l.id_livraison as id, l.transporteur as transporteur, 
+              l.date_estimee as date_estimee, l.statut as statut, c.id_commande as commande_ref`;
+          break;
+        case 'approvisionnements':
+          query = `MATCH (f:Fournisseur)-[a:FOURNIT]->(p:Produit) RETURN p.id_produit as produit_id, f.id_fournisseur as fournisseur_id, a.quantite as quantite`;
+          break;
+        default:
+          throw new Error(`Unknown entity type: ${entityName}`);
       }
-    } catch (error) {
-      console.error('Session Error:', error);
-      if (error instanceof Error) {
-        throw new Error(`Session error: ${error.message}`);
-      } else {
-        throw new Error(`Session error: ${String(error)}`);
+      
+      const records = await this.executeCypherQuery(query, params);
+      return this.convertCypherResultToCollection(entityName, records);
+    }
+    catch (error) {
+      console.error(`Error executing filtered query for ${entityName}:`, error);
+      return this.getEmptyCollection(entityName);
+    }
+  }
+  
+  /**
+   * Execute a query specifically optimized for JOIN operations
+   * This returns only the entity data needed from this source
+   * 
+   * @param entityName The entity name to query
+   * @param filter The query filter with JOIN information
+   * @returns Entity data from this source
+   */
+  private async executeJoinAwareQuery(entityName: string, filter: QueryFilter): Promise<any> {
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+    
+    console.log(`Neo4jAdapter: executeFilteredQuery for ${entityName}`);
+
+    try {
+      // Determine which projections and properties are needed for this entity
+      const entitySpecificFilter = this.extractEntitySpecificFilter(entityName, filter);
+      
+      // Create a Cypher query that only fetches this entity's data
+      let query = '';
+      let returnClause = '';
+      
+      switch (entityName) {
+        case 'clients':
+          query = `
+            MATCH (c:Client) 
+          `;
+          returnClause = this.buildReturnClauseForClient();
+          break;
+        case 'commandes':
+          query = `
+            MATCH (o:Commande) 
+          `;
+          returnClause = this.buildReturnClauseForCommande();
+          break;
+        // Add cases for other entities as needed
+        default:
+          throw new Error(`Neo4jAdapter: Unsupported entity for JOIN: ${entityName}`);
       }
+      
+      // Add WHERE clause if any conditions apply to this entity
+      const conditions = this.buildWhereClauseForEntity(entityName, entitySpecificFilter.conditions);
+      if (conditions) {
+        query += `WHERE ${conditions} `;
+      }
+      
+      // Complete the query with RETURN, ORDER BY, and LIMIT clauses
+      query += `\n${returnClause} `;
+      
+      // Handle ORDER BY only if it applies to this entity
+      if (entitySpecificFilter.orderBy && entitySpecificFilter.orderBy.length > 0) {
+        const orderByTerms = entitySpecificFilter.orderBy.map(order => {
+          const field = this.mapFieldToCypher(entityName, order.column);
+          return `${field} ${order.type}`;
+        }).join(', ');
+        
+        query += `\nORDER BY ${orderByTerms} `;
+      }
+      
+      // Add LIMIT clause
+      if (entitySpecificFilter.limit) {
+        query += `\nLIMIT ${entitySpecificFilter.limit}`;
+      }
+      
+      console.log('Executing Cypher query:', query);
+      const result = await this.executeCypherQuery(query);
+      return this.convertCypherResultToCollection(entityName, result);
+    }
+    catch (error) {
+      console.error(`Error executing filtered query for ${entityName}:`, error);
+      
+      // Return an empty collection instead of failing
+      return this.getEmptyCollection(entityName);
+    }
+  }
+  
+  /**
+   * Build the appropriate RETURN clause for Client nodes
+   */
+  private buildReturnClauseForClient(): string {
+    return `RETURN c.id_client as id, c.nom as nom, c.adresse as adresse, c.email as email, c.telephone as telephone`;
+  }
+  
+  /**
+   * Build the appropriate RETURN clause for Commande nodes
+   */
+  private buildReturnClauseForCommande(): string {
+    return `RETURN o.id_commande as id, o.date as date, o.montant as montant, o.statut as statut, o.mode_paiement as mode_paiement, o.client_ref as client_ref, o.employe_ref as employe_ref`;
+  }
+  
+  /**
+   * Extract a filter specific to just this entity from a JOIN filter
+   * 
+   * @param entityName The entity to extract filter for
+   * @param filter The original filter with JOIN information
+   * @returns Entity-specific filter
+   */
+  private extractEntitySpecificFilter(entityName: string, filter: QueryFilter): QueryFilter {
+    const result: QueryFilter = {
+      projections: [],
+      conditions: [],
+    };
+    
+    // Copy over projections that apply to this entity
+    if (filter.projections && filter.projections.length > 0) {
+      result.projections = filter.projections.filter(projection => 
+        this.projectionBelongsToEntity(projection, entityName)
+      );
+    }
+    
+    // Copy limit clause
+    result.limit = filter.limit;
+    
+    // Copy order by clauses that apply to this entity
+    if (filter.orderBy && filter.orderBy.length > 0) {
+      result.orderBy = filter.orderBy.filter(order => 
+        this.projectionBelongsToEntity(order.column, entityName)
+      );
+    }
+    
+    // Add any required fields for joins
+    if (entityName === 'clients') {
+      if (!result.projections.includes('idClient')) {
+        result.projections.push('idClient');
+      }
+    }
+    
+    if (entityName === 'commandes') {
+      if (!result.projections.includes('idCommande')) {
+        result.projections.push('idCommande');
+      }
+      if (!result.projections.includes('clientRef')) {
+        result.projections.push('clientRef');
+      }
+    }
+    
+    return result;
+  }
+  
+  /**
+   * Determine if a projection belongs to an entity
+   * 
+   * @param projection The projection/column name
+   * @param entityName The entity name
+   * @returns Whether this projection belongs to the entity
+   */
+  private projectionBelongsToEntity(projection: string, entityName: string): boolean {
+    const clientFields = ['idClient', 'nomComplet', 'adresse', 'emailContact', 'numeroTelephone'];
+    const commandeFields = ['idCommande', 'dateCommande', 'montant', 'statut', 'modePaiement', 'clientRef', 'employeRef'];
+    
+    switch (entityName) {
+      case 'clients':
+        return clientFields.includes(projection);
+      case 'commandes':
+        return commandeFields.includes(projection);
+      default:
+        return false;
+    }
+  }
+  
+  /**
+   * Map a field name from the data model to its Cypher equivalent
+   * 
+   * @param entityName The entity the field belongs to
+   * @param field The field name
+   * @returns The Cypher property reference
+   */
+  private mapFieldToCypher(entityName: string, field: string): string {
+    const fieldMappings: Record<string, Record<string, string>> = {
+      'clients': {
+        'idClient': 'c.id_client',
+        'nomComplet': 'c.nom',
+        'adresse': 'c.adresse',
+        'emailContact': 'c.email',
+        'numeroTelephone': 'c.telephone'
+      },
+      'commandes': {
+        'idCommande': 'o.id_commande',
+        'dateCommande': 'o.date',
+        'montant': 'o.montant',
+        'statut': 'o.statut',
+        'modePaiement': 'o.mode_paiement',
+        'clientRef': 'o.client_ref',
+        'employeRef': 'o.employe_ref'
+      }
+    };
+    
+    if (fieldMappings[entityName] && fieldMappings[entityName][field]) {
+      return fieldMappings[entityName][field];
+    }
+    
+    // Default fallback - use the field directly
+    return field;
+  }
+  
+  /**
+   * Get an empty collection for a given entity type
+   * 
+   * @param entityName The entity name
+   * @returns Empty collection of the appropriate type
+   */
+  private getEmptyCollection(entityName: string): any {
+    switch (entityName) {
+      case 'clients':
+        return new ClientCollection();
+      case 'employees':
+        return new EmployeeCollection();
+      case 'agences':
+        return new AgenceCollection();
+      case 'fournisseurs':
+        return new FournisseurCollection();
+      case 'produits':
+        return new ProduitCollection();
+      case 'commandes':
+        return new CommandeCollection();
+      case 'details_commande':
+        return new DetailCommandeCollection();
+      case 'factures':
+        return new FactureCollection();
+      case 'livraisons':
+        return new LivraisonCollection();
+      case 'approvisionnements':
+        return new ApprovisionnementCollection();
+      default:
+        throw new Error(`Unknown entity type: ${entityName}`);
+    }
+  }
+  
+  /**
+   * Build WHERE clause for Cypher query based on entity type and conditions
+   */
+  private buildWhereClauseForEntity(entityName: string, conditions: any[] | undefined): string {
+    if (!conditions || conditions.length === 0) {
+      return '';
+    }
+    
+    const cypherConditions: string[] = [];
+    
+    for (const condition of conditions) {
+      if (condition.type === 'binary_expr' && condition.left && condition.right) {
+        const field = this.mapFieldToCypher(entityName, condition.left.column);
+        const operator = this.translateOperatorToCypher(condition.operator);
+        let value = this.formatValueForCypher(condition.right.value);
+        
+        cypherConditions.push(`${field} ${operator} ${value}`);
+      }
+    }
+    
+    return cypherConditions.join(' AND ');
+  }
+  
+  /**
+   * Translate SQL operator to Cypher equivalent
+   */
+  private translateOperatorToCypher(operator: string): string {
+    const operatorMap: Record<string, string> = {
+      '=': '=',
+      '!=': '<>',
+      '<>': '<>',
+      '>': '>',
+      '<': '<',
+      '>=': '>=',
+      '<=': '<=',
+      'LIKE': '=~',
+      'IN': 'IN',
+      'NOT IN': 'NOT IN'
+    };
+    
+    return operatorMap[operator.toUpperCase()] || operator;
+  }
+  
+  /**
+   * Format a value for use in Cypher query
+   */
+  private formatValueForCypher(value: any): string {
+    if (value === null) {
+      return 'null';
+    } else if (typeof value === 'string') {
+      return `'${value.replace(/'/g, "\\'")}'`;
+    } else if (typeof value === 'number') {
+      return String(value);
+    } else if (typeof value === 'boolean') {
+      return String(value);
+    } else if (Array.isArray(value)) {
+      const items = value.map(v => this.formatValueForCypher(v));
+      return `[${items.join(', ')}]`;
+    }
+    
+    return String(value);
+  }
+
+  /**
+   * Convert Cypher query results to the appropriate collection type
+   * 
+   * @param entityName The entity name
+   * @param records Array of Neo4j records
+   * @returns Collection of the appropriate type
+   */
+  private convertCypherResultToCollection(entityName: string, records: Neo4jRecord[]): any {
+    // Normalize the entity name
+    const normalizedEntityName = entityName.toLowerCase().replace(/s$/, '');
+    
+    // Convert Neo4j records to plain objects
+    const results = records.map(record => {
+      const obj: Record<string, any> = {};
+      record.keys.forEach(key => {
+        obj[key] = record.get(key);
+      });
+      // Always add source system
+      obj.sourceSystem = this.sourceSystem;
+      return obj;
+    });
+    
+    switch (normalizedEntityName) {
+      case 'client':
+        const clientCollection = new ClientCollection();
+        for (const row of results) {
+          const client = new Client({
+            idClient: `${this.sourceSystem}_${row.id}`,
+            sourceSystem: this.sourceSystem,
+            nomComplet: row.nom || '',
+            adresse: row.adresse || '',
+            emailContact: row.email || '',
+            numeroTelephone: row.telephone || ''
+          });
+          clientCollection.addItem(client);
+        }
+        return clientCollection;
+        
+      case 'employe':
+      case 'employee':
+        const employeeCollection = new EmployeeCollection();
+        for (const row of results) {
+          const employee = new Employee({
+            idEmploye: `${this.sourceSystem}_${row.id}`,
+            sourceSystem: this.sourceSystem,
+            nomComplet: row.nom || '',
+            email: row.email || '',
+            poste: row.poste || ''
+          });
+          employeeCollection.addItem(employee);
+        }
+        return employeeCollection;
+        
+      case 'agence':
+        const agenceCollection = new AgenceCollection();
+        for (const row of results) {
+          const agence = new Agence({
+            idAgence: `${this.sourceSystem}_${row.id}`,
+            sourceSystem: this.sourceSystem,
+            ville: row.ville || '',
+            adresse: row.adresse || ''
+          });
+          agenceCollection.addItem(agence);
+        }
+        return agenceCollection;
+        
+      case 'fournisseur':
+        const fournisseurCollection = new FournisseurCollection();
+        for (const row of results) {
+          const fournisseur = new Fournisseur({
+            idFournisseur: `${this.sourceSystem}_${row.id}`,
+            sourceSystem: this.sourceSystem,
+            nomFournisseur: row.nom || '',
+            adresse: row.adresse || '',
+            numeroTelephone: row.telephone || ''
+          });
+          fournisseurCollection.addItem(fournisseur);
+        }
+        return fournisseurCollection;
+        
+      case 'produit':
+        const produitCollection = new ProduitCollection();
+        for (const row of results) {
+          const produit = new Produit({
+            idProduit: `${this.sourceSystem}_${row.id}`,
+            sourceSystem: this.sourceSystem,
+            description: row.description || '',
+            prixCout: row.prix || 0,
+            categorie: row.categorie || ''
+          });
+          produitCollection.addItem(produit);
+        }
+        return produitCollection;
+        
+      case 'commande':
+        const commandeCollection = new CommandeCollection();
+        for (const row of results) {
+          const commande = new Commande({
+            idCommande: `${this.sourceSystem}_${row.id}`,
+            sourceSystem: this.sourceSystem,
+            dateCommande: row.date,
+            montant: row.montant || 0,
+            statut: row.statut || '',
+            modePaiement: row.mode_paiement || ''
+          });
+          commandeCollection.addItem(commande);
+        }
+        return commandeCollection;
+        
+      case 'detail_commande':
+      case 'detailcommande':
+        const detailCommandeCollection = new DetailCommandeCollection();
+        for (const row of results) {
+          const detailCommande = new DetailCommande({
+            idCommande: `${this.sourceSystem}_${row.commande_id || row.idCommande}`,
+            idProduit: `${this.sourceSystem}_${row.produit_id || row.idProduit}`,
+            sourceSystem: this.sourceSystem,
+            quantite: row.quantite || 0
+          });
+          detailCommandeCollection.addItem(detailCommande);
+        }
+        return detailCommandeCollection;
+        
+      case 'facture':
+        const factureCollection = new FactureCollection();
+        for (const row of results) {
+          const facture = new Facture({
+            idFacture: `${this.sourceSystem}_${row.id}`,
+            sourceSystem: this.sourceSystem,
+            montantTotal: row.montant_total || 0,
+            dateFacture: row.date
+          });
+          factureCollection.addItem(facture);
+        }
+        return factureCollection;
+        
+      case 'livraison':
+        const livraisonCollection = new LivraisonCollection();
+        for (const row of results) {
+          const livraison = new Livraison({
+            idLivraison: `${this.sourceSystem}_${row.id}`,
+            sourceSystem: this.sourceSystem,
+            transporteur: row.transporteur || '',
+            dateEstimee: row.date_estimee,
+            statut: row.statut || ''
+          });
+          livraisonCollection.addItem(livraison);
+        }
+        return livraisonCollection;
+        
+      default:
+        console.warn(`Unknown entity type: ${entityName}, returning empty array`);
+        return [];
     }
   }
 
   /**
    * Fetch clients data
-   * 
-   * @returns Collection of clients
+   * @param filter Optional query filter
    */
-  public async getClients(): Promise<ClientCollection> {
-    if (!this.connected) {
-      throw new Error('Not connected to Neo4j database');
+  public async getClients(filter?: QueryFilter): Promise<ClientCollection> {
+    if (!this.isConnected()) {
+      await this.connect();
     }
     
-    const collection = new ClientCollection();
+    console.log('Neo4jAdapter: executing getClients with filter:', filter);
     
-    // Use Neo4j connection to get clients
-    const query = `MATCH (c:Client) RETURN 
-                 c.id_client as id, 
-                 c.nom as nom, 
-                 c.adresse as adresse, 
-                 c.email as email, 
-                 c.telephone as telephone`;
-    
-    const result = await this.executeCypherQuery(query);
-    
-    if (result) {
-      for (const record of result) {
-        const client: Client = {
-          idClient: `NEO_${record.get('id')}`,
-          sourceSystem: this.sourceSystem,
-          nomComplet: record.get('nom'),
-          adresse: record.get('adresse'),
-          emailContact: record.get('email'),
-          numeroTelephone: record.get('telephone')
-        };
-        
-        collection.addItem(client);
+    try {
+      // Direct implementation instead of calling executeFilteredQuery
+      const query = `
+        MATCH (c:Client)
+        RETURN c.id_client as id, c.nom as nom, c.adresse as adresse, c.email as email, c.telephone as telephone
+      `;
+      
+      const records = await this.executeCypherQuery(query);
+      const clients = new ClientCollection();
+      
+      for (const record of records) {
+        try {
+          const client = new Client({
+            idClient: `NEO_${record.get('id')}`,
+            sourceSystem: this.sourceSystem,
+            nomComplet: record.get('nom'),
+            adresse: record.get('adresse'),
+            emailContact: record.get('email'),
+            numeroTelephone: record.get('telephone')
+          });
+          clients.addItem(client);
+        } catch (itemError) {
+          console.warn('Error creating client from record:', itemError);
+        }
       }
+      
+      console.log(`Fetched result : `, clients.getItems());
+      return clients;
+    } catch (error) {
+      console.error('Error executing getClients:', error);
+      return new ClientCollection();
     }
-    
-    return collection;
   }
-
+  
   /**
    * Fetch employees data
-   * 
-   * @returns Collection of employees
+   * @param filter Optional query filter
    */
-  public async getEmployees(): Promise<EmployeeCollection> {
-    if (!this.connected) {
-      throw new Error('Not connected to Neo4j database');
+  public async getEmployees(filter?: QueryFilter): Promise<EmployeeCollection> {
+    if (!this.isConnected()) {
+      await this.connect();
     }
     
-    const collection = new EmployeeCollection();
+    console.log('Neo4jAdapter: executing getEmployees with filter:', filter);
     
-    // Use Neo4j connection to get employees
-    const query = `MATCH (e:Employe)
-                 OPTIONAL MATCH (e)-[:TRAVAILLE_DANS]->(a:Agence)
-                 RETURN e.id_employe as id,
-                        e.nom as nom,
-                        e.email as email,
-                        e.poste as poste,
-                        e.salaire as salaire,
-                        a.id_agence as agence_id`;
-    
-    const result = await this.executeCypherQuery(query);
-    
-    if (result) {
-      for (const record of result) {
-        const employee: Employee = {
-          idEmploye: `NEO_${record.get('id')}`,
-          sourceSystem: this.sourceSystem,
-          nomComplet: record.get('nom') || record.get('nom').split(' ')[0],
-          email: record.get('email'),
-          post: record.get('poste'),
-          salaire: record.get('salaire') ? parseFloat(record.get('salaire')) : undefined,
-          agenceRef: record.get('agence_id') ? `NEO_${record.get('agence_id')}` : undefined,
-        };
-        
-        collection.addItem(employee);
+    try {
+      // Direct implementation instead of calling executeFilteredQuery
+      const query = `
+        MATCH (e:Employe)
+        RETURN e.id_employe as id, e.nom as nom, e.email as email, e.poste as poste
+      `;
+      
+      const records = await this.executeCypherQuery(query);
+      const employees = new EmployeeCollection();
+      
+      for (const record of records) {
+        try {
+          const employee = new Employee({
+            idEmploye: `NEO_${record.get('id')}`,
+            sourceSystem: this.sourceSystem,
+            nomComplet: record.get('nom'),
+            email: record.get('email'),
+            poste: record.get('poste')
+          });
+          employees.addItem(employee);
+        } catch (itemError) {
+          console.warn('Error creating employee from record:', itemError);
+        }
       }
+      
+      return employees;
+    } catch (error) {
+      console.error('Error executing getEmployees:', error);
+      return new EmployeeCollection();
     }
-    
-    return collection;
   }
-
+  
   /**
    * Fetch agencies data
-   * 
-   * @returns Collection of agencies
+   * @param filter Optional query filter
    */
-  public async getAgences(): Promise<AgenceCollection> {
-    if (!this.connected) {
-      throw new Error('Not connected to Neo4j database');
+  public async getAgences(filter?: QueryFilter): Promise<AgenceCollection> {
+    if (!this.isConnected()) {
+      await this.connect();
     }
     
-    const collection = new AgenceCollection();
+    console.log('Neo4jAdapter: executing getAgences with filter:', filter);
     
-    // Use Neo4j connection to get agencies
-    const query = `MATCH (a:Agence)
-                 RETURN a.id_agence as id,
-                        a.nom as nom,
-                        a.ville as ville,
-                        a.adresse as adresse`;
-    
-    const result = await this.executeCypherQuery(query);
-    
-    if (result) {
-      for (const record of result) {
-        const agence: Agence = {
-          idAgence: `NEO_${record.get('id')}`,
-          sourceSystem: this.sourceSystem,
-          adresse: record.get('adresse'),
-          ville: record.get('ville'),
-        };
-        
-        collection.addItem(agence);
+    try {
+      const query = `
+        MATCH (a:Agence)
+        RETURN a.id_agence as id, a.ville as ville, a.adresse as adresse
+      `;
+      
+      const records = await this.executeCypherQuery(query);
+      const agences = new AgenceCollection();
+      
+      for (const record of records) {
+        try {
+          const agence = new Agence({
+            idAgence: `NEO_${record.get('id')}`,
+            sourceSystem: this.sourceSystem,
+            ville: record.get('ville'),
+            adresse: record.get('adresse')
+          });
+          agences.addItem(agence);
+        } catch (itemError) {
+          console.warn('Error creating agence from record:', itemError);
+        }
       }
+      
+      return agences;
+    } catch (error) {
+      console.error('Error executing getAgences:', error);
+      return new AgenceCollection();
     }
-    
-    return collection;
   }
-
+  
   /**
    * Fetch suppliers data
-   * 
-   * @returns Collection of suppliers
+   * @param filter Optional query filter
    */
-  public async getFournisseurs(): Promise<FournisseurCollection> {
-    if (!this.connected) {
-      throw new Error('Not connected to Neo4j database');
+  public async getFournisseurs(filter?: QueryFilter): Promise<FournisseurCollection> {
+    if (!this.isConnected()) {
+      await this.connect();
     }
     
-    const collection = new FournisseurCollection();
+    console.log('Neo4jAdapter: executing getFournisseurs with filter:', filter);
     
-    // Use Neo4j connection to get suppliers
-    const query = `MATCH (f:Fournisseur)
-                 RETURN f.id_fournisseur as id,
-                        f.nom as nom,
-                        f.telephone as telephone,
-                        f.adresse as adresse`;
-    
-    const result = await this.executeCypherQuery(query);
-    
-    if (result) {
-      for (const record of result) {
-        const fournisseur: Fournisseur = {
-          idFournisseur: `NEO_${record.get('id_fournisseur')}`,
-          sourceSystem: this.sourceSystem,
-          nomFournisseur: record.get('nom'),
-          adresse: record.get('adresse'),
-          numeroTelephone: record.get('telephone')
-        };
-        
-        collection.addItem(fournisseur);
+    try {
+      const query = `
+        MATCH (f:Fournisseur)
+        RETURN f.id_fournisseur as id, f.nom as nom, f.adresse as adresse, f.telephone as telephone
+      `;
+      
+      const records = await this.executeCypherQuery(query);
+      const fournisseurs = new FournisseurCollection();
+      
+      for (const record of records) {
+        try {
+          const fournisseur = new Fournisseur({
+            idFournisseur: `NEO_${record.get('id')}`,
+            sourceSystem: this.sourceSystem,
+            nomFournisseur: record.get('nom'),
+            adresse: record.get('adresse'),
+            numeroTelephone: record.get('telephone')
+          });
+          fournisseurs.addItem(fournisseur);
+        } catch (itemError) {
+          console.warn('Error creating fournisseur from record:', itemError);
+        }
       }
+      
+      return fournisseurs;
+    } catch (error) {
+      console.error('Error executing getFournisseurs:', error);
+      return new FournisseurCollection();
     }
-    
-    return collection;
   }
-
+  
   /**
    * Fetch products data
-   * 
-   * @returns Collection of products
+   * @param filter Optional query filter
    */
-  public async getProduits(): Promise<ProduitCollection> {
-    if (!this.connected) {
-      throw new Error('Not connected to Neo4j database');
+  public async getProduits(filter?: QueryFilter): Promise<ProduitCollection> {
+    if (!this.isConnected()) {
+      await this.connect();
     }
     
-    const collection = new ProduitCollection();
+    console.log('Neo4jAdapter: executing getProduits with filter:', filter);
     
-    // Use Neo4j connection to get products
-    const query = `MATCH (p:Produit)
-                 RETURN p.id_produit as id,
-                        p.description as description,
-                        p.prix as prix,
-                        p.categorie as categorie`;
-    
-    const result = await this.executeCypherQuery(query);
-    
-    if (result) {
-      for (const record of result) {
-        const produit: Produit = {
-          idProduit: `NEO_${record.get('id')}`,
-          sourceSystem: this.sourceSystem,
-          description: record.get('description'),
-          prixCout: parseFloat(record.get('prix')),
-          categorie: record.get('categorie')
-        };
-        
-        collection.addItem(produit);
+    try {
+      const query = `
+        MATCH (p:Produit)
+        RETURN p.id_produit as id, p.description as description, p.prix as prix, p.categorie as categorie
+      `;
+      
+      const records = await this.executeCypherQuery(query);
+      const produits = new ProduitCollection();
+      
+      for (const record of records) {
+        try {
+          const produit = new Produit({
+            idProduit: `NEO_${record.get('id')}`,
+            sourceSystem: this.sourceSystem,
+            description: record.get('description'),
+            prixCout: record.get('prix'),
+            categorie: record.get('categorie')
+          });
+          produits.addItem(produit);
+        } catch (itemError) {
+          console.warn('Error creating produit from record:', itemError);
+        }
       }
+      
+      return produits;
+    } catch (error) {
+      console.error('Error executing getProduits:', error);
+      return new ProduitCollection();
     }
-    
-    return collection;
   }
-
+  
   /**
    * Fetch orders data
-   * 
-   * @returns Collection of orders
+   * @param filter Optional query filter
    */
-  public async getCommandes(): Promise<CommandeCollection> {
-    if (!this.connected) {
-      throw new Error('Not connected to Neo4j database');
-    }
-    
-    const collection = new CommandeCollection();
-    
-    // Use Neo4j connection to get orders
-    const query = `MATCH (c:Client)-[:PASSE]->(o:Commande)
-                 OPTIONAL MATCH (e:Employe)-[:GERE]->(o)
-                 RETURN o.id_commande as id,
-                        o.date as date,
-                        o.montant as montant,
-                        o.statut as statut,
-                        o.mode_paiement as mode_paiement,
-                        c.id_client as client_id,
-                        e.id_employe as employe_id`;
-    
-    const result = await this.executeCypherQuery(query);
-    
-    if (result) {
-      for (const record of result) {
-        const commande: Commande = {
-          idCommande: `NEO_${record.get('id')}`,
-          sourceSystem: this.sourceSystem,
-          dateCommande: record.get('date'),
-          statut: record.get('statut'),
-          montant: record.get('montant') ? parseFloat(record.get('montant')) : undefined,
-          modePaiement: record.get('mode_paiement'),
-          clientRef: `NEO_${record.get('client_id')}`,
-          employeRef: record.get('employe_id') ? `NEO_${record.get('employe_id')}` : undefined,
-        };
-        
-        collection.addItem(commande);
-      }
-    }
-    
-    return collection;
+  public async getCommandes(filter?: QueryFilter): Promise<CommandeCollection> {
+    return filter ? 
+      this.executeFilteredQuery('commandes', filter) : 
+      this.executeFilteredQuery('commandes', {});
   }
-
+  
   /**
    * Fetch order details data
-   * 
-   * @returns Collection of order details
+   * @param filter Optional query filter
    */
-  public async getDetailsCommande(): Promise<DetailCommandeCollection> {
-    if (!this.connected) {
-      throw new Error('Not connected to Neo4j database');
-    }
-    
-    const collection = new DetailCommandeCollection();
-    
-    // Use Neo4j connection to get order details
-    const query = `MATCH (o:Commande)-[d:DETAIL]->(p:Produit)
-                 RETURN o.id_commande as commande_id,
-                        p.id_produit as produit_id,
-                        d.quantite as quantite`;
-    
-    const result = await this.executeCypherQuery(query);
-    
-    if (result) {
-      for (const record of result) {
-        const detail: DetailCommande = {
-          idDetail: `NEO_${record.get('commande_id')}_${record.get('produit_id')}`,
-          sourceSystem: this.sourceSystem,
-          idCommande: `NEO_${record.get('commande_id')}`,
-          idProduit: `NEO_${record.get('produit_id')}`,
-          quantite: record.get('quantite').toNumber(),
-        };
-        
-        collection.addItem(detail);
-      }
-    }
-    
-    return collection;
+  public async getDetailsCommande(filter?: QueryFilter): Promise<DetailCommandeCollection> {
+    return filter ? 
+      this.executeFilteredQuery('details_commande', filter) : 
+      this.executeFilteredQuery('details_commande', {});
   }
-
+  
   /**
    * Fetch invoices data
-   * 
-   * @returns Collection of invoices
+   * @param filter Optional query filter
    */
-  public async getFactures(): Promise<FactureCollection> {
-    if (!this.connected) {
-      throw new Error('Not connected to Neo4j database');
-    }
-    
-    const collection = new FactureCollection();
-    
-    // Use Neo4j connection to get invoices
-    const query = `MATCH (o:Commande)-[:FACTURE]->(f:Facture)
-                 RETURN f.id_facture as id,
-                        f.montant_total as montant_total,
-                        f.date as date,
-                        o.id_commande as commande_id`;
-    
-    const result = await this.executeCypherQuery(query);
-    
-    if (result) {
-      for (const record of result) {
-        const facture: Facture = {
-          idFacture: `NEO_${record.get('id')}`,
-          sourceSystem: this.sourceSystem,
-          dateFacture: record.get('date'),
-          commandeRef: `NEO_${record.get('commande_id')}`,
-          montantTotal: parseFloat(record.get('montant_total')),
-        };
-        
-        collection.addItem(facture);
-      }
-    }
-    
-    return collection;
+  public async getFactures(filter?: QueryFilter): Promise<FactureCollection> {
+    return filter ? 
+      this.executeFilteredQuery('factures', filter) : 
+      this.executeFilteredQuery('factures', {});
   }
-
+  
   /**
    * Fetch deliveries data
-   * 
-   * @returns Collection of deliveries
+   * @param filter Optional query filter
    */
-  public async getLivraisons(): Promise<LivraisonCollection> {
-    if (!this.connected) {
-      throw new Error('Not connected to Neo4j database');
-    }
-    
-    const collection = new LivraisonCollection();
-    
-    // Use Neo4j connection to get deliveries
-    const query = `MATCH (o:Commande)-[:LIVREE_PAR]->(l:Livraison)
-                 RETURN l.id_livraison as id,
-                        l.transporteur as transporteur,
-                        l.date_estimee as date_estimee,
-                        l.statut as statut,
-                        o.id_commande as commande_id`;
-    
-    const result = await this.executeCypherQuery(query);
-    
-    if (result) {
-      for (const record of result) {
-        const livraison: Livraison = {
-          idLivraison: `NEO_${record.get('id')}`,
-          sourceSystem: this.sourceSystem,
-          dateEstimee: record.get('date_estimee'),
-          transporteur: record.get('transporteur'),
-          commandeRef: `NEO_${record.get('commande_id')}`,
-          statut: record.get('statut')
-        };
-        
-        collection.addItem(livraison);
-      }
-    }
-    
-    return collection;
+  public async getLivraisons(filter?: QueryFilter): Promise<LivraisonCollection> {
+    return filter ? 
+      this.executeFilteredQuery('livraisons', filter) : 
+      this.executeFilteredQuery('livraisons', {});
   }
-
+  
   /**
    * Fetch supply data
-   * 
-   * @returns Collection of supply records
+   * @param filter Optional query filter
    */
-  public async getApprovisionnements(): Promise<ApprovisionnementCollection> {
-    if (!this.connected) {
-      throw new Error('Not connected to Neo4j database');
-    }
-    
-    const collection = new ApprovisionnementCollection();
-    
-    // Use Neo4j connection to get supplies
-    const query = `MATCH (p:Produit)-[f:FOURNI_PAR]->(s:Fournisseur)
-                 RETURN p.id_produit as produit_id,
-                        s.id_fournisseur as fournisseur_id,
-                        f.quantite as quantite`;
-    
-    const result = await this.executeCypherQuery(query);
-    
-    if (result) {
-      for (const record of result) {
-        const approvisionnement: Approvisionnement = {
-          idApprovisionnement: `NEO_${record.get('produit_id')}_${record.get('fournisseur_id')}`,
-          sourceSystem: this.sourceSystem,
-          idProduit: `NEO_${record.get('produit_id')}`,
-          idFournisseur: `NEO_${record.get('fournisseur_id')}`,
-          quantite: record.get('quantite').toNumber(),
-
-        };
-        
-        collection.addItem(approvisionnement);
-      }
-    }
-    
-    return collection;
-  }
-
-  /**
-   * Execute a filtered query directly on the adapter
-   * @param tableName The table/entity to query
-   * @param filter Query filter specification
-   * @returns The appropriate data collection with filtered results
-   */
-  public async executeFilteredQuery(tableName: string, filter: QueryFilter): Promise<any> {
-    if (!this.connected) {
-      throw new Error('Not connected to Neo4j database');
-    }
-
-    const lowerTableName = tableName.toLowerCase();
-    console.log(`Neo4jAdapter: executeFilteredQuery for ${lowerTableName} (TS filtering)`);
-
-    let allItemsCollection: any;
-    let CollectionConstructor: any;
-
-    // 1. Fetch ALL data using the appropriate get* method
-    try {
-      switch (lowerTableName) {
-        case 'clients':
-          allItemsCollection = await this.getClients();
-          CollectionConstructor = ClientCollection;
-          break;
-        case 'employees':
-          allItemsCollection = await this.getEmployees();
-          CollectionConstructor = EmployeeCollection;
-          break;
-        case 'agences':
-          allItemsCollection = await this.getAgences();
-          CollectionConstructor = AgenceCollection;
-          break;
-        case 'fournisseurs':
-          allItemsCollection = await this.getFournisseurs();
-          CollectionConstructor = FournisseurCollection;
-          break;
-        case 'produits':
-          allItemsCollection = await this.getProduits();
-          CollectionConstructor = ProduitCollection;
-          break;
-        case 'commandes':
-          allItemsCollection = await this.getCommandes();
-          CollectionConstructor = CommandeCollection;
-          break;
-        case 'details_commande':
-          allItemsCollection = await this.getDetailsCommande();
-          CollectionConstructor = DetailCommandeCollection;
-          break;
-        case 'factures':
-          allItemsCollection = await this.getFactures();
-          CollectionConstructor = FactureCollection;
-          break;
-        case 'livraisons':
-          allItemsCollection = await this.getLivraisons();
-          CollectionConstructor = LivraisonCollection;
-          break;
-        case 'approvisionnements':
-          allItemsCollection = await this.getApprovisionnements();
-          CollectionConstructor = ApprovisionnementCollection;
-          break;
-        default:
-          throw new Error(`Neo4jAdapter: Unknown table name: ${tableName}`);
-      }
-    } catch (error) {
-        console.error(`Neo4jAdapter: Error fetching all data for ${tableName}:`, error);
-        throw error;
-    }
-
-    const allItems = allItemsCollection.getItems();
-    console.log(`Neo4jAdapter: Fetched ${allItems.length} total items for ${tableName}.`);
-
-    // 2. Apply filtering, sorting, limit, projection using TypeScript helper
-    const filteredItems = applyTypeScriptFilter(allItems, filter);
-    console.log(`Neo4jAdapter: ${filteredItems.length} items after TS filtering for ${tableName}.`);
-
-    // 3. Create a new collection of the correct type and add filtered items
-    const finalCollection = new CollectionConstructor();
-    for (const item of filteredItems) {
-      finalCollection.addItem(item);
-    }
-
-    return finalCollection;
+  public async getApprovisionnements(filter?: QueryFilter): Promise<ApprovisionnementCollection> {
+    return filter ? 
+      this.executeFilteredQuery('approvisionnements', filter) : 
+      this.executeFilteredQuery('approvisionnements', {});
   }
 }
