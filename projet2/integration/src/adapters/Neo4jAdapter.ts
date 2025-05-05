@@ -325,9 +325,11 @@ export class Neo4jAdapter implements IAdapter {
           query = `MATCH (p:Produit) RETURN p.id_produit as id, p.description as description, p.prix as prix, p.categorie as categorie`;
           break;
         case 'commandes':
-          query = `MATCH (o:Commande) OPTIONAL MATCH (c:Client)-[:PASSE]->(o) OPTIONAL MATCH (e:Employe)-[:GERE]->(o) 
+          query = `MATCH (o:Commande)
+              OPTIONAL MATCH (c:Client)-[:PASSE]->(o)
+              OPTIONAL MATCH (e:Employe)-[:GERE]->(o) 
               RETURN o.id_commande as id, o.date as date, o.montant as montant, o.statut as statut, 
-              o.mode_paiement as mode_paiement, c.id_client as client_ref, e.id_employe as employe_ref`;
+              o.mode_paiement as mode_paiement, c.id_client as client_id, e.id_employe as employe_id`;
           break;
         case 'details_commande':
           query = `MATCH (c:Commande)-[d:CONTIENT]->(p:Produit) RETURN c.id_commande as commande_id, p.id_produit as produit_id, d.quantite as quantite`;
@@ -825,7 +827,9 @@ export class Neo4jAdapter implements IAdapter {
             dateCommande: row.date ? formatDate(row.date) : '',
             montant: row.montant || 0,
             statut: row.statut || '',
-            modePaiement: row.mode_paiement || ''
+            modePaiement: row.mode_paiement || '',
+            clientRef: row.client_id ? `NEO_${row.client_id}` : '',
+            employeRef: row.employe_id ? `NEO_${row.employe_id}` : ''
           });
           commandeCollection.addItem(commande);
         }
@@ -852,7 +856,8 @@ export class Neo4jAdapter implements IAdapter {
             idFacture: `NEO_${row.id}`,
             sourceSystem: this.sourceSystem,
             montantTotal: row.montant_total || 0,
-            dateFacture: row.date ? formatDate(row.date) : ''
+            dateFacture: row.date ? formatDate(row.date) : '',
+            commandeRef: row.commande_ref ? `NEO_${row.commande_ref}` : ''
           });
           factureCollection.addItem(facture);
         }
@@ -866,7 +871,8 @@ export class Neo4jAdapter implements IAdapter {
             sourceSystem: this.sourceSystem,
             transporteur: row.transporteur || '',
             dateEstimee: row.date_estimee ? formatDate(row.date_estimee) : '',
-            statut: row.statut || ''
+            statut: row.statut || '',
+            commandeRef: row.commande_ref ? `NEO_${row.commande_ref}` : ''
           });
           livraisonCollection.addItem(livraison);
         }

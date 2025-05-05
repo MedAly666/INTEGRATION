@@ -925,7 +925,7 @@ export class SQLAdapter implements IAdapter {
           const commande = new Commande({
             idCommande: row.idCommande || `SQL_${row.id_commande || row.id}`,
             sourceSystem: this.sourceSystem,
-            dateCommande: formatDate(row.dateCommande || row.date_commande || row.date),
+            dateCommande: (row.dateCommande || row.date_commande || row.date)?formatDate(row.dateCommande || row.date_commande || row.date):(row.dateCommande || row.date_commande || row.date),
             montant: row.montant || 0,
             statut: row.statut || '',
             modePaiement: row.modePaiement || row.mode_paiement || row.mode_paiment,

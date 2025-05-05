@@ -85,6 +85,7 @@ export class ComplexQueryProcessor {
       
       // Fetch only the necessary data from each source using the filter
       const results = await this.fetchRequiredData(queryInfo, filter);
+      console.log('================\nfetched data:', results);
       
       // Apply the final query to the combined results
       return this.processResults(results, queryInfo, query, parameters);
@@ -127,6 +128,9 @@ export class ComplexQueryProcessor {
     const conditions: any[] = [];
     if (actualAst.type === 'select' && actualAst.where) {
       this.extractConditions(actualAst.where, conditions);
+      
+      // Extract columns from WHERE conditions and add them to projections
+      this.extractColumnsFromConditions(actualAst.where, projections);
     }
     
     // Extract join conditions
@@ -285,6 +289,51 @@ export class ComplexQueryProcessor {
     } catch (error) {
       console.error("Error extracting table names:", error);
       return tableNames;
+    }
+  }
+  
+  /**
+   * Extract column names from WHERE conditions and add them to projections
+   * 
+   * @param whereClause WHERE clause from AST
+   * @param projections Array of projections to append to
+   */
+  private extractColumnsFromConditions(whereClause: any, projections: string[]): void {
+    try {
+      if (whereClause.type === 'binary_expr') {
+        // Handle columns in binary expressions (e.g., column = value)
+        if (whereClause.left && whereClause.left.type === 'column_ref') {
+          const colName = whereClause.left.column;
+          if (!projections.includes(colName) && colName !== '*') {
+            projections.push(colName);
+          }
+        }
+        
+        if (whereClause.right && whereClause.right.type === 'column_ref') {
+          const colName = whereClause.right.column;
+          if (!projections.includes(colName) && colName !== '*') {
+            projections.push(colName);
+          }
+        }
+        
+        // Handle compound conditions recursively (AND/OR)
+        if (['AND', 'OR'].includes(whereClause.operator)) {
+          this.extractColumnsFromConditions(whereClause.left, projections);
+          this.extractColumnsFromConditions(whereClause.right, projections);
+        }
+      } else if (whereClause.type === 'function' && whereClause.arguments) {
+        // Handle functions in WHERE clause (e.g., WHERE DATE(column) = value)
+        for (const arg of whereClause.arguments) {
+          if (arg.type === 'column_ref') {
+            const colName = arg.column;
+            if (!projections.includes(colName) && colName !== '*') {
+              projections.push(colName);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Error extracting columns from WHERE condition:', error);
     }
   }
   
