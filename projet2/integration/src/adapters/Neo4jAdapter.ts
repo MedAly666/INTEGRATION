@@ -195,7 +195,7 @@ export class Neo4jAdapter implements IAdapter {
       console.log('With parameters:', params);
       
       const result = await session.run(query, params);
-      console.log('Cypher query result:', result.records);
+      //console.log('Cypher query result:', result.records);
       
       return result.records;
     } finally {

@@ -433,37 +433,37 @@ export class ComplexQueryProcessor {
             // Create table with appropriate schema based on the entity type
             let createTableSQL = `CREATE TABLE ${tableName} (`;
             
-            // Define the columns based on the table name
+            // Define the columns based on the table name - ONLY USING SNAKE_CASE
             let columns: string[] = [];
             
             if (tableName.toLowerCase() === 'livraisons') {
               columns = [
-                'id_livraison', 'idLivraison',
+                'id_livraison',
                 'transporteur', 
-                'date_estimee', 'dateEstimee',
-                'commande_ref', 'commandeRef',
+                'date_estimee',
+                'commande_ref',
                 'statut',
-                'source_system', 'sourceSystem'
+                'source_system'
               ];
             } else if (tableName.toLowerCase() === 'commandes') {
               columns = [
-                'id_commande', 'idCommande',
-                'date_commande', 'dateCommande',
-                'client_ref', 'clientRef',
-                'employe_ref', 'employeRef',
+                'id_commande',
+                'date_commande',
+                'client_ref',
+                'employe_ref',
                 'statut',
                 'montant',
-                'mode_paiement', 'modePaiement',
-                'source_system', 'sourceSystem'
+                'mode_paiement',
+                'source_system'
               ];
             } else if (tableName.toLowerCase() === 'clients') {
               columns = [
-                'id_client', 'idClient',
-                'nom_complet', 'nomComplet',
-                'email_contact', 'emailContact',
+                'id_client',
+                'nom_complet',
+                'email_contact',
                 'adresse',
-                'numero_telephone', 'numeroTelephone',
-                'source_system', 'sourceSystem'
+                'numero_telephone',
+                'source_system'
               ];
             } else {
               // Default to creating with just an id column
@@ -480,39 +480,28 @@ export class ComplexQueryProcessor {
             continue;
           }
           
-          // Create table with columns based on the first item's properties
-          const firstItem = items[0];
-          
-          // Create a new array of items with BOTH camelCase and snake_case versions of properties
-          const enhancedItems = items.map(item => {
-            const enhanced: Record<string, any> = {...item}; // Start with all original properties
+          // Create a new array of items with ONLY snake_case versions of properties
+          const standardizedItems = items.map(item => {
+            const standardized: Record<string, any> = {};
             
-            // Bidirectional mapping - add both camelCase -> snake_case and snake_case -> camelCase
-            
-            // Add snake_case versions of camelCase properties
+            // Convert all properties to snake_case
             for (const [key, value] of Object.entries(item)) {
-              // Only if the key has uppercase letters (assuming it's camelCase)
+              // If camelCase property, convert to snake_case
               if (/[A-Z]/.test(key)) {
                 const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-                enhanced[snakeKey] = value;
+                standardized[snakeKey] = value;
+              } else {
+                // Already snake_case or simple property
+                standardized[key] = value;
               }
             }
             
-            // Add camelCase versions of snake_case properties 
-            for (const [key, value] of Object.entries(item)) {
-              // Only if the key has underscores (assuming it's snake_case)
-              if (key.includes('_')) {
-                const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-                enhanced[camelKey] = value;
-              }
-            }
-            
-            return enhanced;
+            return standardized;
           });
           
-          // Get all unique column names from the enhanced first item
-          const enhancedFirstItem = enhancedItems[0];
-          const columns = Object.keys(enhancedFirstItem);
+          // Get all unique column names from the standardized first item
+          const standardizedFirstItem = standardizedItems[0];
+          const columns = Object.keys(standardizedFirstItem);
           
           console.log(`Creating table ${tableName} with columns: ${columns.join(', ')}`);
           
@@ -523,21 +512,24 @@ export class ComplexQueryProcessor {
           
           alasql(createTableSQL);
           
-          // Insert the enhanced data
-          console.log(`Inserting ${enhancedItems.length} records into table ${tableName}`);
+          // Insert the standardized data
+          console.log(`Inserting ${standardizedItems.length} records into table ${tableName}`);
           
           // Insert records in batches to prevent issues with large datasets
           const batchSize = 1000;
-          for (let i = 0; i < enhancedItems.length; i += batchSize) {
-            const batch = enhancedItems.slice(i, i + batchSize);
+          for (let i = 0; i < standardizedItems.length; i += batchSize) {
+            const batch = standardizedItems.slice(i, i + batchSize);
             alasql.tables[tableName].data = alasql.tables[tableName].data || [];
             alasql.tables[tableName].data.push(...batch);
           }
           
           // Log a sample of the data to verify column names
-          if (alasql.tables[tableName].data && alasql.tables[tableName].data.length > 0) {
+          if (alasql.tables[tableName].data && 
+              alasql.tables[tableName].data.length > 0 && 
+              typeof alasql.tables[tableName].data[0] === 'object' && 
+              alasql.tables[tableName].data[0] !== null) {
             console.log(`Table ${tableName} sample data columns:`, 
-              Object.keys(alasql.tables[tableName].data[0]).join(', '));
+              Object.keys(alasql.tables[tableName].data[0] as object).join(', '));
           }
           
           console.log(`Successfully created and populated table ${tableName}`);
@@ -606,8 +598,8 @@ export class ComplexQueryProcessor {
     
     // Replace ? style parameters (positional)
     if (Array.isArray(parameters)) {
-      parameters.forEach((value) => {
-        const valueStr = typeof value === 'string' ? `'${value}'` : `${value}`;
+      parameters.forEach((paramValue) => {
+        const valueStr = typeof paramValue === 'string' ? `'${paramValue}'` : `${paramValue}`;
         processedQuery = processedQuery.replace('?', valueStr);
       });
     }
