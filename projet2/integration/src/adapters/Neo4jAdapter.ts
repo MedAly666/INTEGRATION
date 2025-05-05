@@ -37,7 +37,7 @@ export class Neo4jAdapter implements IAdapter {
     sourceSystem: string,
     uri: string = 'neo4j://localhost:7687',
     username: string = 'neo4j',
-    password: string = 'password',
+    password: string = 'neo4j',
     database: string = 'neo4j'
   ) {
     this.sourceSystem = sourceSystem;
@@ -336,7 +336,7 @@ export class Neo4jAdapter implements IAdapter {
           break;
         case 'livraisons':
           query = `MATCH (l:Livraison)-[:POUR]->(c:Commande) RETURN l.id_livraison as id, l.transporteur as transporteur, 
-              l.date_estimee as date_estimee, l.statut as statut, c.id_commande as commande_ref`;
+              l.date_estimee as date_estimee, l.statut, c.id_commande as commande_ref`;
           break;
         case 'approvisionnements':
           query = `MATCH (f:Fournisseur)-[a:FOURNIT]->(p:Produit) RETURN p.id_produit as produit_id, f.id_fournisseur as fournisseur_id, a.quantite as quantite`;
@@ -395,6 +395,18 @@ export class Neo4jAdapter implements IAdapter {
             MATCH (f:Facture) 
           `;
           returnClause = this.buildReturnClauseForFacture();
+          break;
+        case 'produits':
+          query = `
+            MATCH (p:Produit)
+          `;
+          returnClause = this.buildReturnClauseForProduit();
+          break;
+        case 'livraisons':
+          query = `
+            MATCH (l:Livraison)
+          `;
+          returnClause = this.buildReturnClauseForLivraison();
           break;
         // Add cases for other entities as needed
         default:
@@ -459,6 +471,20 @@ export class Neo4jAdapter implements IAdapter {
   }
   
   /**
+   * Build the appropriate RETURN clause for Produit nodes
+   */
+  private buildReturnClauseForProduit(): string {
+    return `RETURN p.id_produit as id, p.description as description, p.prix as prix, p.categorie as categorie`;
+  }
+  
+  /**
+   * Build the appropriate RETURN clause for Livraison nodes
+   */
+  private buildReturnClauseForLivraison(): string {
+    return `RETURN l.id_livraison as id, l.transporteur as transporteur, l.date_estimee as date_estimee, l.statut as statut, l.commande_ref as commande_ref`;
+  }
+  
+  /**
    * Extract a filter specific to just this entity from a JOIN filter
    * 
    * @param entityName The entity to extract filter for
@@ -518,7 +544,8 @@ export class Neo4jAdapter implements IAdapter {
     const entityFields: Record<string, string[]> = {
       'clients': ['idClient', 'nomComplet', 'adresse', 'emailContact', 'numeroTelephone'],
       'commandes': ['idCommande', 'dateCommande', 'montant', 'statut', 'modePaiement', 'clientRef', 'employeRef'],
-      'factures': ['idFacture', 'montantTotal', 'dateFacture', 'commandeRef']
+      'factures': ['idFacture', 'montantTotal', 'dateFacture', 'commandeRef'],
+      'produits': ['idProduit', 'description', 'prixCout', 'categorie']
     };
     
     return entityFields[entityName]?.includes(projection) || false;
@@ -535,6 +562,7 @@ export class Neo4jAdapter implements IAdapter {
     const clientFields = ['idClient', 'nomComplet', 'adresse', 'emailContact', 'numeroTelephone'];
     const commandeFields = ['idCommande', 'dateCommande', 'montant', 'statut', 'modePaiement', 'clientRef', 'employeRef'];
     const factureFields = ['idFacture', 'montantTotal', 'dateFacture', 'commandeRef'];
+    const produitFields = ['idProduit', 'description', 'prixCout', 'categorie'];
     
     switch (entityName) {
       case 'clients':
@@ -543,6 +571,8 @@ export class Neo4jAdapter implements IAdapter {
         return commandeFields.includes(projection);
       case 'factures':
         return factureFields.includes(projection);
+      case 'produits':
+        return produitFields.includes(projection);
       default:
         return false;
     }
@@ -578,6 +608,12 @@ export class Neo4jAdapter implements IAdapter {
         'montantTotal': 'f.montant_total',
         'dateFacture': 'f.date',
         'commandeRef': 'f.commande_ref'
+      },
+      'produits': {
+        'idProduit': 'p.id_produit',
+        'description': 'p.description',
+        'prixCout': 'p.prix',
+        'categorie': 'p.categorie'
       }
     };
     
