@@ -291,7 +291,7 @@ CREATE OR REPLACE VIEW Livraisons AS
 SELECT 
     CONCAT('SQL_', id_livraison) AS id_livraison,
     transporteur,
-    data_estimee,
+    date_estimee,
     statut,
     CONCAT('SQL_', commande_ref) AS commande_ref,
     'SQL' AS source_system
@@ -303,7 +303,7 @@ UNION ALL
 SELECT 
     CONCAT('NEO_', id_livraison) AS id_livraison,
     transporteur,
-    date_estimee AS data_estimee,
+    date_estimee AS date_estimee,
     statut,
     CONCAT('NEO_', id_commande) AS commande_ref,
     'NEO4J' AS source_system
@@ -315,7 +315,7 @@ UNION ALL
 SELECT 
     CONCAT('XML_', id) AS id_livraison,
     transporteur,
-    NULL AS data_estimee,
+    NULL AS date_estimee,
     statut,
     CONCAT('XML_', commandeID) AS commande_ref,
     'XML' AS source_system

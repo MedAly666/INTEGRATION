@@ -194,6 +194,8 @@ export class Neo4jAdapter implements IAdapter {
       console.log('With parameters:', params);
       
       const result = await session.run(query, params);
+      console.log('Cypher query result:', result.records);
+      
       return result.records;
     } finally {
       await session.close();
@@ -388,6 +390,12 @@ export class Neo4jAdapter implements IAdapter {
           `;
           returnClause = this.buildReturnClauseForCommande();
           break;
+        case 'factures':
+          query = `
+            MATCH (f:Facture) 
+          `;
+          returnClause = this.buildReturnClauseForFacture();
+          break;
         // Add cases for other entities as needed
         default:
           throw new Error(`Neo4jAdapter: Unsupported entity for JOIN: ${entityName}`);
@@ -437,6 +445,13 @@ export class Neo4jAdapter implements IAdapter {
   }
   
   /**
+   * Build the appropriate RETURN clause for Facture nodes
+   */
+  private buildReturnClauseForFacture(): string {
+    return `RETURN f.id_facture as id, f.montant_total as montant_total, f.date as date, f.commande_ref as commande_ref`;
+  }
+  
+  /**
    * Build the appropriate RETURN clause for Commande nodes
    */
   private buildReturnClauseForCommande(): string {
@@ -475,21 +490,38 @@ export class Neo4jAdapter implements IAdapter {
     
     // Add any required fields for joins
     if (entityName === 'clients') {
-      if (!result.projections.includes('idClient')) {
-        result.projections.push('idClient');
+      if (!result.projections?.includes('idClient')) {
+        result.projections?.push('idClient');
       }
     }
     
     if (entityName === 'commandes') {
-      if (!result.projections.includes('idCommande')) {
-        result.projections.push('idCommande');
+      if (!result.projections?.includes('idCommande')) {
+        result.projections?.push('idCommande');
       }
-      if (!result.projections.includes('clientRef')) {
-        result.projections.push('clientRef');
+      if (!result.projections?.includes('clientRef')) {
+        result.projections?.push('clientRef');
       }
     }
     
     return result;
+  }
+  
+  /**
+   * Check if a projection field belongs to an entity
+   * 
+   * @param projection The projection field name
+   * @param entityName The entity name
+   * @returns true if the projection belongs to the entity
+   */
+  private projectionBelongsToEntity(projection: string, entityName: string): boolean {
+    const entityFields: Record<string, string[]> = {
+      'clients': ['idClient', 'nomComplet', 'adresse', 'emailContact', 'numeroTelephone'],
+      'commandes': ['idCommande', 'dateCommande', 'montant', 'statut', 'modePaiement', 'clientRef', 'employeRef'],
+      'factures': ['idFacture', 'montantTotal', 'dateFacture', 'commandeRef']
+    };
+    
+    return entityFields[entityName]?.includes(projection) || false;
   }
   
   /**
@@ -502,12 +534,15 @@ export class Neo4jAdapter implements IAdapter {
   private projectionBelongsToEntity(projection: string, entityName: string): boolean {
     const clientFields = ['idClient', 'nomComplet', 'adresse', 'emailContact', 'numeroTelephone'];
     const commandeFields = ['idCommande', 'dateCommande', 'montant', 'statut', 'modePaiement', 'clientRef', 'employeRef'];
+    const factureFields = ['idFacture', 'montantTotal', 'dateFacture', 'commandeRef'];
     
     switch (entityName) {
       case 'clients':
         return clientFields.includes(projection);
       case 'commandes':
         return commandeFields.includes(projection);
+      case 'factures':
+        return factureFields.includes(projection);
       default:
         return false;
     }
@@ -537,6 +572,12 @@ export class Neo4jAdapter implements IAdapter {
         'modePaiement': 'o.mode_paiement',
         'clientRef': 'o.client_ref',
         'employeRef': 'o.employe_ref'
+      },
+      'factures': {
+        'idFacture': 'f.id_facture',
+        'montantTotal': 'f.montant_total',
+        'dateFacture': 'f.date',
+        'commandeRef': 'f.commande_ref'
       }
     };
     
@@ -671,7 +712,7 @@ export class Neo4jAdapter implements IAdapter {
         const clientCollection = new ClientCollection();
         for (const row of results) {
           const client = new Client({
-            idClient: `${this.sourceSystem}_${row.id}`,
+            idClient: `NEO_${row.id}`,
             sourceSystem: this.sourceSystem,
             nomComplet: row.nom || '',
             adresse: row.adresse || '',
@@ -687,7 +728,7 @@ export class Neo4jAdapter implements IAdapter {
         const employeeCollection = new EmployeeCollection();
         for (const row of results) {
           const employee = new Employee({
-            idEmploye: `${this.sourceSystem}_${row.id}`,
+            idEmploye: `NEO_${row.id}`,
             sourceSystem: this.sourceSystem,
             nomComplet: row.nom || '',
             email: row.email || '',
@@ -701,7 +742,7 @@ export class Neo4jAdapter implements IAdapter {
         const agenceCollection = new AgenceCollection();
         for (const row of results) {
           const agence = new Agence({
-            idAgence: `${this.sourceSystem}_${row.id}`,
+            idAgence: `NEO_${row.id}`,
             sourceSystem: this.sourceSystem,
             ville: row.ville || '',
             adresse: row.adresse || ''
@@ -714,7 +755,7 @@ export class Neo4jAdapter implements IAdapter {
         const fournisseurCollection = new FournisseurCollection();
         for (const row of results) {
           const fournisseur = new Fournisseur({
-            idFournisseur: `${this.sourceSystem}_${row.id}`,
+            idFournisseur: `NEO_${row.id}`,
             sourceSystem: this.sourceSystem,
             nomFournisseur: row.nom || '',
             adresse: row.adresse || '',
@@ -728,7 +769,7 @@ export class Neo4jAdapter implements IAdapter {
         const produitCollection = new ProduitCollection();
         for (const row of results) {
           const produit = new Produit({
-            idProduit: `${this.sourceSystem}_${row.id}`,
+            idProduit: `NEO_${row.id}`,
             sourceSystem: this.sourceSystem,
             description: row.description || '',
             prixCout: row.prix || 0,
@@ -742,7 +783,7 @@ export class Neo4jAdapter implements IAdapter {
         const commandeCollection = new CommandeCollection();
         for (const row of results) {
           const commande = new Commande({
-            idCommande: `${this.sourceSystem}_${row.id}`,
+            idCommande: `NEO_${row.id}`,
             sourceSystem: this.sourceSystem,
             dateCommande: row.date,
             montant: row.montant || 0,
@@ -758,8 +799,8 @@ export class Neo4jAdapter implements IAdapter {
         const detailCommandeCollection = new DetailCommandeCollection();
         for (const row of results) {
           const detailCommande = new DetailCommande({
-            idCommande: `${this.sourceSystem}_${row.commande_id || row.idCommande}`,
-            idProduit: `${this.sourceSystem}_${row.produit_id || row.idProduit}`,
+            idCommande: `NEO_${row.commande_id || row.idCommande}`,
+            idProduit: `NEO_${row.produit_id || row.idProduit}`,
             sourceSystem: this.sourceSystem,
             quantite: row.quantite || 0
           });
@@ -771,7 +812,7 @@ export class Neo4jAdapter implements IAdapter {
         const factureCollection = new FactureCollection();
         for (const row of results) {
           const facture = new Facture({
-            idFacture: `${this.sourceSystem}_${row.id}`,
+            idFacture: `NEO_${row.id}`,
             sourceSystem: this.sourceSystem,
             montantTotal: row.montant_total || 0,
             dateFacture: row.date
@@ -784,7 +825,7 @@ export class Neo4jAdapter implements IAdapter {
         const livraisonCollection = new LivraisonCollection();
         for (const row of results) {
           const livraison = new Livraison({
-            idLivraison: `${this.sourceSystem}_${row.id}`,
+            idLivraison: `NEO_${row.id}`,
             sourceSystem: this.sourceSystem,
             transporteur: row.transporteur || '',
             dateEstimee: row.date_estimee,

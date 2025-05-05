@@ -230,7 +230,7 @@ export class Facture implements Facture {
 export interface Livraison extends BaseEntity {
   idLivraison: string;
   transporteur: string;
-  dateEstimee: string | undefined; // Note: Using data_estimee as in global schema (typo in original schema)
+  dateEstimee: string | undefined; 
   commandeRef: string;
   statut?: string;
 }

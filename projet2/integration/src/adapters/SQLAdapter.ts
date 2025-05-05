@@ -235,7 +235,7 @@ export class SQLAdapter implements IAdapter {
       {
         entityName: 'Livraisons',
         isComplete: true,
-        attributes: ['id_livraison', 'transporteur', 'data_estimee', 'statut', 'commande_ref']
+        attributes: ['id_livraison', 'transporteur', 'date_estimee', 'statut', 'commande_ref']
       },
       {
         entityName: 'Approvisionnement',
@@ -364,8 +364,8 @@ export class SQLAdapter implements IAdapter {
       'date_facture': 'dateFacture',
       'commande_ref': 'commandeRef',
       'id_livraison': 'idLivraison',
-      'date_estimee': 'dateEstimee',
-      'data_estimee': 'dateEstimee'    };
+      'date_estimee': 'dateEstimee'
+    };
     
     // Convert snake_case to camelCase for each key in the row
     for (const key in row) {
@@ -400,6 +400,7 @@ export class SQLAdapter implements IAdapter {
     try {
       const result = await this.pool.query(sql, params);
       console.log(`Query returned ${result.length} rows`);
+      //console.log('Query result:', result);
       return result;
     } catch (error) {
       console.error('SQL query error:', error);
@@ -514,7 +515,8 @@ export class SQLAdapter implements IAdapter {
       'dateFacture': 'date_facture',
       'commandeRef': 'commande_ref',
       'idLivraison': 'id_livraison',
-      'dateEstimee': 'data_estimee',    };
+      'dateEstimee': 'date_estimee'
+    };
     
     const columnName = propertyMap[property] || property;
     return prefix + columnName;
@@ -623,7 +625,10 @@ export class SQLAdapter implements IAdapter {
     // Special handling for JOIN operations
     if (filter.joins && filter.joins.length > 0) {
       // In a JOIN query, we should only fetch our own table columns
-      return this.executeTableSpecificQuery(tableName, filter);
+      const results = await this.executeTableSpecificQuery(tableName, filter);
+      
+      // Return the appropriate collection type
+      return this.convertToCollection(tableName, results);
     }
     
     // Translate the query to SQL-specific format
@@ -638,7 +643,7 @@ export class SQLAdapter implements IAdapter {
       // Convert snake_case keys to camelCase for data model compatibility
       const convertedResults = results.map(row => this.convertKeysToCamelCase(row));
       
-      // Return the appropriate collection type
+      // Return the appropriate collection type with proper objects
       return this.convertToCollection(tableName, convertedResults);
     } catch (error) {
       console.error(`Error executing filtered query for ${tableName}:`, error);
@@ -967,7 +972,7 @@ export class SQLAdapter implements IAdapter {
             idLivraison: row.idLivraison || `SQL_${row.id_livraison || row.id}`,
             sourceSystem: this.sourceSystem,
             transporteur: row.transporteur || '',
-            dateEstimee: row.dateEstimee || row.date_estimee || row.data_estimee,
+            dateEstimee: row.dateEstimee || row.date_estimee || row.date_estimee,
             statut: row.statut || '',
             commandeRef: row.commandeRef || (row.commande_ref ? `SQL_${row.commande_ref}` : null)
           });

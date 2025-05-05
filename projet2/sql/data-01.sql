@@ -128,7 +128,7 @@ INSERT INTO Factures (id_facture, montant_total, date_facture, commande_ref) VAL
 (15, 899.99, '2023-08-02', 15);
 
 -- Insert data into Livraisons table
-INSERT INTO Livraisons (id_livraison, transporteur, data_estimee, statut, commande_ref) VALUES
+INSERT INTO Livraisons (id_livraison, transporteur, date_estimee, statut, commande_ref) VALUES
 (1, 'Chronopost', '2023-01-18', 'Livré', 1),
 (2, 'DHL', '2023-02-06', 'Livré', 2),
 (3, 'UPS', '2023-02-13', 'Livré', 3),

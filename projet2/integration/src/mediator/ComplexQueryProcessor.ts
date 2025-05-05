@@ -427,40 +427,92 @@ export class ComplexQueryProcessor {
       // Register tables directly in alasql using a standard approach
       for (const [tableName, items] of Object.entries(data)) {
         try {
-          if (!items || !Array.isArray(items)) {
-            console.warn(`No data available for table ${tableName}, creating empty table`);
-            alasql(`CREATE TABLE ${tableName} (id STRING)`);
-            continue;
-          }
-          
-          if (items.length === 0) {
-            console.log(`Creating empty table for ${tableName}`);
-            alasql(`CREATE TABLE ${tableName} (id STRING)`);
+          if (!items || !Array.isArray(items) || items.length === 0) {
+            console.warn(`No data available for table ${tableName}, creating empty table with schema`);
+            
+            // Create table with appropriate schema based on the entity type
+            let createTableSQL = `CREATE TABLE ${tableName} (`;
+            
+            // Define the columns based on the table name
+            let columns: string[] = [];
+            
+            if (tableName.toLowerCase() === 'livraisons') {
+              columns = [
+                'id_livraison', 'idLivraison',
+                'transporteur', 
+                'date_estimee', 'dateEstimee',
+                'commande_ref', 'commandeRef',
+                'statut',
+                'source_system', 'sourceSystem'
+              ];
+            } else if (tableName.toLowerCase() === 'commandes') {
+              columns = [
+                'id_commande', 'idCommande',
+                'date_commande', 'dateCommande',
+                'client_ref', 'clientRef',
+                'employe_ref', 'employeRef',
+                'statut',
+                'montant',
+                'mode_paiement', 'modePaiement',
+                'source_system', 'sourceSystem'
+              ];
+            } else if (tableName.toLowerCase() === 'clients') {
+              columns = [
+                'id_client', 'idClient',
+                'nom_complet', 'nomComplet',
+                'email_contact', 'emailContact',
+                'adresse',
+                'numero_telephone', 'numeroTelephone',
+                'source_system', 'sourceSystem'
+              ];
+            } else {
+              // Default to creating with just an id column
+              columns = ['id'];
+            }
+            
+            // Create SQL with the columns
+            createTableSQL += columns.map(col => `[${col}] STRING`).join(', ');
+            createTableSQL += ')';
+            
+            // Execute the create table statement
+            alasql(createTableSQL);
+            
             continue;
           }
           
           // Create table with columns based on the first item's properties
           const firstItem = items[0];
           
-          // Important change: we'll create a new array of items where BOTH camelCase and snake_case
-          // versions of each property exist, so queries can use either form
+          // Create a new array of items with BOTH camelCase and snake_case versions of properties
           const enhancedItems = items.map(item => {
             const enhanced: Record<string, any> = {...item}; // Start with all original properties
             
-            // Add snake_case versions of camelCase properties if they don't already exist
+            // Bidirectional mapping - add both camelCase -> snake_case and snake_case -> camelCase
+            
+            // Add snake_case versions of camelCase properties
             for (const [key, value] of Object.entries(item)) {
-              if (/[A-Z]/.test(key)) { // Only if the key has uppercase letters (assuming it's camelCase)
+              // Only if the key has uppercase letters (assuming it's camelCase)
+              if (/[A-Z]/.test(key)) {
                 const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-                if (!(snakeKey in enhanced)) {
-                  enhanced[snakeKey] = value;
-                }
+                enhanced[snakeKey] = value;
               }
             }
+            
+            // Add camelCase versions of snake_case properties 
+            for (const [key, value] of Object.entries(item)) {
+              // Only if the key has underscores (assuming it's snake_case)
+              if (key.includes('_')) {
+                const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+                enhanced[camelKey] = value;
+              }
+            }
+            
             return enhanced;
           });
           
           // Get all unique column names from the enhanced first item
-          const columns = Object.keys(enhancedItems[0]);
+          const enhancedFirstItem = enhancedItems[0];
+          const columns = Object.keys(enhancedFirstItem);
           
           console.log(`Creating table ${tableName} with columns: ${columns.join(', ')}`);
           
@@ -481,9 +533,12 @@ export class ComplexQueryProcessor {
             alasql.tables[tableName].data = alasql.tables[tableName].data || [];
             alasql.tables[tableName].data.push(...batch);
           }
-
-          console.log(alasql.tables[tableName].data);
           
+          // Log a sample of the data to verify column names
+          if (alasql.tables[tableName].data && alasql.tables[tableName].data.length > 0) {
+            console.log(`Table ${tableName} sample data columns:`, 
+              Object.keys(alasql.tables[tableName].data[0]).join(', '));
+          }
           
           console.log(`Successfully created and populated table ${tableName}`);
         } catch (error) {

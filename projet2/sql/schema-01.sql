@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS Factures (
 CREATE TABLE IF NOT EXISTS Livraisons (
     id_livraison INT PRIMARY KEY AUTO_INCREMENT,
     transporteur VARCHAR(255),
-    data_estimee DATE,
+    date_estimee DATE,
     statut VARCHAR(50),
     commande_ref INT,
     CONSTRAINT fk_livraison_commande FOREIGN KEY (commande_ref) 
