@@ -900,7 +900,8 @@ export class XMLAdapter implements IAdapter {
    * @param entityPath Current entity path in XPath
    * @param fieldName Field name to check
    */
-  private isValidFieldForEntity(entityPath: string, fieldName: string): boolean {
+  private isValidFieldForEntity(entityPath: string,
+    fieldName: string): boolean {
     // Define valid fields for each entity type
     const validFieldMappings: Record<string, string[]> = {
       '//clients/client': ['@id', 'id', 'nom', 'courriel', 'telephone', 'adresse'],
