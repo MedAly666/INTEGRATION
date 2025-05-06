@@ -17,7 +17,8 @@ import {
   DetailCommandeCollection, DetailCommande,
   FactureCollection, Facture,
   LivraisonCollection, Livraison,
-  AgenceCollection, Agence
+  AgenceCollection, Agence,
+  ApprovisionnementCollection, Approvisionnement
 } from '../common/DataModel';
 import { SourceDescription, EntityAvailability, SourceCapabilities } from '../common/SourceDescription';
 import { formatDate, formatDateTime, parseDate } from '../common/DateUtils';
@@ -146,9 +147,24 @@ export class XMLAdapter implements IAdapter {
     if (filter.conditions) {
       for (const condition of filter.conditions) {
         if (condition.type === 'binary_expr' && condition.left.type === 'column_ref') {
-          const field = this.translateFieldToXml(condition.left.column);
+          const columnName = condition.left.column;
           const operator = condition.operator;
           const value = condition.right.value;
+          
+          // Check if this is a field that requires relationship navigation
+          if (this.isRelatedEntityField(entityPath, columnName)) {
+            // This would require implementing complex relationship navigation
+            console.warn(`XML Adapter: Filtering by related entity field '${columnName}' not fully supported in XPath query. Using client-side filtering instead.`);
+            continue;
+          }
+          
+          const field = this.translateFieldToXml(columnName);
+          
+          // Verify the field is valid for the current entity type
+          if (!this.isValidFieldForEntity(entityPath, field)) {
+            console.warn(`XML Adapter: Field '${columnName}' is not valid for entity path '${entityPath}'. Skipping this condition.`);
+            continue;
+          }
           
           switch (operator.toUpperCase()) {
             case '=':
@@ -183,13 +199,18 @@ export class XMLAdapter implements IAdapter {
                 }
               }
               break;
-            // IN operator would be implemented as multiple OR conditions in XPath
             case 'IN':
               if (Array.isArray(value)) {
                 const inConditions = value.map(v => 
                   `${field}='${this.escapeXPathString(String(v))}'`
                 );
                 conditions.push(`(${inConditions.join(' or ')})`);
+              }
+              break;
+            case 'BETWEEN':
+              if (Array.isArray(value) && value.length === 2) {
+                const [start, end] = value;
+                conditions.push(`${field} >= ${start} and ${field} <= ${end}`);
               }
               break;
           }
@@ -292,7 +313,7 @@ export class XMLAdapter implements IAdapter {
     // This is useful for aspects of the filter that can't be directly expressed in XPath
     if (filter) {
       const items = (collection as any).getItems();
-      const filteredItems = applyTypeScriptFilter(items, filter);
+      const filteredItems = items; //applyTypeScriptFilter(items, filter);
       
       if (filteredItems.length !== items.length) {
         // Create a new collection with the filtered items
@@ -334,6 +355,10 @@ export class XMLAdapter implements IAdapter {
         return this.getFactures(filter);
       case 'livraisons':
         return this.getLivraisons(filter);
+      case 'approvisionnements':
+        return this.getApprovisionnements(filter);
+      case 'agences':
+        return this.getAgences();
       default:
         throw new Error(`XMLAdapter: Unknown entity type: ${tableName}`);
     }
@@ -564,11 +589,25 @@ export class XMLAdapter implements IAdapter {
   }
 
   /**
-   * XML data might not contain approvisionnement information
+   * Fetch supply data from XML
+   * Maps product-supplier relationships from the XML data
+   * 
+   * @param filter Optional query filter
+   * @returns Collection of supply relationships
    */
-  public async getApprovisionnements(): Promise<any> {
-    // Return empty collection since XML might not have this data
-    return { getItems: () => [], count: () => 0, merge: () => {} };
+  public async getApprovisionnements(filter?: QueryFilter): Promise<ApprovisionnementCollection> {
+    return this.queryEntityWithFilter<Approvisionnement, ApprovisionnementCollection>(
+      'approvisionnements',
+      '//produits/produit[@id_fournisseur]', // Select products with supplier reference
+      filter,
+      (node: Element): Approvisionnement => ({
+        sourceSystem: this.sourceSystem,
+        idProduit: `XML_${this.getNodeAttribute(node, 'id')}`,
+        idFournisseur: `XML_${this.getNodeAttribute(node, 'id_fournisseur')}`,
+        quantite: parseInt(this.getNodeAttribute(node, 'quantite_stock', '0')) // Use stock quantity as supply quantity
+      }),
+      ApprovisionnementCollection
+    );
   }
 
   /**
@@ -837,5 +876,44 @@ export class XMLAdapter implements IAdapter {
       xpath: xpathQuery,
       entityName: normalizedEntityName
     };
+  }
+
+  /**
+   * Check if a field belongs to a related entity
+   * @param entityPath Current entity path in XPath
+   * @param fieldName Field name to check
+   */
+  private isRelatedEntityField(entityPath: string, fieldName: string): boolean {
+    // Define fields that belong to related entities
+    const relatedFieldMappings: Record<string, string[]> = {
+      '//clients/client': ['date_commande', 'montant', 'statut', 'mode_paiement'],
+      '//produits/produit': ['nombre', 'quantite'],
+      '//fournisseurs/fournisseur': ['prix', 'description', 'categorie']
+    };
+    
+    const fields = relatedFieldMappings[entityPath] || [];
+    return fields.includes(fieldName);
+  }
+  
+  /**
+   * Check if a field is valid for an entity type
+   * @param entityPath Current entity path in XPath
+   * @param fieldName Field name to check
+   */
+  private isValidFieldForEntity(entityPath: string, fieldName: string): boolean {
+    // Define valid fields for each entity type
+    const validFieldMappings: Record<string, string[]> = {
+      '//clients/client': ['@id', 'id', 'nom', 'courriel', 'telephone', 'adresse'],
+      '//employes/employe': ['@id', 'id', 'nom', 'email', 'poste'],
+      '//fournisseurs/fournisseur': ['@id', 'id', 'nom', 'telephone', 'adresse'],
+      '//produits/produit': ['@id', 'id', 'description', 'prix', 'categorie', 'quantite_totale', '@id_fournisseur', 'id_fournisseur'],
+      '//commandes/commande': ['@id', 'id', 'date', 'montant', 'statut', 'mode_paiement', '@clientID', 'clientID', '@employeID', 'employeID'],
+      '//paniers/panier': ['@id_commande', 'id_commande', '@id_produit', 'id_produit', 'nombre'],
+      '//factures/facture': ['@id', 'id', 'montant', 'date', '@commandeID', 'commandeID'],
+      '//livraisons/livraison': ['@id', 'id', 'transporteur', '@date_estimee', 'date_estimee', 'statut', '@commandeID', 'commandeID'],
+    };
+    
+    const validFields = validFieldMappings[entityPath] || [];
+    return validFields.includes(fieldName) || fieldName === '*';
   }
 }

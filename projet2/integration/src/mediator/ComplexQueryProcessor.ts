@@ -85,7 +85,7 @@ export class ComplexQueryProcessor {
       
       // Fetch only the necessary data from each source using the filter
       const results = await this.fetchRequiredData(queryInfo, filter);
-      console.log('================\nfetched data:', results);
+      //console.log('================\nfetched data:', results);
       
       // Apply the final query to the combined results
       return this.processResults(results, queryInfo, query, parameters);

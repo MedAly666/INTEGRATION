@@ -3,12 +3,15 @@
  * Utility functions for standardized date formatting across all adapters
  */
 
+import { log } from "console";
+
 /**
  * Formats a Date object into a standard YYYY-MM-DD format
  * @param date The date object to format
  * @returns Formatted date string in YYYY-MM-DD format
  */
-export function formatDate(date: Date | string | number): string {
+export function formatDate(date: Date | string | number): string | undefined {
+  if( !date ) return undefined;
   const d = date instanceof Date ? date : new Date(date);
   return d.toISOString().split('T')[0];
 }
