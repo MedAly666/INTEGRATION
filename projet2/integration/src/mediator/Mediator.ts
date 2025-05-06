@@ -178,7 +178,7 @@ export class Mediator {
     return await this.queryProcessor.executeQuery(query, parameters);
   }
   
-  /**
+  /** 
    * Connect to all data sources
    * 
    * @returns True if all connections successful, false otherwise
