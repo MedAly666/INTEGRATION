@@ -25,6 +25,7 @@ export interface QueryFilter {
   conditions?: any[];
   joins?: any[];
   limit?: number | null;
+  offset?: number | null;
   groupBy?: string[] | null;
   orderBy?: { column: string, type: string }[] | null;
   parameters?: Record<string, any>;

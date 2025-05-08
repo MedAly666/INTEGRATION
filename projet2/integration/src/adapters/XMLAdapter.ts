@@ -711,7 +711,7 @@ export class XMLAdapter implements IAdapter {
         attributes: ['id', 'nom', 'courriel', 'telephone']
       },
       {
-        entityName: 'employes',
+        entityName: 'employees',
         isComplete: true,
         attributes: ['id', 'nom', 'email']
       },
@@ -744,6 +744,22 @@ export class XMLAdapter implements IAdapter {
         entityName: 'livraisons',
         isComplete: true,
         attributes: ['id', 'transporteur', 'statut', 'commandeID']
+      },
+      //
+      {
+        entityName: 'approvisionnements',
+        isComplete: false, // Not all data is available in XML
+        attributes: ['id_produit', 'id_fournisseur', 'quantite']
+      },
+      {
+        entityName: 'agences',
+        isComplete: false, // Not available in XML
+        attributes: []
+      },
+      {
+        entityName: 'details_commande',
+        isComplete: false, // Not available in XML
+        attributes: []
       }
     ];
     

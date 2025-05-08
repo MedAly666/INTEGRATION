@@ -16,10 +16,8 @@ import {
   FactureCollection,
   LivraisonCollection,
   ApprovisionnementCollection,
-  Client
 } from '../common/DataModel';
 import { ComplexQueryProcessor } from './ComplexQueryProcessor';
-import { SourceDescription, EntityAvailability } from '../common/SourceDescription';
 
 /**
  * Represents a mapping between global and source schemas
@@ -38,7 +36,7 @@ export class Mediator {
    * Array of adapter instances
    */
   private adapters: IAdapter[] = [];
-  
+
   /**
    * Complex query processor instance
    */
@@ -49,7 +47,7 @@ export class Mediator {
    * Maps global schema elements to source schema elements
    */
   private schemaMappings: SchemaMapping[] = [];
-  
+
   /**
    * Add a data source adapter
    * 
@@ -58,10 +56,10 @@ export class Mediator {
    */
   public addAdapter(adapter: IAdapter): Mediator {
     this.adapters.push(adapter);
-    
+
     // Extract and register schema mappings when adding a new adapter
     this.registerAdapterMappings(adapter);
-    
+
     return this;
   }
 
@@ -74,23 +72,23 @@ export class Mediator {
   private registerAdapterMappings(adapter: IAdapter): void {
     const description = adapter.getSourceDescription();
     const sourceId = description.getSourceId();
-    
+
     // For each available entity in the source
     for (const entityAvailability of description.getAllEntities()) {
       const globalEntityName = this.normalizeEntityName(entityAvailability.entityName);
       const sourceEntityName = entityAvailability.entityName;
-      
+
       // Create attribute mappings (e.g., nom_complet → nomComplet)
       const attributeMappings = new Map<string, string>();
       for (const attr of entityAvailability.attributes) {
         // Convert from source attribute format to global format
         // This is simplified and would need proper attribute mapping in a real system
         attributeMappings.set(
-          this.normalizeAttributeName(attr), 
+          this.normalizeAttributeName(attr),
           attr
         );
       }
-      
+
       // Add the mapping to our collection
       this.schemaMappings.push({
         globalEntity: globalEntityName,
@@ -99,11 +97,11 @@ export class Mediator {
         conditions: entityAvailability.constraints,
         sourceId
       });
-      
+
       console.log(`Registered mapping: ${sourceId}.${sourceEntityName} → ${globalEntityName}`);
     }
   }
-  
+
   /**
    * Helper to normalize entity names between source and global schemas
    */
@@ -112,7 +110,7 @@ export class Mediator {
     // Here, we assume global names are plural and lowercase
     return name.toLowerCase();
   }
-  
+
   /**
    * Helper to normalize attribute names between source and global schemas
    */
@@ -120,7 +118,7 @@ export class Mediator {
     // Convert from snake_case to camelCase
     return name.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
   }
-  
+
   /**
    * Get all registered adapters
    * 
@@ -153,7 +151,7 @@ export class Mediator {
     }
     return this;
   }
-  
+
   /**
    * Get the complex query processor instance
    * 
@@ -162,7 +160,7 @@ export class Mediator {
   public getQueryProcessor(): ComplexQueryProcessor | null {
     return this.queryProcessor;
   }
-  
+
   /**
    * Execute a complex query with improved query delegation to sources
    * 
@@ -177,7 +175,7 @@ export class Mediator {
     }
     return await this.queryProcessor.executeQuery(query, parameters);
   }
-  
+
   /** 
    * Connect to all data sources
    * 
@@ -185,15 +183,15 @@ export class Mediator {
    */
   public async connect(): Promise<boolean> {
     let allConnected = true;
-    
+
     for (const adapter of this.adapters) {
       const connected = await adapter.connect();
       allConnected = allConnected && connected;
     }
-    
+
     return allConnected;
   }
-  
+
   /**
    * Disconnect from all data sources
    */
@@ -202,7 +200,7 @@ export class Mediator {
       adapter.disconnect();
     }
   }
-  
+
   /**
    * Find adapters that can provide data for a specific entity and apply filtering
    * 
@@ -213,25 +211,26 @@ export class Mediator {
   private findCapableAdapters(entityName: string, filter?: QueryFilter): IAdapter[] {
     const mappings = this.getMappingsForEntity(entityName);
     const capableAdapters: IAdapter[] = [];
-    
+
     for (const adapter of this.adapters) {
       // Check if this adapter has a mapping for this entity
       const adapterMappings = mappings.filter(m => m.sourceId === adapter.getSourceDescription().getSourceId());
-      
+      console.log(`Adapter ${adapter.getSourceSystem()} mappings:`, adapterMappings);
+
       if (adapterMappings.length > 0) {
         // If there's a filter, check if adapter can handle it
         if (filter && !adapter.canHandleQuery(filter, entityName)) {
           console.log(`Adapter ${adapter.getSourceSystem()} cannot handle the filter for ${entityName}`);
           continue;
         }
-        
+
         capableAdapters.push(adapter);
       }
     }
-    
+
     return capableAdapters;
   }
-  
+
   /**
    * Get clients from all data sources with improved filtering delegation
    * 
@@ -241,15 +240,15 @@ export class Mediator {
   public async getClients(filter?: QueryFilter): Promise<ClientCollection> {
     const result = new ClientCollection();
     const capableAdapters = this.findCapableAdapters('clients', filter);
-    
+
     for (const adapter of capableAdapters) {
       const clients = await adapter.getClients(filter);
-      result.merge(clients);      
+      result.merge(clients);
     }
-    
+
     return result;
   }
-  
+
   /**
    * Get employees from all data sources with improved filtering delegation
    * 
@@ -259,15 +258,17 @@ export class Mediator {
   public async getEmployees(filter?: QueryFilter): Promise<EmployeeCollection> {
     const result = new EmployeeCollection();
     const capableAdapters = this.findCapableAdapters('employees', filter);
-    
+
     for (const adapter of capableAdapters) {
+      console.log('Adapter', adapter.getSourceDescription());
+
       const employees = await adapter.getEmployees(filter);
       result.merge(employees);
     }
-    
+
     return result;
   }
-  
+
   /**
    * Get agencies from all data sources with improved filtering delegation
    * 
@@ -277,15 +278,17 @@ export class Mediator {
   public async getAgences(filter?: QueryFilter): Promise<AgenceCollection> {
     const result = new AgenceCollection();
     const capableAdapters = this.findCapableAdapters('agences', filter);
-    
+
     for (const adapter of capableAdapters) {
+      console.log('Adapter', adapter.getSourceDescription());
+
       const agences = await adapter.getAgences(filter);
       result.merge(agences);
     }
-    
+
     return result;
   }
-  
+
   /**
    * Get suppliers from all data sources with improved filtering delegation
    * 
@@ -295,15 +298,15 @@ export class Mediator {
   public async getFournisseurs(filter?: QueryFilter): Promise<FournisseurCollection> {
     const result = new FournisseurCollection();
     const capableAdapters = this.findCapableAdapters('fournisseurs', filter);
-    
+
     for (const adapter of capableAdapters) {
       const fournisseurs = await adapter.getFournisseurs(filter);
       result.merge(fournisseurs);
     }
-    
+
     return result;
   }
-  
+
   /**
    * Get products from all data sources with improved filtering delegation
    * 
@@ -313,15 +316,15 @@ export class Mediator {
   public async getProduits(filter?: QueryFilter): Promise<ProduitCollection> {
     const result = new ProduitCollection();
     const capableAdapters = this.findCapableAdapters('produits', filter);
-    
+
     for (const adapter of capableAdapters) {
       const produits = await adapter.getProduits(filter);
       result.merge(produits);
-    }    
-    
+    }
+
     return result;
   }
-  
+
   /**
    * Get orders from all data sources with improved filtering delegation
    * 
@@ -331,15 +334,15 @@ export class Mediator {
   public async getCommandes(filter?: QueryFilter): Promise<CommandeCollection> {
     const result = new CommandeCollection();
     const capableAdapters = this.findCapableAdapters('commandes', filter);
-    
+
     for (const adapter of capableAdapters) {
       const commandes = await adapter.getCommandes(filter);
       result.merge(commandes);
     }
-    
+
     return result;
   }
-  
+
   /**
    * Get order details from all data sources with improved filtering delegation
    * 
@@ -349,15 +352,15 @@ export class Mediator {
   public async getDetailsCommande(filter?: QueryFilter): Promise<DetailCommandeCollection> {
     const result = new DetailCommandeCollection();
     const capableAdapters = this.findCapableAdapters('details_commande', filter);
-    
+
     for (const adapter of capableAdapters) {
       const details = await adapter.getDetailsCommande(filter);
       result.merge(details);
     }
-    
+
     return result;
   }
-  
+
   /**
    * Get invoices from all data sources with improved filtering delegation
    * 
@@ -367,15 +370,15 @@ export class Mediator {
   public async getFactures(filter?: QueryFilter): Promise<FactureCollection> {
     const result = new FactureCollection();
     const capableAdapters = this.findCapableAdapters('factures', filter);
-    
+
     for (const adapter of capableAdapters) {
       const factures = await adapter.getFactures(filter);
       result.merge(factures);
     }
-    
+
     return result;
   }
-  
+
   /**
    * Get deliveries from all data sources with improved filtering delegation
    * 
@@ -385,15 +388,15 @@ export class Mediator {
   public async getLivraisons(filter?: QueryFilter): Promise<LivraisonCollection> {
     const result = new LivraisonCollection();
     const capableAdapters = this.findCapableAdapters('livraisons', filter);
-    
+
     for (const adapter of capableAdapters) {
       const livraisons = await adapter.getLivraisons(filter);
       result.merge(livraisons);
     }
-    
+
     return result;
   }
-  
+
   /**
    * Get supply data from all data sources with improved filtering delegation
    * 
@@ -403,15 +406,15 @@ export class Mediator {
   public async getApprovisionnements(filter?: QueryFilter): Promise<ApprovisionnementCollection> {
     const result = new ApprovisionnementCollection();
     const capableAdapters = this.findCapableAdapters('approvisionnements', filter);
-    
+
     for (const adapter of capableAdapters) {
       const approvisionnements = await adapter.getApprovisionnements(filter);
       result.merge(approvisionnements);
     }
-    
+
     return result;
   }
-  
+
   /**
    * Search for clients by name using delegated filtering
    * Instead of collecting all data and filtering in mediator,
@@ -430,11 +433,11 @@ export class Mediator {
         right: { type: 'string', value: `%${query}%` }
       }]
     };
-    
+
     // Use the existing getClients method which now delegates filtering
     return this.getClients(filter);
   }
-  
+
   /**
    * Get orders for a specific client using delegated filtering
    * 
@@ -451,11 +454,11 @@ export class Mediator {
         right: { type: 'string', value: clientId }
       }]
     };
-    
+
     // Use the existing getCommandes method which now delegates filtering
     return this.getCommandes(filter);
   }
-  
+
   /**
    * Get order details for a specific order using delegated filtering
    * 
@@ -472,11 +475,11 @@ export class Mediator {
         right: { type: 'string', value: orderId }
       }]
     };
-    
+
     // Use the existing getDetailsCommande method which now delegates filtering
     return this.getDetailsCommande(filter);
   }
-  
+
   /**
    * Get products supplied by a specific supplier
    * 
@@ -493,14 +496,14 @@ export class Mediator {
         right: { type: 'string', value: fournisseurId }
       }]
     };
-    
+
     const allApprovisionnements = await this.getApprovisionnements(approFilter);
     const productIds: string[] = allApprovisionnements.getItems().map(appro => appro.idProduit);
-    
+
     if (productIds.length === 0) {
       return new ProduitCollection();
     }
-    
+
     // Then get the product details using the collected IDs
     // This uses an IN condition which may or may not be supported by all sources
     // In a real system, we would need to check if sources support this
@@ -512,10 +515,10 @@ export class Mediator {
         right: { type: 'expr_list', value: productIds }
       }]
     };
-    
+
     return this.getProduits(prodFilter);
   }
-  
+
   /**
    * Merges multiple collections into one based on the method name
    * 
@@ -526,8 +529,8 @@ export class Mediator {
   public mergeCollections(collections: any[], methodName: string): any {
     // Create the appropriate collection type based on the method name
     let result: any;
-    
-    switch(methodName) {
+
+    switch (methodName) {
       case 'getClients':
         result = new ClientCollection();
         break;
@@ -561,16 +564,16 @@ export class Mediator {
       default:
         throw new Error(`Unknown method name: ${methodName}`);
     }
-    
+
     // Merge all collections into the result, with validation for each collection
     for (const collection of collections) {
       if (!collection) continue;
-      
+
       try {
         // Check if collection has the getItems method
         if (typeof collection.getItems === 'function') {
           result.merge(collection);
-        } 
+        }
         // Handle arrays and other collection-like objects
         else if (Array.isArray(collection)) {
           // If collection is an array, add each item directly
@@ -594,9 +597,168 @@ export class Mediator {
         // Continue with the next collection rather than failing completely
       }
     }
-    
+
     return result;
   }
-  
+
+
+
   // Other methods omitted for brevity - validateDataConsistency, getDataStatistics, etc.
+
+  public async getDataStatistics(): Promise<{
+
+    overall: Record<string, number>;
+
+    bySource: Record<string, Record<string, number>>;
+
+  }> {
+
+    // Get counts by source system
+
+    const stats = {
+
+      overall: {
+
+        clients: (await this.getClients()).count(),
+
+        employees: (await this.getEmployees()).count(),
+
+        agencies: (await this.getAgences()).count(),
+
+        suppliers: (await this.getFournisseurs()).count(),
+
+        products: (await this.getProduits()).count(),
+
+        orders: (await this.getCommandes()).count(),
+
+        orderDetails: (await this.getDetailsCommande()).count(),
+
+        invoices: (await this.getFactures()).count(),
+
+        deliveries: (await this.getLivraisons()).count(),
+
+        supplyRecords: (await this.getApprovisionnements()).count()
+
+      },
+
+      bySource: {} as Record<string, Record<string, number>>
+
+    };
+
+
+
+    // Get the unique source systems
+
+    const sources: Record<string, boolean> = {};
+
+    for (const adapter of this.adapters) {
+
+      sources[adapter.getSourceSystem()] = true;
+
+    }
+
+
+
+    // Initialize counters for each source
+
+    for (const source of Object.keys(sources)) {
+
+      stats.bySource[source] = Object.fromEntries(
+
+        Object.entries(stats.overall).map(([key]) => [key, 0])
+
+      );
+
+    }
+
+
+
+    // Count items by source system
+
+    await this.countBySource(await this.getClients(), 'clients', stats.bySource);
+
+    await this.countBySource(await this.getEmployees(), 'employees', stats.bySource);
+
+    await this.countBySource(await this.getAgences(), 'agencies', stats.bySource);
+
+    await this.countBySource(await this.getFournisseurs(), 'suppliers', stats.bySource);
+
+    await this.countBySource(await this.getProduits(), 'products', stats.bySource);
+
+    await this.countBySource(await this.getCommandes(), 'orders', stats.bySource);
+
+    await this.countBySource(await this.getDetailsCommande(), 'orderDetails', stats.bySource);
+
+    await this.countBySource(await this.getFactures(), 'invoices', stats.bySource);
+
+    await this.countBySource(await this.getLivraisons(), 'deliveries', stats.bySource);
+
+    await this.countBySource(await this.getApprovisionnements(), 'supplyRecords', stats.bySource);
+
+
+
+    return stats;
+
+  }
+
+  /**
+   * Count items by source system and update the statistics
+   * 
+   * @param collection The collection to count
+   * @param entityName The name of the entity
+   * @param stats The statistics object to update
+   */
+
+  private async countBySource(
+    collection: any,
+    entityName: string,
+    stats: Record<string, Record<string, number>>
+  ): Promise<void> {
+    for (const item of collection.getItems()) {
+      const sourceId = item.sourceSystem; // Assuming each item has a sourceId property
+      if (stats[sourceId]) {
+        stats[sourceId][entityName]++;
+      } else {
+        console.warn(`Source ID ${sourceId} not found in statistics.`);
+      }
+    }
+  }
+  /**
+   * Validate data consistency across all adapters
+   *
+   * This method checks for duplicates and missing references
+   * in the integrated data. It can be extended to include more
+   * complex validation rules as needed.
+   * 
+   * @returns An object containing validation results
+   * @throws Error if validation fails
+   */
+  public async validateDataConsistency(): Promise<{
+    status: boolean;
+    warnings: string[];
+    errors: string[];
+  }> {
+    const result = {
+      status: true,
+      warnings: [] as string[],
+      errors: [] as string[]
+    };
+
+    // Example validation: Check for duplicate clients
+    const clients = await this.getClients();
+    const clientIds = new Set<string>();
+
+    for (const client of clients.getItems()) {
+      if (clientIds.has(client.idClient)) {
+        result.errors.push(`Duplicate client found: ${client.idClient}`);
+        result.status = false;
+      } else {
+        clientIds.add(client.idClient);
+      }
+    }
+
+    // Add more validation checks as needed
+
+    return result;
+  }
 }

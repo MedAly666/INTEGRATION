@@ -10,8 +10,8 @@ import { log } from "console";
  * @param date The date object to format
  * @returns Formatted date string in YYYY-MM-DD format
  */
-export function formatDate(date: Date | string | number): string | undefined {
-  if( !date ) return undefined;
+export function formatDate(date: Date | string | number): string  {
+  if( !date ) return '0000-00-00';
   const d = date instanceof Date ? date : new Date(date);
   return d.toISOString().split('T')[0];
 }

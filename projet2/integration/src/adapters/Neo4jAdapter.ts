@@ -47,6 +47,158 @@ export class Neo4jAdapter implements IAdapter {
     this.password = password;
     this.database = database;
   }
+  /**
+   * Determines if this adapter can handle the given query
+   * 
+   * @param filter The query filter to evaluate
+   * @param entityName The name of the entity being queried
+   * @returns true if the adapter can handle this query
+   */
+  canHandleQuery(filter: QueryFilter, entityName: string): boolean {
+    // Check if the entity is supported
+    const supportedEntities = [
+      'clients', 'client',
+      'employees', 'employe',
+      'agences', 'agence',
+      'fournisseurs', 'fournisseur',
+      'produits', 'produit',
+      'commandes', 'commande',
+      'details_commande', 'detail_commande',
+      'factures', 'facture',
+      'livraisons', 'livraison',
+      'approvisionnements', 'approvisionnement'
+    ];
+    
+    if (!supportedEntities.includes(entityName.toLowerCase())) {
+      return false;
+    }
+    
+    // Check for unsupported operations
+    if (filter.joins && filter.joins.length > 0) {
+      // We support some basic joins but not complex ones
+      const maxJoins = 1;
+      if (filter.joins.length > maxJoins) {
+        return false;
+      }
+      
+      // Check if all joined entities are supported
+      for (const join of filter.joins) {
+        if (!supportedEntities.includes(join.rightTable.toLowerCase())) {
+          return false;
+        }
+      }
+    }
+    
+    // We can handle most conditions with our Cypher translations
+    return true;
+  }
+
+  /**
+   * Translates a query filter to a Neo4j-specific query
+   * 
+   * @param filter The query filter to translate
+   * @param entityName The name of the entity being queried
+   * @returns An object containing the Cypher query and parameters
+   */
+  translateQuery(filter: QueryFilter, entityName: string) {
+    const nodeAlias = entityName.charAt(0).toLowerCase();
+    let query = '';
+    let returnClause = '';
+    const params: Record<string, any> = {};
+    
+    // Build the MATCH clause based on entity
+    switch (entityName.toLowerCase()) {
+      case 'clients':
+      case 'client':
+        query = `MATCH (${nodeAlias}:Client)`;
+        returnClause = `RETURN ${nodeAlias}.id_client as id, ${nodeAlias}.nom as nom, ${nodeAlias}.adresse as adresse, ${nodeAlias}.email as email, ${nodeAlias}.telephone as telephone`;
+        break;
+      case 'employees':
+      case 'employe':
+        query = `MATCH (${nodeAlias}:Employe)`;
+        returnClause = `RETURN ${nodeAlias}.id_employe as id, ${nodeAlias}.nom as nom, ${nodeAlias}.email as email, ${nodeAlias}.poste as poste`;
+        break;
+      case 'agences':
+      case 'agence':
+        query = `MATCH (${nodeAlias}:Agence)`;
+        returnClause = `RETURN ${nodeAlias}.id_agence as id, ${nodeAlias}.ville as ville, ${nodeAlias}.adresse as adresse`;
+        break;
+      case 'fournisseurs':
+      case 'fournisseur':
+        query = `MATCH (${nodeAlias}:Fournisseur)`;
+        returnClause = `RETURN ${nodeAlias}.id_fournisseur as id, ${nodeAlias}.nom as nom, ${nodeAlias}.adresse as adresse, ${nodeAlias}.telephone as telephone`;
+        break;
+      case 'produits':
+      case 'produit':
+        query = `MATCH (${nodeAlias}:Produit)`;
+        returnClause = `RETURN ${nodeAlias}.id_produit as id, ${nodeAlias}.description as description, ${nodeAlias}.prix as prix, ${nodeAlias}.categorie as categorie`;
+        break;
+      case 'commandes':
+      case 'commande':
+        query = `MATCH (${nodeAlias}:Commande)
+                OPTIONAL MATCH (c:Client)-[:PASSE]->(${nodeAlias})
+                OPTIONAL MATCH (e:Employe)-[:GERE]->(${nodeAlias})`;
+        returnClause = `RETURN ${nodeAlias}.id_commande as id, ${nodeAlias}.date as date, ${nodeAlias}.montant as montant, ${nodeAlias}.statut as statut, 
+                ${nodeAlias}.mode_paiement as mode_paiement, c.id_client as client_id, e.id_employe as employe_id`;
+        break;
+      case 'details_commande':
+      case 'detail_commande':
+        query = `MATCH (c:Commande)-[d:DETAIL]->(p:Produit)`;
+        returnClause = `RETURN c.id_commande as id_commande, p.id_produit as produit_id, d.quantite as quantite`;
+        break;
+      case 'factures':
+      case 'facture':
+        query = `MATCH (c:Commande)-[:FACTURE]->(${nodeAlias}:Facture)`;
+        returnClause = `RETURN ${nodeAlias}.id_facture as id, ${nodeAlias}.montant_total as montant_total, ${nodeAlias}.date as date, c.id_commande as commande_ref`;
+        break;
+      case 'livraisons':
+      case 'livraison':
+        query = `MATCH (c:Commande)-[:LIVREE_PAR]->(${nodeAlias}:Livraison)`;
+        returnClause = `RETURN ${nodeAlias}.id_livraison as id, ${nodeAlias}.transporteur as transporteur, 
+                ${nodeAlias}.date_estimee as date_estimee, ${nodeAlias}.statut as statut, c.id_commande as commande_ref`;
+        break;
+      case 'approvisionnements':
+      case 'approvisionnement':
+        query = `MATCH (p:Produit)-[a:FOURNI_PAR]->(f:Fournisseur)`;
+        returnClause = `RETURN p.id_produit as produit_id, f.id_fournisseur as fournisseur_id, a.quantite as quantite`;
+        break;
+      default:
+        throw new Error(`Unknown entity type: ${entityName}`);
+    }
+    
+    // Add WHERE clause if there are conditions
+    if (filter.conditions && filter.conditions.length > 0) {
+      const { whereClause, params: whereParams } = this.buildWhereClause(filter, nodeAlias);
+      if (whereClause) {
+        query += `\n${whereClause}`;
+        Object.assign(params, whereParams);
+      }
+    }
+    
+    // Add ORDER BY clause if specified
+    if (filter.orderBy && filter.orderBy.length > 0) {
+      const orderTerms = filter.orderBy.map(order => {
+        const prop = this.translateProperty(order.column);
+        return `${nodeAlias}.${prop} ${order.type}`;
+      });
+      query += `\nORDER BY ${orderTerms.join(', ')}`;
+    }
+    
+    // Add LIMIT clause if specified
+    if (filter.limit) {
+      query += `\nLIMIT ${filter.limit}`;
+    }
+    
+    // Add SKIP clause for pagination
+    if (filter.offset) {
+      query += `\nSKIP ${filter.offset}`;
+    }
+    
+    // Add the return clause
+    query += `\n${returnClause}`;
+    
+    return { query, params };
+  }
 
   /**
    * Connect to the Neo4j database
@@ -128,44 +280,54 @@ export class Neo4jAdapter implements IAdapter {
     // Define available entities and their attributes
     const entities: EntityAvailability[] = [
       {
-        entityName: 'Client',
+        entityName: 'clients',
         isComplete: true,
         attributes: ['id_client', 'nom', 'adresse', 'email', 'telephone']
       },
       {
-        entityName: 'Employe',
+        entityName: 'employees',
         isComplete: true,
         attributes: ['id_employe', 'nom', 'email', 'poste']
       },
       {
-        entityName: 'Agence',
+        entityName: 'agences',
         isComplete: true,
         attributes: ['id_agence', 'ville', 'adresse']
       },
       {
-        entityName: 'Fournisseur',
+        entityName: 'fournisseurs',
         isComplete: true,
         attributes: ['id_fournisseur', 'nom', 'adresse', 'telephone']
       },
       {
-        entityName: 'Produit',
+        entityName: 'produits',
         isComplete: true,
         attributes: ['id_produit', 'description', 'prix', 'categorie']
       },
       {
-        entityName: 'Commande',
+        entityName: 'commandes',
         isComplete: true,
-        attributes: ['id_commande', 'date', 'montant', 'statut', 'mode_paiement']
+        attributes: ['id_commande', 'date', 'montant', 'statut', 'mode_paiement', 'client_ref', 'employe_ref']
       },
       {
-        entityName: 'Facture',
+        entityName: 'details_commande',
         isComplete: true,
-        attributes: ['id_facture', 'montant_total', 'date']
+        attributes: ['commande_id', 'produit_id', 'quantite']
       },
       {
-        entityName: 'Livraison',
+        entityName: 'factures',
         isComplete: true,
-        attributes: ['id_livraison', 'transporteur', 'date_estimee', 'statut']
+        attributes: ['id_facture', 'montant_total', 'date', 'commande_ref']
+      },
+      {
+        entityName: 'livraisons',
+        isComplete: true,
+        attributes: ['id_livraison', 'transporteur', 'date_estimee', 'statut', 'commande_ref']
+      },
+      {
+        entityName: 'approvisionnements',
+        isComplete: true,
+        attributes: ['produit_id', 'fournisseur_id', 'quantite']
       }
     ];
     
@@ -551,7 +713,7 @@ export class Neo4jAdapter implements IAdapter {
    * @param entityName The entity name
    * @returns true if the projection belongs to the entity
    */
-  private projectionBelongsToEntity(projection: string, entityName: string): boolean {
+  /*private projectionBelongsToEntity(projection: string, entityName: string): boolean {
     const entityFields: Record<string, string[]> = {
       'clients': ['idClient', 'nomComplet', 'adresse', 'emailContact', 'numeroTelephone'],
       'commandes': ['idCommande', 'dateCommande', 'montant', 'statut', 'modePaiement', 'clientRef', 'employeRef'],
@@ -560,7 +722,7 @@ export class Neo4jAdapter implements IAdapter {
     };
     
     return entityFields[entityName]?.includes(projection) || false;
-  }
+  }*/
   
   /**
    * Determine if a projection belongs to an entity
@@ -749,7 +911,7 @@ export class Neo4jAdapter implements IAdapter {
     const results = records.map(record => {
       const obj: Record<string, any> = {};
       record.keys.forEach(key => {
-        obj[key] = record.get(key);
+        obj[String(key)] = record.get(key);
       });
       // Always add source system
       obj.sourceSystem = this.sourceSystem;
@@ -1184,7 +1346,7 @@ export class Neo4jAdapter implements IAdapter {
         const clientCollection = new ClientCollection();
         for (const record of records) {
           const client = new Client({
-            idClient: `Neo4j_${record.id}`,
+            idClient: `NEO_${record.id}`,
             sourceSystem: this.sourceSystem,
             nomComplet: record.nom || '',
             adresse: record.adresse || '',
@@ -1200,12 +1362,12 @@ export class Neo4jAdapter implements IAdapter {
         const employeeCollection = new EmployeeCollection();
         for (const record of records) {
           const employee = new Employee({
-            idEmploye: `Neo4j_${record.id}`,
+            idEmploye: `NEO_${record.id}`,
             sourceSystem: this.sourceSystem,
             nomComplet: record.nom || '',
             email: record.email || '',
             poste: record.poste || '',
-            agenceRef: record.agence_id ? `Neo4j_${record.agence_id}` : null
+            agenceRef: `NEO_${record.agence_id}`
           });
           employeeCollection.addItem(employee);
         }
@@ -1215,11 +1377,11 @@ export class Neo4jAdapter implements IAdapter {
         const agenceCollection = new AgenceCollection();
         for (const record of records) {
           const agence = new Agence({
-            idAgence: `Neo4j_${record.id}`,
+            idAgence: `NEO_${record.id}`,
             sourceSystem: this.sourceSystem,
             ville: record.ville || '',
             adresse: record.adresse || '',
-            responsableRef: record.responsable_id ? `Neo4j_${record.responsable_id}` : null
+            responsableRef: `NEO_${record.responsable_id}`
           });
           agenceCollection.addItem(agence);
         }
@@ -1229,7 +1391,7 @@ export class Neo4jAdapter implements IAdapter {
         const fournisseurCollection = new FournisseurCollection();
         for (const record of records) {
           const fournisseur = new Fournisseur({
-            idFournisseur: `Neo4j_${record.id}`,
+            idFournisseur: `NEO_${record.id}`,
             sourceSystem: this.sourceSystem,
             nomFournisseur: record.nom || '',
             adresse: record.adresse || '',
@@ -1243,7 +1405,7 @@ export class Neo4jAdapter implements IAdapter {
         const produitCollection = new ProduitCollection();
         for (const record of records) {
           const produit = new Produit({
-            idProduit: `Neo4j_${record.id}`,
+            idProduit: `NEO_${record.id}`,
             sourceSystem: this.sourceSystem,
             description: record.description || '',
             prixCout: record.prix || 0,
@@ -1257,14 +1419,14 @@ export class Neo4jAdapter implements IAdapter {
         const commandeCollection = new CommandeCollection();
         for (const record of records) {
           const commande = new Commande({
-            idCommande: `Neo4j_${record.id}`,
+            idCommande: `NEO_${record.id}`,
             sourceSystem: this.sourceSystem,
             dateCommande: formatDate(record.date),
             montant: record.montant || 0,
             statut: record.statut || '',
             modePaiement: record.mode_paiement || '',
-            clientRef: record.client_id ? `Neo4j_${record.client_id}` : null,
-            employeRef: record.employe_id ? `Neo4j_${record.employe_id}` : null
+            clientRef: `NEO_${record.client_id}`,
+            employeRef: `NEO_${record.employe_id}`
           });
           commandeCollection.addItem(commande);
         }
@@ -1277,8 +1439,8 @@ export class Neo4jAdapter implements IAdapter {
         const detailCommandeCollection = new DetailCommandeCollection();
         for (const record of records) {
           const detailCommande = new DetailCommande({
-            idCommande: `Neo4j_${record.commande_id}`,
-            idProduit: `Neo4j_${record.produit_id}`,
+            idCommande: `NEO_${record.commande_id}`,
+            idProduit: `NEO_${record.produit_id}`,
             sourceSystem: this.sourceSystem,
             quantite: record.quantite || 0
           });
@@ -1290,11 +1452,11 @@ export class Neo4jAdapter implements IAdapter {
         const factureCollection = new FactureCollection();
         for (const record of records) {
           const facture = new Facture({
-            idFacture: `Neo4j_${record.id}`,
+            idFacture: `NEO_${record.id}`,
             sourceSystem: this.sourceSystem,
             montantTotal: record.montant || 0,
             dateFacture: formatDate(record.date),
-            commandeRef: record.commande_id ? `Neo4j_${record.commande_id}` : null
+            commandeRef: `NEO_${record.commande_id}`
           });
           factureCollection.addItem(facture);
         }
@@ -1304,12 +1466,12 @@ export class Neo4jAdapter implements IAdapter {
         const livraisonCollection = new LivraisonCollection();
         for (const record of records) {
           const livraison = new Livraison({
-            idLivraison: `Neo4j_${record.id}`,
+            idLivraison: `NEO_${record.id}`,
             sourceSystem: this.sourceSystem,
             transporteur: record.transporteur || '',
             dateEstimee: formatDate(record.date_estimee),
             statut: record.statut || '',
-            commandeRef: record.commande_id ? `Neo4j_${record.commande_id}` : null
+            commandeRef: `NEO_${record.commande_id}`
           });
           livraisonCollection.addItem(livraison);
         }
@@ -1319,8 +1481,8 @@ export class Neo4jAdapter implements IAdapter {
         const approvisionnementCollection = new ApprovisionnementCollection();
         for (const record of records) {
           const approvisionnement = new Approvisionnement({
-            idProduit: `Neo4j_${record.produit_id}`,
-            idFournisseur: `Neo4j_${record.fournisseur_id}`,
+            idProduit: `NEO_${record.produit_id}`,
+            idFournisseur: `NEO_${record.fournisseur_id}`,
             sourceSystem: this.sourceSystem,
             quantite: record.quantite || 0
           });

@@ -4,7 +4,7 @@
  */
 
 import { IAdapter, QueryFilter } from './IAdapter';
-import { MariaDBPool, PoolConnection } from 'mariadb';
+import { Pool, PoolConnection } from 'mariadb';
 import {
   ClientCollection, Client,
   EmployeeCollection, Employee,
@@ -21,7 +21,7 @@ import { SourceDescription, EntityAvailability, SourceCapabilities } from '../co
 import { formatDate } from '../common/DateUtils';
 
 export class SQLAdapter implements IAdapter {
-  private pool: MariaDBPool | null = null;
+  private pool: Pool | null = null;
   private client: PoolConnection | null = null;
   private connected: boolean = false;
   private sourceSystem: string = 'SQL';
@@ -793,6 +793,276 @@ export class SQLAdapter implements IAdapter {
     
     return clients;
   }
+
+  /**
+   * 
+   */
+
+  public async getEmployees(filter?: QueryFilter): Promise<EmployeeCollection> {
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+    
+    // Use "Employees" with capital E to match the actual table name in database
+    const { sql, params } = this.buildSelectQuery('Employees', filter);
+    const rows = await this.executeQuery(sql, params);
+    
+    const employees = new EmployeeCollection();
+    
+    for (const row of rows) {
+      // Convert snake_case keys to camelCase for data model compatibility
+      const employeeData = this.convertKeysToCamelCase(row);
+      
+      // Add SQL_ prefix to IDs to identify the source
+      employeeData.idEmploye = `SQL_${row.id_employe}`;
+      
+      // Create an Employee object and add to collection
+      const employee = new Employee(employeeData);
+      employees.addItem(employee);
+    }
+    
+    return employees;
+  }
+
+  /**
+   * 
+   */
+
+  public async getAgences(filter?: QueryFilter): Promise<AgenceCollection> {
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+    
+    // Use "Agences" with capital A to match the actual table name in database
+    const { sql, params } = this.buildSelectQuery('Agences', filter);
+    const rows = await this.executeQuery(sql, params);
+    
+    const agences = new AgenceCollection();
+    
+    for (const row of rows) {
+      // Convert snake_case keys to camelCase for data model compatibility
+      const agenceData = this.convertKeysToCamelCase(row);
+      
+      // Add SQL_ prefix to IDs to identify the source
+      agenceData.idAgence = `SQL_${row.id_agence}`;
+      
+      // Create an Agence object and add to collection
+      const agence = new Agence(agenceData);
+      agences.addItem(agence);
+    }
+    
+    return agences;
+  }
+
+  /**
+   * 
+   */
+
+  public async getFournisseurs(filter?: QueryFilter): Promise<FournisseurCollection> {
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+    
+    // Use "Fournisseurs" with capital F to match the actual table name in database
+    const { sql, params } = this.buildSelectQuery('Fournisseurs', filter);
+    const rows = await this.executeQuery(sql, params);
+    
+    const fournisseurs = new FournisseurCollection();
+    
+    for (const row of rows) {
+      // Convert snake_case keys to camelCase for data model compatibility
+      const fournisseurData = this.convertKeysToCamelCase(row);
+      
+      // Add SQL_ prefix to IDs to identify the source
+      fournisseurData.idFournisseur = `SQL_${row.id_fournisseur}`;
+      
+      // Create a Fournisseur object and add to collection
+      const fournisseur = new Fournisseur(fournisseurData);
+      fournisseurs.addItem(fournisseur);
+    }
+    
+    return fournisseurs;
+  }
+
+  /**
+   * 
+   */
+
+  public async getProduits(filter?: QueryFilter): Promise<ProduitCollection> {
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+    
+    // Use "Produits" with capital P to match the actual table name in database
+    const { sql, params } = this.buildSelectQuery('Produits', filter);
+    const rows = await this.executeQuery(sql, params);
+    
+    const produits = new ProduitCollection();
+    
+    for (const row of rows) {
+      // Convert snake_case keys to camelCase for data model compatibility
+      const produitData = this.convertKeysToCamelCase(row);
+      
+      // Add SQL_ prefix to IDs to identify the source
+      produitData.idProduit = `SQL_${row.id_produit}`;
+      
+      // Create a Produit object and add to collection
+      const produit = new Produit(produitData);
+      produits.addItem(produit);
+    }
+    
+    return produits;
+  }
+
+  /**
+   * 
+   */
+
+  public async getCommandes(filter?: QueryFilter): Promise<CommandeCollection> {
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+    
+    // Use "Commandes" with capital C to match the actual table name in database
+    const { sql, params } = this.buildSelectQuery('Commandes', filter);
+    const rows = await this.executeQuery(sql, params);
+    
+    const commandes = new CommandeCollection();
+    
+    for (const row of rows) {
+      // Convert snake_case keys to camelCase for data model compatibility
+      const commandeData = this.convertKeysToCamelCase(row);
+      
+      // Add SQL_ prefix to IDs to identify the source
+      commandeData.idCommande = `SQL_${row.id_commande}`;
+      
+      // Create a Commande object and add to collection
+      const commande = new Commande(commandeData);
+      commandes.addItem(commande);
+    }
+    
+    return commandes;
+  }
+
+  /**
+   * 
+   */
+
+  public async getDetailsCommande(filter?: QueryFilter): Promise<DetailCommandeCollection> {
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+
+    // Use "Details_Commande" with capital D to match the actual table name in database
+    const { sql, params } = this.buildSelectQuery('Details_Commande', filter);
+    const rows = await this.executeQuery(sql, params);
+    const detailsCommandes = new DetailCommandeCollection();
+
+    for (const row of rows) {
+
+      const detailCommandeData = this.convertKeysToCamelCase(row);
+      
+
+      detailCommandeData.idDetailCommande = `SQL_${row.id_detail_commande}`;
+      
+
+      const detailCommande = new DetailCommande(detailCommandeData);
+      detailsCommandes.addItem(detailCommande);
+    }
+    return detailsCommandes;
+  }
+
+  /**
+   * 
+   */
+
+  public async getFactures(filter?: QueryFilter): Promise<FactureCollection> {
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+    
+    // Use "Factures" with capital F to match the actual table name in database
+    const { sql, params } = this.buildSelectQuery('Factures', filter);
+    const rows = await this.executeQuery(sql, params);
+    
+    const factures = new FactureCollection();
+    
+    for (const row of rows) {
+      // Convert snake_case keys to camelCase for data model compatibility
+      const factureData = this.convertKeysToCamelCase(row);
+      
+      // Add SQL_ prefix to IDs to identify the source
+      factureData.idFacture = `SQL_${row.id_facture}`;
+      
+      // Create a Facture object and add to collection
+      const facture = new Facture(factureData);
+      factures.addItem(facture);
+    }
+    
+    return factures;
+  }
+
+  /**
+   * 
+   */
+  public async getLivraisons(filter?: QueryFilter): Promise<LivraisonCollection> {
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+    
+    // Use "Livraisons" with capital L to match the actual table name in database
+    const { sql, params } = this.buildSelectQuery('Livraisons', filter);
+    const rows = await this.executeQuery(sql, params);
+    
+    const livraisons = new LivraisonCollection();
+    
+    for (const row of rows) {
+      // Convert snake_case keys to camelCase for data model compatibility
+      const livraisonData = this.convertKeysToCamelCase(row);
+      
+      // Add SQL_ prefix to IDs to identify the source
+      livraisonData.idLivraison = `SQL_${row.id_livraison}`;
+      
+      // Create a Livraison object and add to collection
+      const livraison = new Livraison(livraisonData);
+      livraisons.addItem(livraison);
+    }
+    
+    return livraisons;
+  }
+
+  /**
+   * 
+   */
+
+  public async getApprovisionnements(filter?: QueryFilter): Promise<ApprovisionnementCollection> {
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+    
+    // Use "Approvisionnements" with capital A to match the actual table name in database
+    const { sql, params } = this.buildSelectQuery('Approvisionnements', filter);
+    const rows = await this.executeQuery(sql, params);
+    
+    const approvisionnements = new ApprovisionnementCollection();
+    
+    for (const row of rows) {
+      // Convert snake_case keys to camelCase for data model compatibility
+      const approvisionnementData = this.convertKeysToCamelCase(row);
+      
+      // Add SQL_ prefix to IDs to identify the source
+      approvisionnementData.idProduit = `SQL_${row.id_produit}`;
+      
+      // Create an Approvisionnement object and add to collection
+      const approvisionnement = new Approvisionnement(approvisionnementData);
+      approvisionnements.addItem(approvisionnement);
+    }
+    
+    return approvisionnements;
+  }
+
+  
+
 
   /**
    * Get an empty collection for a given entity type
