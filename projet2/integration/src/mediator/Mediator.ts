@@ -622,7 +622,7 @@ export class Mediator {
    * Calculate Jaro similarity between two strings
    * Implementation based on the course description
    */
-  private calculateJaroSimilarity(str1: string, str2: string): number {
+  public calculateJaroSimilarity(str1: string, str2: string): number {
     if (!str1 || !str2) return 0;
     
     // Calculate matching characters
@@ -710,7 +710,7 @@ export class Mediator {
    * Calculate Jaccard similarity between two strings
    * Based on token comparison as described in the course
    */
-  private calculateJaccardSimilarity(str1: string, str2: string): number {
+  public calculateJaccardSimilarity(str1: string, str2: string): number {
     if (!str1 || !str2) return 0;
 
     // Tokenize strings (split by whitespace and punctuation)
@@ -1034,7 +1034,7 @@ export class Mediator {
    * Normalize a string for comparison by removing accents,
    * converting to lowercase, and trimming whitespace
    */
-  private normalizeString(str: string): string {
+  public normalizeString(str: string): string {
     if (!str) return '';
     
     // Convert to lowercase and trim
@@ -1084,12 +1084,12 @@ export class Mediator {
         if (nameSimilarity > 0.8 || emailMatch || phoneMatch) {
           potentialDuplicates.push({
             client1: {
-              id: client1.id,
+              id: client1.idClient,
               nomComplet: client1.nomComplet,
               sourceSystem: client1.sourceSystem
             },
             client2: {
-              id: client2.id,
+              id: client2.idClient,
               nomComplet: client2.nomComplet,
               sourceSystem: client2.sourceSystem
             },

@@ -220,14 +220,28 @@ api.post('/query', async (c) => {
 api.get('/reconciliation/stats', async (c) => {
   try {
     const dupeClients = await mediator.findPotentialDuplicateClients();
+    
+    // Calculate additional similarity scores for each duplicate pair
+    const duplicatesWithScores = dupeClients.map(dupe => ({
+      ...dupe,
+      jaroScore: mediator.calculateJaroSimilarity(
+        mediator.normalizeString(dupe.client1.nomComplet),
+        mediator.normalizeString(dupe.client2.nomComplet)
+      ),
+      jaccardScore: mediator.calculateJaccardSimilarity(
+        mediator.normalizeString(dupe.client1.nomComplet),
+        mediator.normalizeString(dupe.client2.nomComplet)
+      )
+    }));
+
     const stats = {
-      totalReconciliations: dupeClients.length,
+      totalReconciliations: duplicatesWithScores.length,
       confidenceBreakdown: {
-        high: dupeClients.filter(d => d.confidenceScore >= 0.9).length,
-        medium: dupeClients.filter(d => d.confidenceScore >= 0.7 && d.confidenceScore < 0.9).length,
-        low: dupeClients.filter(d => d.confidenceScore < 0.7).length
+        high: duplicatesWithScores.filter(d => d.confidenceScore >= 0.9).length,
+        medium: duplicatesWithScores.filter(d => d.confidenceScore >= 0.7 && d.confidenceScore < 0.9).length,
+        low: duplicatesWithScores.filter(d => d.confidenceScore < 0.7).length
       },
-      recentDuplicates: dupeClients
+      recentDuplicates: duplicatesWithScores
         .sort((a, b) => b.confidenceScore - a.confidenceScore)
         .slice(0, 10)
     };

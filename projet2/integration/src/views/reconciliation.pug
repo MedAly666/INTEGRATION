@@ -138,6 +138,12 @@ block append scripts
   script.
     // Initialize charts and fetch data
     document.addEventListener('DOMContentLoaded', async function() {
+      let charts = {
+        levenshtein: null,
+        jaro: null,
+        jaccard: null
+      };
+
       // Fetch reconciliation statistics
       async function fetchStats() {
         try {
@@ -153,17 +159,58 @@ block append scripts
           // Update duplicates table
           updateDuplicatesTable(stats.recentDuplicates);
           
-          // Update similarity charts
-          updateSimilarityCharts(stats);
+          // Update similarity charts with the duplicate data
+          updateSimilarityCharts(stats.recentDuplicates);
         } catch (error) {
           console.error('Error fetching reconciliation stats:', error);
+        }
+      }
+
+      // Function to calculate score distribution
+      function calculateScoreDistribution(scores) {
+        const distribution = [0, 0, 0, 0, 0]; // For ranges 0-0.2, 0.2-0.4, etc.
+        scores.forEach(score => {
+          const index = Math.min(Math.floor(score * 5), 4);
+          distribution[index]++;
+        });
+        return distribution;
+      }
+
+      // Update similarity charts with real data
+      function updateSimilarityCharts(duplicates) {
+        // Extract similarity scores from duplicates
+        const levenshteinScores = duplicates.map(d => d.nameSimilarity);
+        const jaroScores = duplicates.map(d => d.jaroScore || 0);
+        const jaccardScores = duplicates.map(d => d.jaccardScore || 0);
+
+        // Calculate distributions
+        const levenshteinDist = calculateScoreDistribution(levenshteinScores);
+        const jaroDist = calculateScoreDistribution(jaroScores);
+        const jaccardDist = calculateScoreDistribution(jaccardScores);
+
+        // Update Levenshtein chart
+        if (charts.levenshtein) {
+          charts.levenshtein.data.datasets[0].data = levenshteinDist;
+          charts.levenshtein.update();
+        }
+
+        // Update Jaro chart
+        if (charts.jaro) {
+          charts.jaro.data.datasets[0].data = jaroDist;
+          charts.jaro.update();
+        }
+
+        // Update Jaccard chart
+        if (charts.jaccard) {
+          charts.jaccard.data.datasets[0].data = jaccardDist;
+          charts.jaccard.update();
         }
       }
 
       // Initialize similarity measure charts
       function initializeCharts() {
         // Levenshtein Chart
-        new Chart(document.getElementById('levenshtein-chart'), {
+        charts.levenshtein = new Chart(document.getElementById('levenshtein-chart'), {
           type: 'bar',
           data: {
             labels: ['0-0.2', '0.2-0.4', '0.4-0.6', '0.6-0.8', '0.8-1.0'],
@@ -185,7 +232,7 @@ block append scripts
         });
 
         // Jaro Chart
-        new Chart(document.getElementById('jaro-chart'), {
+        charts.jaro = new Chart(document.getElementById('jaro-chart'), {
           type: 'bar',
           data: {
             labels: ['0-0.2', '0.2-0.4', '0.4-0.6', '0.6-0.8', '0.8-1.0'],
@@ -207,7 +254,7 @@ block append scripts
         });
 
         // Jaccard Chart
-        new Chart(document.getElementById('jaccard-chart'), {
+        charts.jaccard = new Chart(document.getElementById('jaccard-chart'), {
           type: 'bar',
           data: {
             labels: ['0-0.2', '0.2-0.4', '0.4-0.6', '0.6-0.8', '0.8-1.0'],
