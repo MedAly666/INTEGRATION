@@ -601,7 +601,220 @@ export class Mediator {
     return result;
   }
 
+  /**
+   * Calculate Jaro similarity between two strings
+   * Implementation based on the course description
+   */
+  private calculateJaroSimilarity(str1: string, str2: string): number {
+    if (!str1 || !str2) return 0;
+    
+    // Calculate matching characters
+    const matchDistance = Math.floor(Math.max(str1.length, str2.length) / 2) - 1;
+    const str1Matches: boolean[] = new Array(str1.length).fill(false);
+    const str2Matches: boolean[] = new Array(str2.length).fill(false);
+    let matches = 0;
+    
+    // Find matching characters within the distance
+    for (let i = 0; i < str1.length; i++) {
+      const start = Math.max(0, i - matchDistance);
+      const end = Math.min(i + matchDistance + 1, str2.length);
+      
+      for (let j = start; j < end; j++) {
+        if (!str2Matches[j] && str1[i] === str2[j]) {
+          str1Matches[i] = true;
+          str2Matches[j] = true;
+          matches++;
+          break;
+        }
+      }
+    }
 
+    if (matches === 0) return 0;
+
+    // Count transpositions
+    let transpositions = 0;
+    let k = 0;
+    
+    for (let i = 0; i < str1.length; i++) {
+      if (!str1Matches[i]) continue;
+      
+      while (!str2Matches[k]) k++;
+      
+      if (str1[i] !== str2[k]) transpositions++;
+      k++;
+    }
+
+    // Calculate Jaro similarity
+    return (
+      (matches / str1.length + 
+        matches / str2.length + 
+        (matches - transpositions / 2) / matches) / 3
+    );
+  }
+
+  /**
+   * Calculate similarity using gap affinity for abbreviations
+   * Implements Smith-Waterman algorithm with gap affinity
+   */
+  private calculateGapAffinitySimilarity(str1: string, str2: string): number {
+    const gapOpenPenalty = -2;
+    const gapExtendPenalty = -1;
+    const matchScore = 2;
+    const mismatchScore = -1;
+
+    // Initialize scoring matrix
+    const matrix: number[][] = Array(str1.length + 1).fill(0)
+      .map(() => Array(str2.length + 1).fill(0));
+
+    // Fill the matrix using Smith-Waterman with gap affinity
+    let maxScore = 0;
+    
+    for (let i = 1; i <= str1.length; i++) {
+      for (let j = 1; i <= str2.length; j++) {
+        const match = str1[i-1] === str2[j-1] ? matchScore : mismatchScore;
+        
+        matrix[i][j] = Math.max(
+          0,
+          matrix[i-1][j-1] + match, // Diagonal
+          matrix[i-1][j] + (i > 1 && matrix[i-1][j] !== 0 ? gapExtendPenalty : gapOpenPenalty), // Gap in str2
+          matrix[i][j-1] + (j > 1 && matrix[i][j-1] !== 0 ? gapExtendPenalty : gapOpenPenalty)  // Gap in str1
+        );
+
+        maxScore = Math.max(maxScore, matrix[i][j]);
+      }
+    }
+
+    // Normalize score
+    const maxPossibleScore = Math.min(str1.length, str2.length) * matchScore;
+    return maxScore / maxPossibleScore;
+  }
+
+  /**
+   * Calculate Jaccard similarity between two strings
+   * Based on token comparison as described in the course
+   */
+  private calculateJaccardSimilarity(str1: string, str2: string): number {
+    if (!str1 || !str2) return 0;
+
+    // Tokenize strings (split by whitespace and punctuation)
+    const tokens1 = str1.toLowerCase().split(/[\s\p{P}]+/u).filter(t => t.length > 0);
+    const tokens2 = str2.toLowerCase().split(/[\s\p{P}]+/u).filter(t => t.length > 0);
+
+    // Calculate intersection
+    const intersection = tokens1.filter(token => tokens2.includes(token));
+    
+    // Calculate union
+    const union = new Set([...tokens1, ...tokens2]);
+
+    return intersection.length / union.size;
+  }
+
+  /**
+   * Iterative reconciliation method that propagates similarity scores
+   * through related entities until convergence
+   */
+  public async performIterativeReconciliation(
+    entities: any[],
+    relationshipMap: Map<string, string[]>,
+    similarityThreshold: number = 0.9
+  ): Promise<Map<string, string>> {
+    const reconciliations = new Map<string, string>();
+    let changed = true;
+    let iterations = 0;
+    const maxIterations = 10;
+
+    while (changed && iterations < maxIterations) {
+      changed = false;
+      iterations++;
+
+      for (let i = 0; i < entities.length; i++) {
+        for (let j = i + 1; j < entities.length; j++) {
+          const entity1 = entities[i];
+          const entity2 = entities[j];
+          
+          // Skip if already reconciled
+          const key = `${entity1.id}-${entity2.id}`;
+          if (reconciliations.has(key)) continue;
+
+          // Calculate direct similarity
+          const directSimilarity = this.calculateEntitySimilarity(entity1, entity2);
+          
+          // Calculate relationship similarity
+          const relatedSimilarity = this.calculateRelatedEntitiesSimilarity(
+            entity1,
+            entity2,
+            relationshipMap,
+            reconciliations
+          );
+
+          // Combine similarities (weighted average)
+          const combinedSimilarity = (directSimilarity * 0.6) + (relatedSimilarity * 0.4);
+
+          if (combinedSimilarity >= similarityThreshold) {
+            reconciliations.set(key, 'reconciled');
+            changed = true;
+          }
+        }
+      }
+    }
+
+    return reconciliations;
+  }
+
+  /**
+   * Calculate similarity between two entities using multiple measures
+   */
+  private calculateEntitySimilarity(entity1: any, entity2: any): number {
+    // Combine different similarity measures
+    const levenshteinScore = this.calculateStringSimilarity(
+      this.normalizeString(entity1.name),
+      this.normalizeString(entity2.name)
+    );
+    
+    const jaroScore = this.calculateJaroSimilarity(
+      this.normalizeString(entity1.name),
+      this.normalizeString(entity2.name)
+    );
+    
+    const jaccardScore = this.calculateJaccardSimilarity(
+      this.normalizeString(entity1.name),
+      this.normalizeString(entity2.name)
+    );
+
+    // Weighted combination of scores
+    return (levenshteinScore * 0.4 + jaroScore * 0.4 + jaccardScore * 0.2);
+  }
+
+  /**
+   * Calculate similarity between related entities
+   */
+  private calculateRelatedEntitiesSimilarity(
+    entity1: any,
+    entity2: any,
+    relationshipMap: Map<string, string[]>,
+    existingReconciliations: Map<string, string>
+  ): number {
+    const relatedIds1 = relationshipMap.get(entity1.id) || [];
+    const relatedIds2 = relationshipMap.get(entity2.id) || [];
+    
+    if (relatedIds1.length === 0 || relatedIds2.length === 0) {
+      return 0;
+    }
+
+    let matchingRelations = 0;
+    
+    // Check how many related entities are already reconciled
+    for (const id1 of relatedIds1) {
+      for (const id2 of relatedIds2) {
+        const key = `${id1}-${id2}`;
+        if (existingReconciliations.has(key)) {
+          matchingRelations++;
+        }
+      }
+    }
+
+    return matchingRelations / Math.max(relatedIds1.length, relatedIds2.length);
+  }
 
   // Other methods omitted for brevity - validateDataConsistency, getDataStatistics, etc.
 
@@ -760,5 +973,58 @@ export class Mediator {
     // Add more validation checks as needed
 
     return result;
+  }
+
+  /**
+   * Calculate string similarity using Levenshtein distance
+   * as described in the course
+   */
+  private calculateStringSimilarity(str1: string, str2: string): number {
+    if (!str1 || !str2) return 0;
+    
+    const matrix: number[][] = [];
+    
+    // Initialize matrix
+    for (let i = 0; i <= str1.length; i++) {
+        matrix[i] = [i];
+    }
+    for (let j = 0; j <= str2.length; j++) {
+        matrix[0][j] = j;
+    }
+    
+    // Fill matrix
+    for (let i = 1; i <= str1.length; i++) {
+        for (let j = 1; j <= str2.length; j++) {
+            if (str1[i-1] === str2[j-1]) {
+                matrix[i][j] = matrix[i-1][j-1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i-1][j] + 1,   // deletion
+                    matrix[i][j-1] + 1,   // insertion
+                    matrix[i-1][j-1] + 1  // substitution
+                );
+            }
+        }
+    }
+    
+    // Calculate similarity score using the formula from the course:
+    // Sim(σ1,σ2) = 1 - distance(σ1,σ2)/Max(|σ1|,|σ2|)
+    const distance = matrix[str1.length][str2.length];
+    return 1 - (distance / Math.max(str1.length, str2.length));
+  }
+
+  /**
+   * Normalize a string for comparison by removing accents,
+   * converting to lowercase, and trimming whitespace
+   */
+  private normalizeString(str: string): string {
+    if (!str) return '';
+    
+    // Convert to lowercase and trim
+    str = str.toLowerCase().trim();
+    
+    // Remove accents/diacritics
+    return str.normalize('NFD')
+             .replace(/[\u0300-\u036f]/g, '');
   }
 }
