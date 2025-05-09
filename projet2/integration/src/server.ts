@@ -1,15 +1,21 @@
 /**
  * server.ts
- * Main entry point for the Bun-based TypeScript data integration server
+ * Main entry point for the Bun-based TypeScript data integration server using Hono
  */
+
+import { Hono } from 'hono';
+import { serveStatic } from '@hono/node-server/serve-static';
+import { renderFile } from 'pug';
+import { join } from 'path';
 
 import { Mediator } from './mediator/Mediator';
 import { SQLAdapter } from './adapters/SQLAdapter';
 import { XMLAdapter } from './adapters/XMLAdapter';
 import { Neo4jAdapter } from './adapters/Neo4jAdapter';
 import config from './config';
-import { renderFile } from 'pug';
-import { join } from 'path';
+
+// Create Hono app
+const app = new Hono();
 
 // Create and configure the mediator
 const mediator = new Mediator();
@@ -46,22 +52,202 @@ mediator.addAdapter(neo4jAdapter);
 mediator.initQueryProcessor();
 
 // Helper function to render Pug templates
-async function renderPug(templatePath: string, options: any = {}): Promise<Response> {
+async function renderPug(templatePath: string, options: any = {}): Promise<string> {
   try {
     const fullPath = join(import.meta.dir, 'views', `${templatePath}.pug`);
-    const html = renderFile(fullPath, options);
-    return new Response(html, {
-      headers: { 'Content-Type': 'text/html' }
-    });
+    return renderFile(fullPath, options);
   } catch (error) {
     console.error('Error rendering template:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return new Response(`Error rendering template: ${errorMessage}`, {
-      status: 500,
-      headers: { 'Content-Type': 'text/plain' }
-    });
+    throw error;
   }
 }
+
+// Health check endpoint
+app.get('/health', async (c) => {
+  return c.json({ 
+    status: 'ok',
+    connections: {
+      sql: sqlAdapter.isConnected(),
+      xml: xmlAdapter.isConnected(),
+      neo4j: neo4jAdapter.isConnected()
+    }
+  });
+});
+
+// Static files middleware for public directory
+app.use('/public/*', serveStatic({ root: './public' }));
+
+// Main routes
+app.get('/', async (c) => {
+  const html = await renderPug('index', {
+    title: 'Data Integration System'
+  });
+  return c.html(html);
+});
+
+app.get('/sql-interface', async (c) => {
+  const html = await renderPug('sql-interface', {
+    title: 'SQL Query Interface - Data Integration System'
+  });
+  return c.html(html);
+});
+
+app.get('/sql-chat', async (c) => {
+  const html = await renderPug('sql-chat', {
+    title: 'SQL Chat - Data Integration System'
+  });
+  return c.html(html);
+});
+
+app.get('/tables', async (c) => {
+  const html = await renderPug('tables', {
+    title: 'Database Tables - Data Integration System'
+  });
+  return c.html(html);
+});
+
+app.get('/reconciliation', async (c) => {
+  const html = await renderPug('reconciliation', {
+    title: 'Data Reconciliation',
+    active: 'reconciliation'
+  });
+  return c.html(html);
+});
+
+// API Routes
+const api = new Hono();
+
+api.get('/clients', async (c) => {
+  const clients = await mediator.getClients();
+  return c.json(clients.getItems());
+});
+
+api.get('/employees', async (c) => {
+  const employees = await mediator.getEmployees();
+  return c.json(employees.getItems());
+});
+
+api.get('/agences', async (c) => {
+  const agences = await mediator.getAgences();
+  return c.json(agences.getItems());
+});
+
+api.get('/fournisseurs', async (c) => {
+  const fournisseurs = await mediator.getFournisseurs();
+  return c.json(fournisseurs.getItems());
+});
+
+api.get('/produits', async (c) => {
+  const produits = await mediator.getProduits();
+  return c.json(produits.getItems());
+});
+
+api.get('/commandes', async (c) => {
+  const commandes = await mediator.getCommandes();
+  return c.json(commandes.getItems());
+});
+
+api.get('/details-commande', async (c) => {
+  const details = await mediator.getDetailsCommande();
+  return c.json(details.getItems());
+});
+
+api.get('/factures', async (c) => {
+  const factures = await mediator.getFactures();
+  return c.json(factures.getItems());
+});
+
+api.get('/livraisons', async (c) => {
+  const livraisons = await mediator.getLivraisons();
+  return c.json(livraisons.getItems());
+});
+
+api.get('/approvisionnements', async (c) => {
+  const approvisionnements = await mediator.getApprovisionnements();
+  return c.json(approvisionnements.getItems());
+});
+
+api.get('/search/clients', async (c) => {
+  const query = c.req.query('q') || '';
+  const clients = await mediator.searchClientsByName(query);
+  return c.json(clients.getItems());
+});
+
+api.get('/clients/:id/commandes', async (c) => {
+  const clientId = c.req.param('id');
+  const orders = await mediator.getOrdersByClient(clientId);
+  return c.json(orders.getItems());
+});
+
+api.get('/commandes/:id/details', async (c) => {
+  const orderId = c.req.param('id');
+  const details = await mediator.getOrderDetails(orderId);
+  return c.json(details.getItems());
+});
+
+api.get('/statistics', async (c) => {
+  const stats = await mediator.getDataStatistics();
+  return c.json(stats);
+});
+
+api.get('/validate', async (c) => {
+  const result = await mediator.validateDataConsistency();
+  return c.json(result);
+});
+
+api.get('/duplicates/clients', async (c) => {
+  const duplicates = await mediator.findPotentialDuplicateClients();
+  return c.json(duplicates);
+});
+
+api.post('/query', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { query, parameters = {} } = body;
+    
+    if (!query) {
+      return c.json({ error: 'Query is required' }, 400);
+    }
+    
+    const results = await mediator.executeQuery(query, parameters);
+    return c.json(results);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return c.json({ error: errorMessage }, 400);
+  }
+});
+
+api.get('/reconciliation/stats', async (c) => {
+  try {
+    const dupeClients = await mediator.findPotentialDuplicateClients();
+    const stats = {
+      totalReconciliations: dupeClients.length,
+      confidenceBreakdown: {
+        high: dupeClients.filter(d => d.confidenceScore >= 0.9).length,
+        medium: dupeClients.filter(d => d.confidenceScore >= 0.7 && d.confidenceScore < 0.9).length,
+        low: dupeClients.filter(d => d.confidenceScore < 0.7).length
+      },
+      recentDuplicates: dupeClients
+        .sort((a, b) => b.confidenceScore - a.confidenceScore)
+        .slice(0, 10)
+    };
+    return c.json(stats);
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch reconciliation stats' }, 500);
+  }
+});
+
+// Mount API routes under /api
+app.route('/api', api);
+
+// Error handling middleware
+app.onError((err, c) => {
+  console.error('Server error:', err);
+  return c.json({
+    error: 'Internal server error',
+    message: err.message
+  }, 500);
+});
 
 // Function to verify all connections before starting the server
 async function verifyConnections(): Promise<boolean> {
@@ -78,7 +264,7 @@ async function verifyConnections(): Promise<boolean> {
     
     console.log('Successfully connected to all data sources.');
     
-    // Test basic queries to verify the connections are working properly
+    // Test basic queries
     console.log('Testing SQL connection...');
     try {
       const clients = await sqlAdapter.getClients();
@@ -115,7 +301,6 @@ async function verifyConnections(): Promise<boolean> {
 
 // Start server after verifying connections
 async function startServer() {
-  // Verify connections first
   const connectionsVerified = await verifyConnections();
   
   if (!connectionsVerified) {
@@ -123,258 +308,17 @@ async function startServer() {
     process.exit(1);
   }
   
-  // Create a simple HTTP server using Bun
-  const server = Bun.serve({
-    port: config.port,
-    async fetch(req) {
-      const url = new URL(req.url);
-      const path = url.pathname;
-      
-      // Handle different routes
-      try {
-        // Health check endpoint
-        if (path === '/health') {
-          return new Response(JSON.stringify({ 
-            status: 'ok',
-            connections: {
-              sql: sqlAdapter.isConnected(),
-              xml: xmlAdapter.isConnected(),
-              neo4j: neo4jAdapter.isConnected()
-            }
-          }), {
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
-        
-        // Serve SQL interface with Pug
-        if (path === '/sql' || path === '/sql-interface') {
-          return await renderPug('sql-interface', {
-            title: 'SQL Query Interface - Data Integration System'
-          });
-        }
-        
-        // Serve SQL Chat interface with Pug
-        if (path === '/sql-chat') {
-          return await renderPug('sql-chat', {
-            title: 'SQL Chat - Data Integration System'
-          });
-        }
-        
-        // Serve Tables page with Pug
-        if (path === '/tables') {
-          return await renderPug('tables', {
-            title: 'Database Tables - Data Integration System'
-          });
-        }
-        
-        // API routes
-        if (path.startsWith('/api/')) {
-          const apiPath = path.substring(5); // Remove '/api/' from the path
-          
-          // Get clients
-          if (apiPath === 'clients') {
-            const clients = await mediator.getClients();
-            return new Response(JSON.stringify(clients.getItems()), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-          
-          // Get employees
-          if (apiPath === 'employees') {
-            const employees = await mediator.getEmployees();
-            return new Response(JSON.stringify(employees.getItems()), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-          
-          // Get agencies
-          if (apiPath === 'agences') {
-            const agences = await mediator.getAgences();
-            return new Response(JSON.stringify(agences.getItems()), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-          
-          // Get suppliers
-          if (apiPath === 'fournisseurs') {
-            const fournisseurs = await mediator.getFournisseurs();
-            return new Response(JSON.stringify(fournisseurs.getItems()), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-          
-          // Get products
-          if (apiPath === 'produits') {
-            const produits = await mediator.getProduits();
-            return new Response(JSON.stringify(produits.getItems()), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-          
-          // Get orders
-          if (apiPath === 'commandes') {
-            const commandes = await mediator.getCommandes();
-            return new Response(JSON.stringify(commandes.getItems()), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-          
-          // Get order details
-          if (apiPath === 'details-commande') {
-            const details = await mediator.getDetailsCommande();
-            return new Response(JSON.stringify(details.getItems()), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-
-          // Get factures
-          if (apiPath === 'factures') {
-            const factures = await mediator.getFactures();
-            return new Response(JSON.stringify(factures.getItems()), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-
-          // get livraisons
-          if (apiPath === 'livraisons') {
-            const livraisons = await mediator.getLivraisons();
-            
-            return new Response(JSON.stringify(livraisons.getItems()), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-
-          //get approvisionnements
-          if (apiPath === 'approvisionnements') {
-            const approvisionnements = await mediator.getApprovisionnements();
-            return new Response(JSON.stringify(approvisionnements.getItems()), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-          
-          // Search clients by name
-          if (apiPath === 'search/clients') {
-            const params = url.searchParams;
-            const query = params.get('q') || '';
-            const clients = await mediator.searchClientsByName(query);
-            return new Response(JSON.stringify(clients.getItems()), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-          
-          // Get orders for a specific client
-          if (apiPath.startsWith('clients/') && apiPath.includes('/commandes')) {
-            const clientId = apiPath.split('/')[1];
-            const orders = await mediator.getOrdersByClient(clientId);
-            return new Response(JSON.stringify(orders.getItems()), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-          
-          // Get order details for a specific order
-          if (apiPath.startsWith('commandes/') && apiPath.includes('/details')) {
-            const orderId = apiPath.split('/')[1];
-            const details = await mediator.getOrderDetails(orderId);
-            return new Response(JSON.stringify(details.getItems()), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-          
-          // Get data statistics
-          if (apiPath === 'statistics') {
-            const stats = await mediator.getDataStatistics();
-            return new Response(JSON.stringify(stats), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-          
-          // Validate data consistency
-          if (apiPath === 'validate') {
-            const result = await mediator.validateDataConsistency();
-            return new Response(JSON.stringify(result), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-          
-          // Find potential duplicate clients
-          if (apiPath === 'duplicates/clients') {
-            const duplicates = await mediator.findPotentialDuplicateClients();
-            return new Response(JSON.stringify(duplicates), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-          
-          // Execute a custom query
-          if (apiPath === 'query') {
-            if (req.method !== 'POST') {
-              return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-                status: 405,
-                headers: { 'Content-Type': 'application/json' }
-              });
-            }
-            
-            try {
-              const body = await req.json();
-              const { query, parameters } = body;
-              
-              if (!query) {
-                return new Response(JSON.stringify({ error: 'Query is required' }), {
-                  status: 400,
-                  headers: { 'Content-Type': 'application/json' }
-                });
-              }
-              
-              const results = await mediator.executeQuery(query, parameters || {});
-              
-              
-              return new Response(JSON.stringify(results), {
-                headers: { 'Content-Type': 'application/json' }
-              });
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : String(error);
-              return new Response(JSON.stringify({ error: errorMessage }), {
-                status: 400,
-                headers: { 'Content-Type': 'application/json' }
-              });
-            }
-          }
-          
-          // API endpoint not found
-          return new Response(JSON.stringify({ error: 'API endpoint not found' }), {
-            status: 404,
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
-        
-        // Serve the home page with Pug
-        if (path === '/') {
-          return await renderPug('index', {
-            title: 'Data Integration System'
-          });
-        }
-        
-        // Not found for other routes
-        return new Response('Not found', { status: 404 });
-        
-      } catch (error) {
-        console.error('Error handling request:', error);
-        return new Response(JSON.stringify({ error: 'Internal server error' }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-    }
+  // Start Hono server
+  const port = config.port;
+  console.log(`Server starting on http://localhost:${port}`);
+  
+  Bun.serve({
+    port,
+    fetch: app.fetch
   });
-
-  console.log(`Server running at http://localhost:${server.port}`);
+  
   console.log('All connections verified and ready to go!');
 }
-
-// Start the server
-startServer().catch(error => {
-  console.error('Failed to start server:', error);
-  process.exit(1);
-});
 
 // Handle graceful shutdown
 process.on('SIGINT', async () => {
@@ -386,4 +330,10 @@ process.on('SIGINT', async () => {
     console.error('Error during shutdown:', error);
   }
   process.exit(0);
+});
+
+// Start the server
+startServer().catch(error => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
 });

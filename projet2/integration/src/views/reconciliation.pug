@@ -1,0 +1,293 @@
+extends layouts/main
+
+block content
+  .page-header
+    .page-title-wrapper
+      h1.page-title Data Reconciliation
+      p.page-description Analyze and manage data reconciliation across sources
+
+  // Reconciliation Overview
+  .section
+    h2.section-title Overview
+    p.section-description Current state of data reconciliation across sources
+
+    .metrics-grid
+      .metric-card
+        .metric-header
+          .metric-title Total Potential Duplicates
+          .metric-icon
+            i.fas.fa-clone
+        .metric-value#total-duplicates Loading...
+        .metric-chart
+
+      .metric-card
+        .metric-header
+          .metric-title High Confidence Matches
+          .metric-icon
+            i.fas.fa-check-double
+        .metric-value#high-confidence Loading...
+        .metric-description Similarity score ≥ 90%
+
+      .metric-card
+        .metric-header
+          .metric-title Medium Confidence
+          .metric-icon
+            i.fas.fa-question-circle
+        .metric-value#medium-confidence Loading...
+        .metric-description Similarity 70-89%
+
+      .metric-card
+        .metric-header
+          .metric-title Low Confidence
+          .metric-icon
+            i.fas.fa-exclamation-triangle
+        .metric-value#low-confidence Loading...
+        .metric-description Similarity < 70%
+
+  // Similarity Measures
+  .section
+    h2.section-title Similarity Analysis
+    p.section-description Breakdown of different similarity measures used
+
+    .similarity-grid
+      .similarity-card
+        h3 
+          i.fas.fa-ruler-horizontal
+          |  Levenshtein Distance
+        canvas#levenshtein-chart
+
+      .similarity-card
+        h3
+          i.fas.fa-sort-alpha-down
+          |  Jaro Similarity
+        canvas#jaro-chart
+
+      .similarity-card
+        h3
+          i.fas.fa-layer-group
+          |  Jaccard Similarity
+        canvas#jaccard-chart
+
+  // Recent Duplicates
+  .section
+    h2.section-title Recent Potential Duplicates
+    p.section-description Latest detected duplicate records requiring attention
+
+    .data-table-container
+      table.data-table#duplicates-table
+        thead
+          tr
+            th Record 1
+            th Record 2
+            th Similarity Score
+            th Measures Used
+            th Actions
+        tbody
+          tr.placeholder-row
+            td(colspan="5") Loading duplicate records...
+
+block append styles
+  style.
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: var(--space-4);
+      margin-bottom: var(--space-6);
+    }
+
+    .similarity-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: var(--space-4);
+      margin-bottom: var(--space-6);
+    }
+
+    .similarity-card {
+      background: var(--surface-card);
+      padding: var(--space-4);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-light);
+    }
+
+    .similarity-card h3 {
+      margin-bottom: var(--space-4);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .similarity-card canvas {
+      width: 100%;
+      height: 200px;
+    }
+
+    .data-table-container {
+      background: var(--surface-card);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      overflow-x: auto;
+    }
+
+    .data-table th {
+      white-space: nowrap;
+    }
+
+block append scripts
+  script(src='https://cdn.jsdelivr.net/npm/chart.js')
+  script.
+    // Initialize charts and fetch data
+    document.addEventListener('DOMContentLoaded', async function() {
+      // Fetch reconciliation statistics
+      async function fetchStats() {
+        try {
+          const response = await fetch('/api/reconciliation/stats');
+          const stats = await response.json();
+          
+          // Update metrics
+          document.getElementById('total-duplicates').textContent = stats.totalReconciliations;
+          document.getElementById('high-confidence').textContent = stats.confidenceBreakdown.high;
+          document.getElementById('medium-confidence').textContent = stats.confidenceBreakdown.medium;
+          document.getElementById('low-confidence').textContent = stats.confidenceBreakdown.low;
+
+          // Update duplicates table
+          updateDuplicatesTable(stats.recentDuplicates);
+          
+          // Update similarity charts
+          updateSimilarityCharts(stats);
+        } catch (error) {
+          console.error('Error fetching reconciliation stats:', error);
+        }
+      }
+
+      // Initialize similarity measure charts
+      function initializeCharts() {
+        // Levenshtein Chart
+        new Chart(document.getElementById('levenshtein-chart'), {
+          type: 'bar',
+          data: {
+            labels: ['0-0.2', '0.2-0.4', '0.4-0.6', '0.6-0.8', '0.8-1.0'],
+            datasets: [{
+              label: 'Distribution of Levenshtein Scores',
+              data: [0, 0, 0, 0, 0],
+              backgroundColor: 'rgba(59, 130, 246, 0.5)'
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              title: {
+                display: true,
+                text: 'Levenshtein Distance Distribution'
+              }
+            }
+          }
+        });
+
+        // Jaro Chart
+        new Chart(document.getElementById('jaro-chart'), {
+          type: 'bar',
+          data: {
+            labels: ['0-0.2', '0.2-0.4', '0.4-0.6', '0.6-0.8', '0.8-1.0'],
+            datasets: [{
+              label: 'Distribution of Jaro Scores',
+              data: [0, 0, 0, 0, 0],
+              backgroundColor: 'rgba(16, 185, 129, 0.5)'
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              title: {
+                display: true,
+                text: 'Jaro Similarity Distribution'
+              }
+            }
+          }
+        });
+
+        // Jaccard Chart
+        new Chart(document.getElementById('jaccard-chart'), {
+          type: 'bar',
+          data: {
+            labels: ['0-0.2', '0.2-0.4', '0.4-0.6', '0.6-0.8', '0.8-1.0'],
+            datasets: [{
+              label: 'Distribution of Jaccard Scores',
+              data: [0, 0, 0, 0, 0],
+              backgroundColor: 'rgba(245, 158, 11, 0.5)'
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              title: {
+                display: true,
+                text: 'Jaccard Similarity Distribution'
+              }
+            }
+          }
+        });
+      }
+
+      // Update duplicates table
+      function updateDuplicatesTable(duplicates) {
+        const tbody = document.querySelector('#duplicates-table tbody');
+        tbody.innerHTML = '';
+
+        duplicates.forEach(duplicate => {
+          const row = document.createElement('tr');
+          
+          // Record 1
+          const record1Cell = document.createElement('td');
+          record1Cell.textContent = `${duplicate.client1.nomComplet} (${duplicate.client1.sourceSystem})`;
+          row.appendChild(record1Cell);
+          
+          // Record 2
+          const record2Cell = document.createElement('td');
+          record2Cell.textContent = `${duplicate.client2.nomComplet} (${duplicate.client2.sourceSystem})`;
+          row.appendChild(record2Cell);
+          
+          // Similarity Score
+          const scoreCell = document.createElement('td');
+          scoreCell.textContent = duplicate.confidenceScore.toFixed(2);
+          scoreCell.style.color = duplicate.confidenceScore >= 0.9 ? 'var(--status-success)' : 
+                                 duplicate.confidenceScore >= 0.7 ? 'var(--status-warning)' : 
+                                 'var(--status-error)';
+          row.appendChild(scoreCell);
+          
+          // Measures
+          const measuresCell = document.createElement('td');
+          const measures = [];
+          if (duplicate.nameSimilarity > 0.8) measures.push('Name');
+          if (duplicate.emailMatch) measures.push('Email');
+          if (duplicate.phoneMatch) measures.push('Phone');
+          measuresCell.textContent = measures.join(', ');
+          row.appendChild(measuresCell);
+          
+          // Actions
+          const actionsCell = document.createElement('td');
+          const mergeBtn = document.createElement('button');
+          mergeBtn.className = 'btn btn-sm btn-primary';
+          mergeBtn.innerHTML = '<i class="fas fa-code-merge"></i> Merge';
+          mergeBtn.onclick = () => handleMerge(duplicate);
+          
+          const ignoreBtn = document.createElement('button');
+          ignoreBtn.className = 'btn btn-sm btn-secondary ml-2';
+          ignoreBtn.innerHTML = '<i class="fas fa-times"></i> Ignore';
+          ignoreBtn.onclick = () => handleIgnore(duplicate);
+          
+          actionsCell.appendChild(mergeBtn);
+          actionsCell.appendChild(ignoreBtn);
+          row.appendChild(actionsCell);
+          
+          tbody.appendChild(row);
+        });
+      }
+
+      // Initialize visualization
+      initializeCharts();
+      fetchStats();
+      
+      // Refresh data every minute
+      setInterval(fetchStats, 60000);
+    });

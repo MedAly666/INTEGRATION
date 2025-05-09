@@ -31,6 +31,23 @@ interface SchemaMapping {
   sourceId: string;            // Source identifier
 }
 
+export interface DuplicateRecord {
+  client1: {
+    id: string;
+    nomComplet: string;
+    sourceSystem: string;
+  };
+  client2: {
+    id: string;
+    nomComplet: string;
+    sourceSystem: string;
+  };
+  confidenceScore: number;
+  nameSimilarity: number;
+  emailMatch: boolean;
+  phoneMatch: boolean;
+}
+
 export class Mediator {
   /**
    * Array of adapter instances
@@ -1026,5 +1043,82 @@ export class Mediator {
     // Remove accents/diacritics
     return str.normalize('NFD')
              .replace(/[\u0300-\u036f]/g, '');
+  }
+
+  /**
+   * Find potential duplicate clients across all data sources
+   */
+  public async findPotentialDuplicateClients(): Promise<DuplicateRecord[]> {
+    const clients = await this.getClients();
+    const allClients = clients.getItems();
+    const potentialDuplicates: DuplicateRecord[] = [];
+
+    for (let i = 0; i < allClients.length; i++) {
+      for (let j = i + 1; j < allClients.length; j++) {
+        const client1 = allClients[i];
+        const client2 = allClients[j];
+
+        // Skip if from the same source system
+        if (client1.sourceSystem === client2.sourceSystem) {
+          continue;
+        }
+
+        // Calculate name similarity
+        const nameSimilarity = this.calculateStringSimilarity(
+          this.normalizeString(client1.nomComplet),
+          this.normalizeString(client2.nomComplet)
+        );
+
+        // Check for exact email match if available
+        const emailMatch = client1.emailContact && client2.emailContact && 
+          client1.emailContact.toLowerCase() === client2.emailContact.toLowerCase();
+
+        // Check for phone match if available
+        const phoneMatch = client1.numeroTelephone && client2.numeroTelephone &&
+          this.normalizePhoneNumber(client1.numeroTelephone) === this.normalizePhoneNumber(client2.numeroTelephone);
+
+        // Calculate confidence score
+        const confidenceScore = this.calculateConfidenceScore(nameSimilarity, emailMatch, phoneMatch);
+
+        // Consider as potential duplicate if similarity is high enough
+        if (nameSimilarity > 0.8 || emailMatch || phoneMatch) {
+          potentialDuplicates.push({
+            client1: {
+              id: client1.id,
+              nomComplet: client1.nomComplet,
+              sourceSystem: client1.sourceSystem
+            },
+            client2: {
+              id: client2.id,
+              nomComplet: client2.nomComplet,
+              sourceSystem: client2.sourceSystem
+            },
+            confidenceScore,
+            nameSimilarity,
+            emailMatch,
+            phoneMatch
+          });
+        }
+      }
+    }
+
+    // Sort by confidence score (descending)
+    return potentialDuplicates.sort((a, b) => b.confidenceScore - a.confidenceScore);
+  }
+
+  private calculateConfidenceScore(
+    nameSimilarity: number,
+    emailMatch: boolean,
+    phoneMatch: boolean
+  ): number {
+    // Email is stronger indicator than phone, which is stronger than name similarity
+    let score = nameSimilarity * 0.5; // Name contributes 50% max
+    if (emailMatch) score += 0.3;      // Email match adds 30%
+    if (phoneMatch) score += 0.2;      // Phone match adds 20%
+    return Math.min(1.0, score);       // Ensure score doesn't exceed 1
+  }
+
+  private normalizePhoneNumber(phone: string): string {
+    return phone.replace(/[^0-9]/g, '');
   }
 }

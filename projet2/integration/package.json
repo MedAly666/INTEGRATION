@@ -11,9 +11,12 @@
     "test-sql": "bun run src/test-sql-query.ts"
   },
   "dependencies": {
+    "@hono/node-server": "^1.14.1",
     "@xmldom/xmldom": "^0.9.8",
     "alasql": "^4.6.6",
+    "express": "^5.1.0",
     "fast-xml-parser": "^4.3.0",
+    "hono": "^4.7.9",
     "mariadb": "^3.4.2",
     "neo4j-driver": "^5.28.1",
     "node-sql-parser": "^5.3.8",
