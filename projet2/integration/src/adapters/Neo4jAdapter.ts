@@ -24,6 +24,7 @@ import { LAVViewDefinition } from '../common/LAVMapping';
 
 export class Neo4jAdapter implements IAdapter {
   private driver: Driver | null = null;
+  private session: Session | null = null;
   private connected: boolean = false;
   private sourceSystem: string = 'NEO4J';
   
@@ -230,6 +231,12 @@ export class Neo4jAdapter implements IAdapter {
         await session.close();
       }
       
+      // Create a persistent session for future queries
+      this.session = this.driver.session({
+        database: this.database,
+        defaultAccessMode: neo4j.session.READ
+      });
+      
       this.connected = true;
       console.log(`Connected to Neo4j database (${this.database}) successfully.`);
       return true;
@@ -244,6 +251,11 @@ export class Neo4jAdapter implements IAdapter {
    * Disconnect from Neo4j
    */
   public disconnect(): void {
+    if (this.session) {
+      this.session.close();
+      this.session = null;
+    }
+    
     if (this.driver) {
       this.driver.close();
       this.driver = null;
@@ -343,26 +355,54 @@ export class Neo4jAdapter implements IAdapter {
   /**
    * Execute a Cypher query
    */
-  private async executeCypherQuery(query: string, params: Record<string, any> = {}): Promise<Neo4jRecord[]> {
-    if (!this.connected || !this.driver) {
-      throw new Error('Not connected to Neo4j database');
-    }
-    
-    const session = this.driver.session({
-      database: this.database,
-      defaultAccessMode: neo4j.session.READ
-    });
-    
+  private async executeCypherQuery(query: string, params: Record<string, any> = {}): Promise<any[]> {
     try {
+      // Ensure we have a valid session
+      if (!this.isConnected() || !this.session) {
+        await this.connect();
+      }
+      
+      if (!this.session) {
+        throw new Error('Failed to create a Neo4j session');
+      }
+      
       console.log(`Executing Cypher query: ${query}`);
-      console.log('With parameters:', params);
+      if (Object.keys(params).length > 0) {
+        console.log('With parameters:', params);
+      }
       
-      const result = await session.run(query, params);
-      //console.log('Cypher query result:', result.records);
+      const result = await this.session.run(query, params);
       
-      return result.records;
-    } finally {
-      await session.close();
+      // Process records to make them easier to work with
+      const processedRecords = result.records.map(record => {
+        const processedRecord: Record<string, any> = {};
+        
+        // Convert Neo4j record to a simple object
+        record.keys.forEach(key => {
+          const value = record.get(key);
+          // Handle Neo4j integer type
+          if (neo4j.isInt(value)) {
+            processedRecord[key] = neo4j.integer.toNumber(value);
+          } else if (value && typeof value === 'object' && value.properties) {
+            // Handle Neo4j node objects
+            processedRecord[key] = value.properties;
+          } else {
+            processedRecord[key] = value;
+          }
+        });
+        
+        // Add a get method for compatibility
+        processedRecord.get = function(field: string) {
+          return this[field];
+        };
+        
+        return processedRecord;
+      });
+      
+      return processedRecords;
+    } catch (error) {
+      console.error('Error executing Neo4j query:', error);
+      throw error;
     }
   }
 
@@ -1099,12 +1139,12 @@ export class Neo4jAdapter implements IAdapter {
       for (const record of records) {
         try {
           const client = new Client({
-            idClient: `NEO_${record.get('id')}`,
+            idClient: `NEO_${record.id}`,
             sourceSystem: this.sourceSystem,
-            nomComplet: record.get('nom'),
-            adresse: record.get('adresse'),
-            emailContact: record.get('email'),
-            numeroTelephone: record.get('telephone')
+            nomComplet: record.nom,
+            adresse: record.adresse,
+            emailContact: record.email,
+            numeroTelephone: record.telephone
           });
           clients.addItem(client);
         } catch (itemError) {
@@ -1144,11 +1184,11 @@ export class Neo4jAdapter implements IAdapter {
       for (const record of records) {
         try {
           const employee = new Employee({
-            idEmploye: `NEO_${record.get('id')}`,
+            idEmploye: `NEO_${record.id}`,
             sourceSystem: this.sourceSystem,
-            nomComplet: record.get('nom'),
-            email: record.get('email'),
-            poste: record.get('poste')
+            nomComplet: record.nom,
+            email: record.email,
+            poste: record.poste
           });
           employees.addItem(employee);
         } catch (itemError) {
@@ -1186,10 +1226,10 @@ export class Neo4jAdapter implements IAdapter {
       for (const record of records) {
         try {
           const agence = new Agence({
-            idAgence: `NEO_${record.get('id')}`,
+            idAgence: `NEO_${record.id}`,
             sourceSystem: this.sourceSystem,
-            ville: record.get('ville'),
-            adresse: record.get('adresse')
+            ville: record.ville,
+            adresse: record.adresse
           });
           agences.addItem(agence);
         } catch (itemError) {
@@ -1227,11 +1267,11 @@ export class Neo4jAdapter implements IAdapter {
       for (const record of records) {
         try {
           const fournisseur = new Fournisseur({
-            idFournisseur: `NEO_${record.get('id')}`,
+            idFournisseur: `NEO_${record.id}`,
             sourceSystem: this.sourceSystem,
-            nomFournisseur: record.get('nom'),
-            adresse: record.get('adresse'),
-            numeroTelephone: record.get('telephone')
+            nomFournisseur: record.nom,
+            adresse: record.adresse,
+            numeroTelephone: record.telephone
           });
           fournisseurs.addItem(fournisseur);
         } catch (itemError) {
@@ -1269,11 +1309,11 @@ export class Neo4jAdapter implements IAdapter {
       for (const record of records) {
         try {
           const produit = new Produit({
-            idProduit: `NEO_${record.get('id')}`,
+            idProduit: `NEO_${record.id}`,
             sourceSystem: this.sourceSystem,
-            description: record.get('description'),
-            prixCout: record.get('prix'),
-            categorie: record.get('categorie')
+            description: record.description,
+            prixCout: record.prix,
+            categorie: record.categorie
           });
           produits.addItem(produit);
         } catch (itemError) {
@@ -1509,6 +1549,7 @@ export class Neo4jAdapter implements IAdapter {
         viewName: 'neo4j_clients',
         query: 'MATCH (c:Client) RETURN c',
         bucketId: 'clients',
+        queryLanguage: 'cypher',
         parameters: {
           mapping: {
             'global_id': 'c.id',
@@ -1524,6 +1565,7 @@ export class Neo4jAdapter implements IAdapter {
         viewName: 'neo4j_produits',
         query: 'MATCH (p:Produit) RETURN p',
         bucketId: 'produits',
+        queryLanguage: 'cypher',
         parameters: {
           mapping: {
             'global_id': 'p.id',
@@ -1608,6 +1650,11 @@ export class Neo4jAdapter implements IAdapter {
    * @returns Query results
    */
   public async executeQuery(query: string, parameters: Record<string, any> = {}): Promise<any[]> {
+    // Ensure we have a valid session
+    if (!this.isConnected() || !this.session) {
+      await this.connect();
+    }
+    
     if (!this.session) {
       throw new Error('Cannot execute query: Not connected to Neo4j database');
     }
@@ -1656,7 +1703,16 @@ export class Neo4jAdapter implements IAdapter {
    */
   private async executeCypherQuery(query: string): Promise<any[]> {
     try {
-      const result = await this.session!.run(query);
+      // Ensure we have a valid session
+      if (!this.isConnected() || !this.session) {
+        await this.connect();
+      }
+      
+      if (!this.session) {
+        throw new Error('Failed to create a Neo4j session');
+      }
+      
+      const result = await this.session.run(query);
       
       // Transform Neo4j records to plain objects
       return result.records.map(record => {
@@ -1679,6 +1735,11 @@ export class Neo4jAdapter implements IAdapter {
         
         // Add source system to each result
         obj.sourceSystem = this.getSourceSystem();
+        
+        // Add a get method for compatibility with older code
+        obj.get = function(field: string) {
+          return this[field];
+        };
         
         return obj;
       });

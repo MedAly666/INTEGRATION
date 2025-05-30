@@ -966,6 +966,7 @@ export class XMLAdapter implements IAdapter {
         viewName: 'xml_clients',
         query: '/clients/client',
         bucketId: 'clients',
+        queryLanguage: 'xpath',
         parameters: {
           mapping: {
             'global_id': '@id',

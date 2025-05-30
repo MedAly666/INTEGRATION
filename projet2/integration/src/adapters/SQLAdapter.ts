@@ -1299,6 +1299,7 @@ export class SQLAdapter implements IAdapter {
         viewName: 'sql_clients',
         query: 'SELECT * FROM clients',
         bucketId: 'clients',
+        queryLanguage: 'sql',
         parameters: {
           mapping: {
             'global_id': 'id_client',

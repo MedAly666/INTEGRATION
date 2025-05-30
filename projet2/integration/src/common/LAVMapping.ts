@@ -15,6 +15,7 @@ export interface LAVViewDefinition {
   query: string;              // Query over the global schema that defines this view
   parameters?: Record<string, any>; // Optional parameters for the query
   bucketId?: string;          // Optional bucket identifier for grouping related views
+  queryLanguage?: string;     // Optional query language identifier (sql, cypher, xpath)
 }
 
 /**
@@ -76,12 +77,171 @@ export class LAVMappingManager {
    * @returns Parsed AST or null if parsing fails
    */
   private parseQuery(query: string): any {
+    // Detect query language based on syntax
+    const queryLanguage = this.detectQueryLanguage(query);
+    
+    // If it's not a SQL query, handle it differently
+    if (queryLanguage !== 'sql') {
+      return this.createCustomAstForNonSql(query, queryLanguage);
+    }
+    
     try {
-      // Parse the query to an AST
-      const ast = this.parser.astify(query, { database: 'mysql' });
+      // Parse the query to an AST with enhanced configuration
+      const ast = this.parser.astify(query, { 
+        database: 'mysql',
+        skipParentheses: true, // Skip parsing parentheses to avoid common syntax errors
+        tolerance: true // Be more tolerant of syntax variations
+      });
       return ast;
     } catch (error) {
       console.error(`Error parsing query: ${query}`, error);
+      
+      // Try an alternative parsing approach if the first attempt fails
+      try {
+        // Try with different configuration
+        const ast = this.parser.astify(query, { 
+          database: 'transactsql', // Try an alternative SQL dialect
+          skipParentheses: true
+        });
+        return ast;
+      } catch (fallbackError) {
+        console.error(`Fallback parsing also failed:`, fallbackError);
+        
+        // As a last resort, try to handle the query manually for simple cases
+        if (query.toUpperCase().includes('SELECT') && query.toUpperCase().includes('FROM')) {
+          // Create a simplified AST for basic SELECT queries
+          return this.createSimplifiedAst(query);
+        }
+        
+        return null;
+      }
+    }
+  }
+  
+  /**
+   * Detect the query language based on syntax patterns
+   * 
+   * @param query The query string to analyze
+   * @returns The detected query language ('sql', 'cypher', 'xpath', etc.)
+   */
+  private detectQueryLanguage(query: string): string {
+    const trimmedQuery = query.trim().toUpperCase();
+    
+    // Check for Cypher query patterns
+    if (trimmedQuery.startsWith('MATCH') || 
+        trimmedQuery.startsWith('CREATE') && trimmedQuery.includes('NODE') ||
+        trimmedQuery.includes('MERGE') && (trimmedQuery.includes('(') && trimmedQuery.includes(')')) ||
+        trimmedQuery.includes('RETURN') && (trimmedQuery.includes('(') && trimmedQuery.includes(')'))) {
+      return 'cypher';
+    }
+    
+    // Check for XPath query patterns
+    if (trimmedQuery.startsWith('//') || trimmedQuery.startsWith('/') || 
+        (trimmedQuery.includes('[@') && trimmedQuery.includes(']'))) {
+      return 'xpath';
+    }
+    
+    // Default to SQL
+    return 'sql';
+  }
+  
+  /**
+   * Create a custom AST for non-SQL queries that can't be parsed by node-sql-parser
+   * 
+   * @param query The non-SQL query string
+   * @param language The query language ('cypher', 'xpath', etc.)
+   * @returns A simplified AST-like structure
+   */
+  private createCustomAstForNonSql(query: string, language: string): any {
+    console.log(`Creating custom AST for ${language} query: ${query}`);
+    
+    if (language === 'cypher') {
+      // Extract node labels and relationships from Cypher query
+      const nodePattern = /\((\w+):(\w+)\)/g;
+      const relationshipPattern = /\[(\w*):?(\w*)\]/g;
+      
+      const nodes: {alias: string, label: string}[] = [];
+      const relationships: {alias: string, type: string}[] = [];
+      
+      // Extract nodes
+      let nodeMatch;
+      while ((nodeMatch = nodePattern.exec(query)) !== null) {
+        nodes.push({
+          alias: nodeMatch[1],
+          label: nodeMatch[2]
+        });
+      }
+      
+      // Extract relationships
+      let relMatch;
+      while ((relMatch = relationshipPattern.exec(query)) !== null) {
+        relationships.push({
+          alias: relMatch[1] || '',
+          type: relMatch[2] || ''
+        });
+      }
+      
+      // Create a custom AST structure
+      return {
+        type: 'cypher',
+        operation: query.trim().split(' ')[0], // MATCH, CREATE, etc.
+        nodes,
+        relationships,
+        returns: query.includes('RETURN') ? 
+          query.split('RETURN')[1].trim().split(',').map(r => r.trim()) : []
+      };
+    }
+    
+    if (language === 'xpath') {
+      // For XPath, extract the path components
+      const paths = query.split('/').filter(p => p.length > 0);
+      
+      return {
+        type: 'xpath',
+        paths,
+        predicates: query.includes('[') ? 
+          query.match(/\[(.*?)\]/g)?.map(p => p.slice(1, -1)) || [] : []
+      };
+    }
+    
+    // For other languages, return a minimal structure
+    return {
+      type: 'unknown',
+      raw: query
+    };
+  }
+  
+  /**
+   * Create a simplified AST for basic queries when parsing fails
+   * This is a fallback method for common query patterns
+   */
+  private createSimplifiedAst(query: string): any {
+    try {
+      // Extract the basic components of a SELECT query
+      const selectMatch = query.match(/SELECT\s+(.*?)\s+FROM\s+(.*?)(?:\s+WHERE\s+(.*?))?(?:\s+LIMIT\s+(\d+))?(?:\s*;)?$/i);
+      
+      if (selectMatch) {
+        const [, columns, tables, where, limit] = selectMatch;
+        
+        // Create a simplified AST
+        return {
+          type: 'select',
+          columns: columns.split(',').map(col => ({ 
+            expr: { type: 'column_ref', column: col.trim() },
+            as: null
+          })),
+          from: tables.split(',').map(table => ({
+            table: table.trim(),
+            as: null
+          })),
+          where: where ? { type: 'raw', value: where.trim() } : null,
+          limit: limit ? { value: [{ type: 'number', value: parseInt(limit) }] } : null
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error creating simplified AST:', error);
       return null;
     }
   }
@@ -105,14 +265,21 @@ export class LAVMappingManager {
     } else if (ast.type === 'select') {
       // Process FROM clause to get table names
       if (ast.from) {
-        for (const fromItem of ast.from) {
-          // If it's a simple table reference
-          if (fromItem.table) {
-            tables.push(fromItem.table);
+        if (Array.isArray(ast.from)) {
+          for (const fromItem of ast.from) {
+            // If it's a simple table reference
+            if (fromItem.table) {
+              tables.push(fromItem.table);
+            }
+            // If it's a subquery, recursively extract tables
+            if (fromItem.expr) {
+              tables.push(...this.extractTableNames(fromItem.expr));
+            }
           }
-          // If it's a subquery, recursively extract tables
-          if (fromItem.expr) {
-            tables.push(...this.extractTableNames(fromItem.expr));
+        } else if (typeof ast.from === 'object') {
+          // Handle case where from is a single object, not an array
+          if (ast.from.table) {
+            tables.push(ast.from.table);
           }
         }
       }
@@ -127,7 +294,8 @@ export class LAVMappingManager {
       }
     }
     
-    return tables;
+    // Normalize table names - ensure they're lowercase for consistency
+    return tables.map(table => table.toLowerCase());
   }
 
   /**
@@ -148,14 +316,17 @@ export class LAVMappingManager {
       // Step 1: Parse the query using node-sql-parser
       const ast = this.parseQuery(query);
       if (!ast) {
-        throw new Error(`Failed to parse query: ${query}`);
+        console.warn(`Unable to parse query, but attempting to continue with alternative approach: ${query}`);
+        // Instead of throwing error, try to continue with a manual approach
+        return this.handleUnparsableQuery(query, startTime);
       }
       
       // Step 2: Extract predicates (table names) from the query
       const queryPredicates = this.extractTableNames(ast);
       
       if (!queryPredicates || queryPredicates.length === 0) {
-        throw new Error(`Could not extract predicates from query: ${query}`);
+        console.warn(`Could not extract predicates from query, attempting fallback approach: ${query}`);
+        return this.handleUnparsableQuery(query, startTime);
       }
       
       console.log(`Extracted predicates from query:`, queryPredicates);
@@ -174,6 +345,8 @@ export class LAVMappingManager {
       }
     } catch (error) {
       console.error(`Error in LAV query rewriting: ${error}`);
+      // Attempt to recover with a simple pass-through approach
+      return this.handleUnparsableQuery(query, startTime);
     }
 
     const stats: LAVStats = {
@@ -182,6 +355,60 @@ export class LAVMappingManager {
       numRewritings: rewritings.length
     };
 
+    return { rewritings, stats };
+  }
+  
+  /**
+   * Fallback handler for queries that can't be parsed
+   */
+  private handleUnparsableQuery(query: string, startTime: number): { 
+    rewritings: LAVQueryRewrite[], 
+    stats: LAVStats 
+  } {
+    // For unparsable queries, create a simple pass-through rewriting for each source
+    const rewritings: LAVQueryRewrite[] = [];
+    
+    // Extract table names using regex as a fallback
+    const tableMatch = query.match(/FROM\s+([a-zA-Z0-9_]+)/i);
+    const tableName = tableMatch ? tableMatch[1].toLowerCase() : null;
+    
+    if (tableName) {
+      // Create a pass-through rewriting for sources that might have this table
+      for (const view of this.viewDefinitions) {
+        const viewAst = this.parseQuery(view.query);
+        if (viewAst) {
+          const viewTables = this.extractTableNames(viewAst);
+          if (viewTables.some(table => table.toLowerCase() === tableName.toLowerCase())) {
+            rewritings.push({
+              sourceId: view.sourceId,
+              query: query, // Pass the original query through
+              mapping: { [tableName]: tableName } // Simple identity mapping
+            });
+          }
+        }
+      }
+    }
+    
+    // If we couldn't find any matches, create a default rewriting for each source
+    if (rewritings.length === 0) {
+      // Get unique source IDs
+      const sourceIds = [...new Set(this.viewDefinitions.map(view => view.sourceId))];
+      
+      for (const sourceId of sourceIds) {
+        rewritings.push({
+          sourceId,
+          query: query,
+          mapping: {} // Empty mapping since we don't know the schema
+        });
+      }
+    }
+    
+    const stats: LAVStats = {
+      rewriteTime: Date.now() - startTime,
+      numViewsConsidered: this.viewDefinitions.length,
+      numRewritings: rewritings.length
+    };
+    
     return { rewritings, stats };
   }
 
@@ -214,7 +441,24 @@ export class LAVMappingManager {
    * Implementation uses the SQL parser for more accurate matching
    */
   private viewContainsPredicate(view: LAVViewDefinition, predicate: string): boolean {
-    // Parse the view query
+    // Handle different query languages
+    const queryLanguage = view.queryLanguage || this.detectQueryLanguage(view.query);
+    
+    if (queryLanguage === 'cypher') {
+      // For Cypher queries, check if the node label matches the predicate
+      return view.query.includes(`:${predicate}`) || 
+             view.query.toLowerCase().includes(predicate.toLowerCase());
+    }
+    
+    if (queryLanguage === 'xpath') {
+      // For XPath queries, check if the element name matches the predicate
+      return view.query.includes(`/${predicate}`) || 
+             view.query.includes(`/${predicate}/`) ||
+             view.query.includes(`//${predicate}`) ||
+             view.query.toLowerCase().includes(predicate.toLowerCase());
+    }
+    
+    // For SQL, use the standard parsing approach
     const ast = this.parseQuery(view.query);
     if (!ast) return false;
     
@@ -311,8 +555,8 @@ export class LAVMappingManager {
   private combineQueries(query1: string, query2: string): string {
     try {
       // Parse both queries
-      const ast1 = this.parseQuery(query1);
-      const ast2 = this.parseQuery(query2);
+      const ast1 = this.parser.astify(query1);
+      const ast2 = this.parser.astify(query2);
       
       if (!ast1 || !ast2) {
         // If parsing fails, fall back to simple combination
@@ -411,5 +655,38 @@ export class LAVMappingManager {
    */
   public getViewsInBucket(bucketId: string): LAVViewDefinition[] {
     return this.buckets.get(bucketId) || [];
+  }
+
+  /**
+   * Utility method to test query language detection and parsing
+   * For debugging purposes
+   * 
+   * @param query The query to analyze
+   * @returns Analysis information including detected language and parsing results
+   */
+  public analyzeQueryLanguage(query: string): any {
+    const language = this.detectQueryLanguage(query);
+    
+    let ast = null;
+    let parseSuccess = false;
+    
+    try {
+      if (language === 'sql') {
+        ast = this.parser.astify(query, { database: 'mysql' });
+        parseSuccess = true;
+      } else {
+        ast = this.createCustomAstForNonSql(query, language);
+        parseSuccess = !!ast;
+      }
+    } catch (error) {
+      console.error(`Error parsing ${language} query:`, error);
+    }
+    
+    return {
+      query,
+      detectedLanguage: language,
+      parseSuccess,
+      ast: ast ? JSON.stringify(ast, null, 2) : 'Failed to parse'
+    };
   }
 }
