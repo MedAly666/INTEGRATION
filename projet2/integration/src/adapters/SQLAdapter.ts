@@ -19,6 +19,8 @@ import {
 } from '../common/DataModel';
 import { SourceDescription, EntityAvailability, SourceCapabilities } from '../common/SourceDescription';
 import { formatDate } from '../common/DateUtils';
+import { LAVViewDefinition } from '../common/LAVMapping';
+import { Parser } from 'node-sql-parser';
 
 export class SQLAdapter implements IAdapter {
   private pool: Pool | null = null;
@@ -1283,4 +1285,356 @@ export class SQLAdapter implements IAdapter {
   }
 
   // ...remaining adapter methods
+
+  /**
+   * Get LAV view definitions for this SQL data source
+   * In LAV, each source defines what data it can provide in terms of the global schema
+   */
+  public getLAVViews(): LAVViewDefinition[] {
+    const sourceId = this.getSourceSystem();
+    
+    return [
+      {
+        sourceId,
+        viewName: 'sql_clients',
+        query: 'SELECT * FROM clients',
+        bucketId: 'clients',
+        parameters: {
+          mapping: {
+            'global_id': 'id_client',
+            'global_name': 'nom_complet',
+            'global_email': 'email_contact'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'sql_employees',
+        query: 'SELECT * FROM employees',
+        bucketId: 'employees',
+        parameters: {
+          mapping: {
+            'global_id': 'id_employee',
+            'global_name': 'nom',
+            'global_position': 'poste'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'sql_agences',
+        query: 'SELECT * FROM agences',
+        bucketId: 'agences',
+        parameters: {
+          mapping: {
+            'global_id': 'id_agence',
+            'global_name': 'nom',
+            'global_address': 'adresse'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'sql_fournisseurs',
+        query: 'SELECT * FROM fournisseurs',
+        bucketId: 'fournisseurs',
+        parameters: {
+          mapping: {
+            'global_id': 'id_fournisseur',
+            'global_name': 'nom',
+            'global_contact': 'personne_contact'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'sql_produits',
+        query: 'SELECT * FROM produits',
+        bucketId: 'produits',
+        parameters: {
+          mapping: {
+            'global_id': 'id_produit',
+            'global_desc': 'description',
+            'global_price': 'prix_cout'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'sql_commandes',
+        query: 'SELECT * FROM commandes',
+        bucketId: 'commandes',
+        parameters: {
+          mapping: {
+            'global_id': 'id_commande',
+            'global_client': 'client_ref',
+            'global_date': 'date_commande'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'sql_details_commande',
+        query: 'SELECT * FROM details_commande',
+        bucketId: 'details_commande',
+        parameters: {
+          mapping: {
+            'global_id': 'id',
+            'global_order': 'id_commande',
+            'global_product': 'id_produit'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'sql_factures',
+        query: 'SELECT * FROM factures',
+        bucketId: 'factures',
+        parameters: {
+          mapping: {
+            'global_id': 'id_facture',
+            'global_order': 'id_commande',
+            'global_amount': 'montant_total'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'sql_livraisons',
+        query: 'SELECT * FROM livraisons',
+        bucketId: 'livraisons',
+        parameters: {
+          mapping: {
+            'global_id': 'id_livraison',
+            'global_order': 'id_commande',
+            'global_date': 'date_livraison'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'sql_approvisionnements',
+        query: 'SELECT * FROM approvisionnements',
+        bucketId: 'approvisionnements',
+        parameters: {
+          mapping: {
+            'global_id': 'id',
+            'global_supplier': 'id_fournisseur',
+            'global_product': 'id_produit'
+          }
+        }
+      },
+      // Define a view that handles a JOIN query
+      {
+        sourceId,
+        viewName: 'sql_client_orders',
+        query: 'SELECT c.*, o.* FROM clients c JOIN commandes o ON c.id_client = o.client_ref',
+        bucketId: 'client_orders',
+        parameters: {
+          mapping: {
+            'global_client_id': 'c.id_client',
+            'global_client_name': 'c.nom_complet',
+            'global_order_id': 'o.id_commande',
+            'global_order_date': 'o.date_commande'
+          }
+        }
+      },
+      // Define a view that handles product and supplier relationships
+      {
+        sourceId,
+        viewName: 'sql_product_suppliers',
+        query: 'SELECT p.*, f.*, a.* FROM produits p JOIN approvisionnements a ON p.id_produit = a.id_produit JOIN fournisseurs f ON a.id_fournisseur = f.id_fournisseur',
+        bucketId: 'product_suppliers',
+        parameters: {
+          mapping: {
+            'global_product_id': 'p.id_produit',
+            'global_product_desc': 'p.description',
+            'global_supplier_id': 'f.id_fournisseur',
+            'global_supplier_name': 'f.nom'
+          }
+        }
+      }
+    ];
+  }
+
+  /**
+   * Execute a query that has been rewritten using the LAV bucket algorithm
+   * 
+   * @param query The rewritten query specific to this source
+   * @param parameters Additional parameters for the query
+   * @returns Query results
+   */
+  public async executeQuery(query: string, parameters: Record<string, any> = {}): Promise<any[]> {
+    if (!this.isConnected()) {
+      throw new Error('Cannot execute query: Not connected to database');
+    }
+    
+    try {
+      // Parse query to detect if it's a select, insert, etc.
+      const parser = new Parser();
+      const ast = parser.astify(query, { database: 'mysql' });
+      
+      // Check if we're dealing with a special combined query from the bucket algorithm
+      if (query.includes('/* Combined query: */')) {
+        // For combined queries, we need to execute each part separately and combine results
+        const queryParts = query.split(/\/\*.*?\*\//g).filter(part => part.trim().length > 0);
+        let allResults: any[] = [];
+        
+        for (const part of queryParts) {
+          const results = await this.executeQueryPart(part.trim(), parameters);
+          allResults = [...allResults, ...results];
+        }
+        
+        return allResults;
+      } else {
+        // Normal query execution
+        return await this.executeQueryPart(query, parameters);
+      }
+    } catch (error) {
+      console.error(`Error executing query: ${query}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Execute a single query part
+   * 
+   * @param query The SQL query to execute
+   * @param parameters Query parameters
+   * @returns Query results
+   */
+  private async executeQueryPart(query: string, parameters: Record<string, any>): Promise<any[]> {
+    // Replace parameter placeholders in the query string
+    let processedQuery = query;
+    
+    // Handle parameter substitution
+    for (const [key, value] of Object.entries(parameters)) {
+      const placeholder = `:${key}`;
+      
+      if (processedQuery.includes(placeholder)) {
+        // Properly quote string values
+        const paramValue = typeof value === 'string' 
+          ? `'${value.replace(/'/g, "''")}'` 
+          : value;
+          
+        processedQuery = processedQuery.replace(
+          new RegExp(placeholder, 'g'),
+          paramValue as string
+        );
+      }
+    }
+    
+    // Execute the query
+    const result = await this.connection?.query(processedQuery);
+    
+    // Map column names according to the LAV mapping if applicable
+    // This ensures the result uses the global schema attribute names
+    if (parameters.mapping) {
+      return this.mapResultToGlobalSchema(result, parameters.mapping);
+    }
+    
+    return result || [];
+  }
+
+  /**
+   * Map query results to the global schema using the provided mapping
+   */
+  private mapResultToGlobalSchema(results: any[], mapping: Record<string, string>): any[] {
+    if (!results || !Array.isArray(results)) {
+      return [];
+    }
+    
+    // Create reverse mapping (source → global)
+    const reverseMapping: Record<string, string> = {};
+    for (const [globalAttr, sourceAttr] of Object.entries(mapping)) {
+      reverseMapping[sourceAttr] = globalAttr;
+    }
+    
+    return results.map(row => {
+      const globalRow: Record<string, any> = {};
+      
+      // Copy all original attributes
+      for (const [key, value] of Object.entries(row)) {
+        globalRow[key] = value;
+        
+        // If there's a mapping for this attribute, add the global attribute as well
+        if (reverseMapping[key]) {
+          globalRow[reverseMapping[key]] = value;
+        }
+      }
+      
+      return globalRow;
+    });
+  }
+
+  /**
+   * Check if this adapter can handle a specific query pattern
+   * Used by the bucket algorithm to match views to query predicates
+   * 
+   * @param pattern Query pattern to check
+   * @returns Whether this adapter can handle the pattern
+   */
+  public canHandleQueryPattern(pattern: string): boolean {
+    // Simplified implementation for demonstration
+    // In a real system, this would use more sophisticated pattern matching
+    try {
+      // Parse the pattern query
+      const parser = new Parser();
+      const ast = parser.astify(pattern, { database: 'mysql' });
+      
+      // Extract tables from the pattern
+      const tables = this.extractTablesFromAST(ast);
+      
+      // Get all view definitions for this source
+      const views = this.getLAVViews();
+      
+      // Check if any view can handle all the tables in the pattern
+      for (const view of views) {
+        const viewAst = parser.astify(view.query, { database: 'mysql' });
+        const viewTables = this.extractTablesFromAST(viewAst);
+        
+        // Check if this view covers all required tables
+        if (tables.every(table => viewTables.includes(table))) {
+          return true;
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error(`Error checking if adapter can handle pattern: ${pattern}`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Extract table names from a parsed SQL AST
+   */
+  private extractTablesFromAST(ast: any): string[] {
+    const tables: string[] = [];
+    
+    // Handle different query types
+    if (Array.isArray(ast)) {
+      for (const item of ast) {
+        tables.push(...this.extractTablesFromAST(item));
+      }
+    } else if (ast.type === 'select' && ast.from) {
+      // Extract tables from FROM clause
+      for (const fromItem of ast.from) {
+        if (fromItem.table) {
+          tables.push(fromItem.table);
+        }
+      }
+      
+      // Extract tables from JOINs if any
+      if (ast.join) {
+        for (const joinItem of ast.join) {
+          if (joinItem.table) {
+            tables.push(joinItem.table);
+          }
+        }
+      }
+    }
+    
+    return tables;
+  }
 }

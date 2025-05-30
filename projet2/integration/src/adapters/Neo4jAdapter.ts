@@ -20,6 +20,7 @@ import {
 } from '../common/DataModel';
 import { SourceDescription, EntityAvailability, SourceCapabilities } from '../common/SourceDescription';
 import { formatDate, formatDateTime, parseDate } from '../common/DateUtils';
+import { LAVViewDefinition } from '../common/LAVMapping';
 
 export class Neo4jAdapter implements IAdapter {
   private driver: Driver | null = null;
@@ -1495,4 +1496,270 @@ export class Neo4jAdapter implements IAdapter {
         return records;
     }
   }
+
+  /**
+   * Get LAV view definitions for this Neo4j data source
+   */
+  public getLAVViews(): LAVViewDefinition[] {
+    const sourceId = this.getSourceSystem();
+    
+    return [
+      {
+        sourceId,
+        viewName: 'neo4j_clients',
+        query: 'MATCH (c:Client) RETURN c',
+        bucketId: 'clients',
+        parameters: {
+          mapping: {
+            'global_id': 'c.id',
+            'global_name': 'c.nom',
+            'global_email': 'c.email',
+            'global_phone': 'c.telephone',
+            'global_address': 'c.adresse'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'neo4j_produits',
+        query: 'MATCH (p:Produit) RETURN p',
+        bucketId: 'produits',
+        parameters: {
+          mapping: {
+            'global_id': 'p.id',
+            'global_name': 'p.nom',
+            'global_desc': 'p.description',
+            'global_price': 'p.prix',
+            'global_category': 'p.categorie'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'neo4j_commandes',
+        query: 'MATCH (o:Commande) RETURN o',
+        bucketId: 'commandes',
+        parameters: {
+          mapping: {
+            'global_id': 'o.id',
+            'global_date': 'o.date',
+            'global_client_id': 'o.clientId',
+            'global_status': 'o.statut',
+            'global_total': 'o.total'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'neo4j_client_orders',
+        query: 'MATCH (c:Client)-[r:A_COMMANDE]->(o:Commande) RETURN c, o, r',
+        bucketId: 'client_orders',
+        parameters: {
+          mapping: {
+            'global_client_id': 'c.id',
+            'global_client_name': 'c.nom',
+            'global_order_id': 'o.id',
+            'global_order_date': 'o.date',
+            'global_order_total': 'o.total'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'neo4j_order_products',
+        query: 'MATCH (o:Commande)-[r:CONTIENT]->(p:Produit) RETURN o, r, p',
+        bucketId: 'order_items',
+        parameters: {
+          mapping: {
+            'global_order_id': 'o.id',
+            'global_product_id': 'p.id',
+            'global_quantity': 'r.quantite',
+            'global_price': 'r.prix',
+            'global_subtotal': 'r.sousTotal'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'neo4j_complete_order_path',
+        query: 'MATCH (c:Client)-[:A_COMMANDE]->(o:Commande)-[r:CONTIENT]->(p:Produit) RETURN c, o, r, p',
+        bucketId: 'client_product_path',
+        parameters: {
+          mapping: {
+            'global_client_id': 'c.id',
+            'global_client_name': 'c.nom',
+            'global_order_id': 'o.id',
+            'global_order_date': 'o.date',
+            'global_product_id': 'p.id',
+            'global_product_name': 'p.nom',
+            'global_quantity': 'r.quantite',
+            'global_price': 'r.prix'
+          }
+        }
+      }
+    ];
+  }
+
+  /**
+   * Execute a Cypher query that has been rewritten using the LAV bucket algorithm
+   * 
+   * @param query The Cypher query to execute
+   * @param parameters Additional parameters for the query
+   * @returns Query results
+   */
+  public async executeQuery(query: string, parameters: Record<string, any> = {}): Promise<any[]> {
+    if (!this.session) {
+      throw new Error('Cannot execute query: Not connected to Neo4j database');
+    }
+    
+    try {
+      console.log('Executing Neo4j query:', query, 'with parameters:', parameters);
+      
+      // Handle special combined queries from the bucket algorithm
+      if (query.includes('/* Combined query: */')) {
+        const queryParts = query.split(/\/\*.*?\*\//g).filter(part => part.trim().length > 0);
+        let allResults: any[] = [];
+        
+        for (const part of queryParts) {
+          const results = await this.executeCypherQuery(part.trim());
+          allResults = [...allResults, ...results];
+        }
+        
+        // Apply mapping to global schema if provided
+        if (parameters.mapping) {
+          return this.mapResultsToGlobalSchema(allResults, parameters.mapping);
+        }
+        
+        return allResults;
+      } else {
+        // Standard Cypher query execution
+        const results = await this.executeCypherQuery(query);
+        
+        // Apply mapping to global schema if provided
+        if (parameters.mapping) {
+          return this.mapResultsToGlobalSchema(results, parameters.mapping);
+        }
+        
+        return results;
+      }
+    } catch (error) {
+      console.error(`Error executing Neo4j query: ${query}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Execute a Cypher query directly
+   * 
+   * @param query Cypher query string
+   * @returns Query results
+   */
+  private async executeCypherQuery(query: string): Promise<any[]> {
+    try {
+      const result = await this.session!.run(query);
+      
+      // Transform Neo4j records to plain objects
+      return result.records.map(record => {
+        const obj: Record<string, any> = {};
+        
+        // Extract keys and values from the record
+        record.keys.forEach(key => {
+          const value = record.get(key);
+          
+          if (value && typeof value === 'object' && value.constructor.name === 'Node') {
+            // Extract Node properties
+            obj[key] = { ...value.properties, id: value.identity.toString() };
+          } else if (value && typeof value === 'object' && value.constructor.name === 'Relationship') {
+            // Extract Relationship properties
+            obj[key] = { ...value.properties, type: value.type };
+          } else {
+            obj[key] = value;
+          }
+        });
+        
+        // Add source system to each result
+        obj.sourceSystem = this.getSourceSystem();
+        
+        return obj;
+      });
+    } catch (error) {
+      console.error(`Error executing Neo4j query: ${query}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Map Neo4j query results to the global schema
+   * 
+   * @param results The Neo4j query results to map
+   * @param mapping The mapping from source attributes to global attributes
+   * @returns Mapped results
+   */
+  private mapResultsToGlobalSchema(results: any[], mapping: Record<string, string>): any[] {
+    return results.map(row => {
+      const globalRow: Record<string, any> = { ...row }; // Start with original data
+      
+      // Apply mappings
+      for (const [globalAttr, neoAttr] of Object.entries(mapping)) {
+        // Handle nested properties (e.g., "c.id")
+        if (neoAttr.includes('.')) {
+          const [objName, propName] = neoAttr.split('.');
+          
+          if (row[objName] && row[objName][propName] !== undefined) {
+            globalRow[globalAttr] = row[objName][propName];
+          }
+        } else if (row[neoAttr] !== undefined) {
+          // Direct property mapping
+          globalRow[globalAttr] = row[neoAttr];
+        }
+      }
+      
+      return globalRow;
+    });
+  }
+
+  /**
+   * Check if this adapter can handle a specific query pattern
+   * 
+   * @param pattern The query pattern to check
+   * @returns Whether this adapter can handle the pattern
+   */
+  public canHandleQueryPattern(pattern: string): boolean {
+    try {
+      // Check if pattern mentions nodes or relationships
+      const hasNodes = /(Client|Produit|Commande|Fournisseur)/i.test(pattern);
+      const hasRelationships = /(A_COMMANDE|CONTIENT|FOURNIT)/i.test(pattern);
+      
+      if (hasNodes || hasRelationships) {
+        return true;
+      }
+      
+      // Extract entity/relationship patterns from the query
+      const bucketMatch = pattern.match(/FROM\s+(\w+)/i);
+      if (bucketMatch) {
+        const requestedBucket = bucketMatch[1].toLowerCase();
+        
+        // Check against our LAV views
+        const views = this.getLAVViews();
+        for (const view of views) {
+          // Check if any view matches this bucket ID
+          if (view.bucketId?.toLowerCase() === requestedBucket) {
+            return true;
+          }
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error(`Error in canHandleQueryPattern: ${error}`);
+      return false;
+  }
+}
+
+/**
+ * Capitalize first letter of a string
+ */
+private capitalizeFirstLetter(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
 }

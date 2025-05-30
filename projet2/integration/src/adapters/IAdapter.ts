@@ -16,6 +16,7 @@ import {
   ApprovisionnementCollection
 } from '../common/DataModel';
 import { SourceDescription } from '../common/SourceDescription';
+import { LAVViewDefinition, LAVQueryRewrite } from '../common/LAVMapping';
 
 /**
  * Query filter structure that adapters can use to filter data
@@ -287,6 +288,33 @@ export interface IAdapter {
    * @returns Source-specific query object
    */
   translateQuery(filter: QueryFilter, entityName: string): any;
+  
+  /**
+   * Get LAV view definitions for this data source
+   * Following the LAV approach, this describes what each data source can provide
+   * in terms of the global schema
+   * 
+   * @returns Array of LAV view definitions
+   */
+  getLAVViews(): LAVViewDefinition[];
+  
+  /**
+   * Execute a query that has been rewritten using the LAV bucket algorithm
+   * 
+   * @param query The rewritten query specific to this source
+   * @param parameters Additional parameters for the query
+   * @returns Query results
+   */
+  executeQuery(query: string, parameters: Record<string, any>): Promise<any[]>;
+  
+  /**
+   * Check if this adapter can handle a specific query pattern
+   * Used by the bucket algorithm to match views to query predicates
+   * 
+   * @param pattern Query pattern to check
+   * @returns Whether this adapter can handle the pattern
+   */
+  canHandleQueryPattern(pattern: string): boolean;
   
   /**
    * Fetch clients data 

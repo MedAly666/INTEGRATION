@@ -19,7 +19,7 @@
     "hono": "^4.7.9",
     "mariadb": "^3.4.2",
     "neo4j-driver": "^5.28.1",
-    "node-sql-parser": "^5.3.8",
+    "node-sql-parser": "^5.3.9",
     "pug": "^3.0.3",
     "xmldom": "^0.6.0",
     "xpath": "^0.0.34"

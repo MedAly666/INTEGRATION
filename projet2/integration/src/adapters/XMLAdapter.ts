@@ -8,6 +8,22 @@ import path from 'path';
 import { DOMParser } from 'xmldom';
 import xpath from 'xpath';
 import { IAdapter, QueryFilter, applyTypeScriptFilter } from './IAdapter';
+
+// Define the constants for node types since they might not be available from xmldom
+const NODE_TYPES = {
+  ELEMENT_NODE: 1,
+  ATTRIBUTE_NODE: 2,
+  TEXT_NODE: 3,
+  CDATA_SECTION_NODE: 4,
+  ENTITY_REFERENCE_NODE: 5,
+  ENTITY_NODE: 6,
+  PROCESSING_INSTRUCTION_NODE: 7,
+  COMMENT_NODE: 8,
+  DOCUMENT_NODE: 9,
+  DOCUMENT_TYPE_NODE: 10,
+  DOCUMENT_FRAGMENT_NODE: 11,
+  NOTATION_NODE: 12
+};
 import {
   ClientCollection, Client,
   EmployeeCollection, Employee,
@@ -22,6 +38,8 @@ import {
 } from '../common/DataModel';
 import { SourceDescription, EntityAvailability, SourceCapabilities } from '../common/SourceDescription';
 import { formatDate, formatDateTime, parseDate } from '../common/DateUtils';
+import { LAVViewDefinition } from '../common/LAVMapping';
+import { Parser } from 'node-sql-parser';
 
 export class XMLAdapter implements IAdapter {
   private xmlDoc: Document | null = null;
@@ -299,7 +317,9 @@ export class XMLAdapter implements IAdapter {
     const xpathQuery = this.buildXPathQuery(xpathBase, filter);
     console.log(`Generated XPath: ${xpathQuery}`);
     
-    const nodes = this.executeXPathQuery(xpathQuery);
+    const nodesResult = this.executeXPathQuery(xpathQuery);
+    // Convert to array to ensure it's iterable
+    const nodes = Array.isArray(nodesResult) ? nodesResult : Array.from(nodesResult);
     console.log(`Found ${nodes.length} ${entityName}`);
 
     // Create collection and map XML nodes to objects
@@ -932,5 +952,392 @@ export class XMLAdapter implements IAdapter {
     
     const validFields = validFieldMappings[entityPath] || [];
     return validFields.includes(fieldName) || fieldName === '*';
+  }
+
+  /**
+   * Get LAV view definitions for this XML data source
+   */
+  public getLAVViews(): LAVViewDefinition[] {
+    const sourceId = this.getSourceSystem();
+    
+    return [
+      {
+        sourceId,
+        viewName: 'xml_clients',
+        query: '/clients/client',
+        bucketId: 'clients',
+        parameters: {
+          mapping: {
+            'global_id': '@id',
+            'global_name': 'name',
+            'global_email': 'email',
+            'global_address': 'address',
+            'global_phone': 'phone'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'xml_produits',
+        query: '/produits/produit',
+        bucketId: 'produits',
+        parameters: {
+          mapping: {
+            'global_id': '@id',
+            'global_name': 'name',
+            'global_desc': 'description',
+            'global_price': 'price',
+            'global_category': 'category'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'xml_commandes',
+        query: '/commandes/commande',
+        bucketId: 'commandes',
+        parameters: {
+          mapping: {
+            'global_id': '@id',
+            'global_date': 'date',
+            'global_client_id': 'client_id',
+            'global_total': 'total',
+            'global_status': 'status'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'xml_commande_details',
+        query: '/commandes/commande/ligne_commande',
+        bucketId: 'commande_details',
+        parameters: {
+          mapping: {
+            'global_commande_id': '../@id',
+            'global_produit_id': '@produit_id',
+            'global_quantity': 'quantite',
+            'global_unit_price': 'prix_unitaire'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'xml_fournisseurs',
+        query: '/fournisseurs/fournisseur',
+        bucketId: 'fournisseurs',
+        parameters: {
+          mapping: {
+            'global_id': '@id',
+            'global_name': 'name',
+            'global_contact': 'contact',
+            'global_address': 'address',
+            'global_phone': 'phone'
+          }
+        }
+      },
+      {
+        sourceId,
+        viewName: 'xml_produit_fournisseur',
+        query: '/fournisseurs/fournisseur/produit_fourni',
+        bucketId: 'produit_fournisseur',
+        parameters: {
+          mapping: {
+            'global_fournisseur_id': '../@id',
+            'global_produit_id': '@produit_id',
+            'global_quantity': 'quantite',
+            'global_price': 'prix'
+          }
+        }
+      }
+    ];
+  }
+
+  /**
+   * Execute a query that has been rewritten using the LAV bucket algorithm
+   * 
+   * @param query The rewritten XPath query for XML
+   * @param parameters Additional parameters for the query
+   * @returns Query results
+   */
+  public async executeQuery(query: string, parameters: Record<string, any> = {}): Promise<any[]> {
+    if (!this.xmlDoc) {
+      throw new Error('Cannot execute query: XML document not loaded');
+    }
+    
+    try {
+      console.log('Executing XML query:', query, 'with parameters:', parameters);
+      
+      // Handle special combined queries from the bucket algorithm
+      if (query.includes('/* Combined query: */')) {
+        const queryParts = query.split(/\/\*.*?\*\//g).filter(part => part.trim().length > 0);
+        let allResults: any[] = [];
+        
+        for (const part of queryParts) {
+          const results = await this.executeXPathQuery(part.trim(), parameters);
+          allResults = [...allResults, ...results];
+        }
+        
+        // Apply mapping to global schema if provided
+        if (parameters.mapping) {
+          return this.mapResultsToGlobalSchema(allResults, parameters.mapping);
+        }
+        
+        return allResults;
+      } else {
+        // Standard query execution
+        const results = await this.executeXPathQuery(query, parameters);
+        
+        // Apply mapping to global schema if provided
+        if (parameters.mapping) {
+          return this.mapResultsToGlobalSchema(results, parameters.mapping);
+        }
+        
+        return results;
+      }
+    } catch (error) {
+      console.error(`Error executing XML query: ${query}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Execute an XPath query directly
+   * 
+   * @param xpathQuery XPath query
+   * @param queryParams Query parameters
+   * @returns Query results
+   */
+  private async executeXPathQuery(xpathQuery: string, queryParams: Record<string, any> = {}): Promise<any[]> {
+    try {
+      if (!this.isConnected()) {
+        throw new Error('Not connected to XML data source');
+      }
+      
+      // Process the query - if it's SQL-like, convert to XPath
+      let finalQuery = xpathQuery;
+      
+      // Check if the query looks like SQL and needs conversion to XPath
+      if (xpathQuery.toUpperCase().includes('SELECT')) {
+        finalQuery = this.convertSQLToXPath(xpathQuery);
+      }
+      
+      console.log(`Executing XPath query: ${finalQuery}`);
+      
+      // Execute the XPath query using the xpath library instead of DOM API
+      const nodes = xpath.select(finalQuery, this.xmlDoc as Node) as Node[];
+      console.log(`XPath query returned ${nodes.length} nodes.`);
+      
+      // Process results
+      const results: any[] = [];
+      
+      // Process each node
+      for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+        if (node) {
+          const nodeData = this.extractNodeData(node);
+          results.push(nodeData);
+        }
+      }
+      
+      // Add source system identification
+      results.forEach(result => {
+        result.sourceSystem = this.getSourceSystem();
+      });
+      
+      return results;
+    } catch (error) {
+      console.error(`Error executing XPath query: ${xpathQuery}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Convert a SQL-like query to XPath
+   * 
+   * @param sqlQuery SQL-like query
+   * @returns XPath query
+   */
+  private convertSQLToXPath(sqlQuery: string): string {
+    try {
+      // Basic pattern matching for simple SQL to XPath conversion
+      // For a complete solution, we'd need a proper SQL parser
+      
+      // SELECT * FROM table WHERE condition
+      const selectPattern = /SELECT\s+(.*?)\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+))?/i;
+      const match = sqlQuery.match(selectPattern);
+      
+      if (match) {
+        const columns = match[1].trim();
+        const table = match[2].trim();
+        const condition = match[3]?.trim();
+        
+        // Map table names to XML paths
+        let xpathBase: string;
+        switch (table.toLowerCase()) {
+          case 'clients':
+            xpathBase = '/clients/client';
+            break;
+          case 'produits':
+            xpathBase = '/produits/produit';
+            break;
+          case 'commandes':
+            xpathBase = '/commandes/commande';
+            break;
+          case 'commande_details':
+            xpathBase = '/commandes/commande/ligne_commande';
+            break;
+          case 'fournisseurs':
+            xpathBase = '/fournisseurs/fournisseur';
+            break;
+          case 'produit_fournisseur':
+            xpathBase = '/fournisseurs/fournisseur/produit_fourni';
+            break;
+          default:
+            xpathBase = `/${table}`;
+        }
+        
+        // Add conditions if present
+        if (condition) {
+          // Convert SQL conditions to XPath predicates
+          // This is a simplified version that handles basic equality conditions
+          const whereClauses = condition.split(/\s+AND\s+/i);
+          const xpathPredicates = whereClauses.map(clause => {
+            // Handle the common condition patterns
+            let predicate = clause.replace(/(\w+)\s*=\s*['"]?([^'"]+)['"]?/g, (match, field, value) => {
+              // Check if it's an attribute or element
+              if (field.startsWith('@')) {
+                return `${field}='${value}'`;
+              } else {
+                return `${field}='${value}'`;
+              }
+            });
+            
+            // Convert LIKE to contains() function
+            predicate = predicate.replace(/(\w+)\s+LIKE\s+['"]%(.+)%['"]/i, (match, field, value) => {
+              return `contains(${field},'${value}')`;
+            });
+            
+            return `[${predicate}]`;
+          });
+          
+          xpathBase += xpathPredicates.join('');
+        }
+        
+        return xpathBase;
+      }
+      
+      // If not a SQL query or couldn't parse, return as is (assuming it's already XPath)
+      return sqlQuery;
+    } catch (error) {
+      console.error(`Error converting SQL to XPath: ${sqlQuery}`, error);
+      // Return original query if conversion fails
+      return sqlQuery;
+    }
+  }
+
+  /**
+   * Extract data from an XML node
+   * 
+   * @param node The XML node to extract data from
+   * @returns Object with node data
+   */
+  private extractNodeData(node: Node): Record<string, any> {
+    const result: Record<string, any> = {};
+    
+    if (node.nodeType === NODE_TYPES.ELEMENT_NODE) {
+      const element = node as Element;
+      
+      // Add attributes
+      for (let i = 0; i < element.attributes.length; i++) {
+        const attr = element.attributes[i];
+        result[`@${attr.name}`] = attr.value;
+      }
+      
+      // Add child elements
+      for (let i = 0; i < element.childNodes.length; i++) {
+        const child = element.childNodes[i];
+        if (child.nodeType === NODE_TYPES.ELEMENT_NODE) {
+          result[child.nodeName] = child.textContent;
+        }
+      }
+      
+      // Set node name and value
+      result._nodeName = element.nodeName;
+      
+      // Set text content if this is a leaf element with no children
+      if (element.childNodes.length === 0 && element.textContent) {
+        result._value = element.textContent.trim();
+      }
+    } else if (node.nodeType === NODE_TYPES.TEXT_NODE) {
+      result._value = node.textContent?.trim();
+    } else if (node.nodeType === NODE_TYPES.ATTRIBUTE_NODE) {
+      result._value = (node as Attr).value;
+    }
+    
+    return result;
+  }
+
+  /**
+   * Map XML query results to the global schema
+   * 
+   * @param results The query results to map
+   * @param mapping The mapping from source attributes to global attributes
+   * @returns Mapped results
+   */
+  private mapResultsToGlobalSchema(results: any[], mapping: Record<string, string>): any[] {
+    return results.map(row => {
+      const globalRow: Record<string, any> = { ...row }; // Start with original data
+      
+      for (const [globalAttr, sourceExpr] of Object.entries(mapping)) {
+        // Handle XPath expressions in the mapping
+        if (sourceExpr.startsWith('../')) {
+          // Parent node reference - would need more complex processing
+          // For this simplified implementation, we'll assume it's already available
+          const parentExpr = sourceExpr.substring(3);
+          if (row[parentExpr] !== undefined) {
+            globalRow[globalAttr] = row[parentExpr];
+          }
+        } else if (row[sourceExpr] !== undefined) {
+          // Direct property assignment
+          globalRow[globalAttr] = row[sourceExpr];
+        }
+      }
+      
+      return globalRow;
+    });
+  }
+
+  /**
+   * Check if this adapter can handle a specific query pattern
+   * 
+   * @param pattern The query pattern to check
+   * @returns Whether this adapter can handle the pattern
+   */
+  public canHandleQueryPattern(pattern: string): boolean {
+    try {
+      // Extract entity patterns from the query
+      const simpleTableMatch = pattern.match(/FROM\s+(\w+)/i);
+      if (simpleTableMatch) {
+        const requestedTable = simpleTableMatch[1].toLowerCase();
+        
+        // Check against our LAV views
+        const views = this.getLAVViews();
+        for (const view of views) {
+          // Check if any view matches this bucket ID
+          if (view.bucketId?.toLowerCase() === requestedTable) {
+            return true;
+          }
+        }
+        
+        // Check against common XML entities we support
+        const supportedEntities = ['clients', 'produits', 'commandes', 'commande_details', 'fournisseurs', 'produit_fournisseur'];
+        return supportedEntities.includes(requestedTable);
+      }
+      
+      return false;
+    } catch (error) {
+      console.error(`Error in canHandleQueryPattern: ${error}`);
+      return false;
+    }
   }
 }
