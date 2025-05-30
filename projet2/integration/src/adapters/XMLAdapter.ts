@@ -964,88 +964,93 @@ export class XMLAdapter implements IAdapter {
       {
         sourceId,
         viewName: 'xml_clients',
-        query: '/clients/client',
+        query: '//Vente/clients/client',
         bucketId: 'clients',
         queryLanguage: 'xpath',
         parameters: {
           mapping: {
             'global_id': '@id',
-            'global_name': 'name',
-            'global_email': 'email',
-            'global_address': 'address',
-            'global_phone': 'phone'
+            'global_name': '@nom',
+            'global_email': '@courriel',
+            'global_phone': '@telephone',
+            'global_address': 'adresse'
           }
         }
       },
       {
         sourceId,
         viewName: 'xml_produits',
-        query: '/produits/produit',
+        query: '//Vente/produits/produit',
         bucketId: 'produits',
+        queryLanguage: 'xpath',
         parameters: {
           mapping: {
             'global_id': '@id',
-            'global_name': 'name',
+            'global_name': '@nom',
             'global_desc': 'description',
-            'global_price': 'price',
-            'global_category': 'category'
+            'global_price': '@prix',
+            'global_category': '@categorie'
           }
         }
       },
       {
         sourceId,
         viewName: 'xml_commandes',
-        query: '/commandes/commande',
+        query: '//Vente/commandes/commande',
         bucketId: 'commandes',
+        queryLanguage: 'xpath',
         parameters: {
           mapping: {
             'global_id': '@id',
-            'global_date': 'date',
-            'global_client_id': 'client_id',
-            'global_total': 'total',
-            'global_status': 'status'
+            'global_date': '@date',
+            'global_client_id': '@clientID',
+            'global_total': '@montant',
+            'global_status': '@statut'
           }
         }
       },
       {
         sourceId,
         viewName: 'xml_commande_details',
-        query: '/commandes/commande/ligne_commande',
+        query: '//Vente/commandes/commande/ligne_commande',
         bucketId: 'commande_details',
+        queryLanguage: 'xpath',
         parameters: {
           mapping: {
             'global_commande_id': '../@id',
             'global_produit_id': '@produit_id',
-            'global_quantity': 'quantite',
-            'global_unit_price': 'prix_unitaire'
+            'global_quantity': '@quantite',
+            'global_unit_price': '@prix_unitaire'
           }
         }
       },
       {
         sourceId,
         viewName: 'xml_fournisseurs',
-        query: '/fournisseurs/fournisseur',
+        query: '//Vente/fournisseurs/fournisseur',
         bucketId: 'fournisseurs',
+        queryLanguage: 'xpath',
         parameters: {
           mapping: {
             'global_id': '@id',
-            'global_name': 'name',
-            'global_contact': 'contact',
-            'global_address': 'address',
-            'global_phone': 'phone'
+            'global_name': '@nom',
+            'global_contact': 'personne_contact',
+            'global_address': 'adresse',
+            'global_phone': '@telephone'
           }
         }
       },
       {
         sourceId,
         viewName: 'xml_produit_fournisseur',
-        query: '/fournisseurs/fournisseur/produit_fourni',
+        query: '//Vente/fournisseurs/fournisseur/produit_fourni',
         bucketId: 'produit_fournisseur',
+        queryLanguage: 'xpath',
         parameters: {
           mapping: {
             'global_fournisseur_id': '../@id',
             'global_produit_id': '@produit_id',
-            'global_quantity': 'quantite',
+            'global_quantity': '@quantite',
             'global_price': 'prix'
           }
         }
