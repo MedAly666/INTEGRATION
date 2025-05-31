@@ -771,29 +771,14 @@ export class SQLAdapter implements IAdapter {
    * @returns Collection of clients
    */
   public async getClients(filter?: QueryFilter): Promise<ClientCollection> {
-    if (!this.isConnected()) {
-      await this.connect();
-    }
-    
-    // Use "Clients" with capital C to match the actual table name in database
-    const { sql, params } = this.buildSelectQuery('Clients', filter);
-    const rows = await this.executeQuery(sql, params);
-    
-    const clients = new ClientCollection();
-    
-    for (const row of rows) {
-      // Convert snake_case keys to camelCase for data model compatibility
-      const clientData = this.convertKeysToCamelCase(row);
-      
-      // Add SQL_ prefix to IDs to identify the source
-      clientData.idClient = `SQL_${row.id_client}`;
-      
-      // Create a Client object and add to collection
-      const client = new Client(clientData);
-      clients.addItem(client);
-    }
-    
-    return clients;
+    return this.executeEntityQuery<Client, ClientCollection>(
+      'Clients',
+      filter,
+      'id_client',
+      'idClient',
+      (data) => new Client(data),
+      ClientCollection
+    );
   }
 
   /**
@@ -801,29 +786,14 @@ export class SQLAdapter implements IAdapter {
    */
 
   public async getEmployees(filter?: QueryFilter): Promise<EmployeeCollection> {
-    if (!this.isConnected()) {
-      await this.connect();
-    }
-    
-    // Use "Employees" with capital E to match the actual table name in database
-    const { sql, params } = this.buildSelectQuery('Employees', filter);
-    const rows = await this.executeQuery(sql, params);
-    
-    const employees = new EmployeeCollection();
-    
-    for (const row of rows) {
-      // Convert snake_case keys to camelCase for data model compatibility
-      const employeeData = this.convertKeysToCamelCase(row);
-      
-      // Add SQL_ prefix to IDs to identify the source
-      employeeData.idEmploye = `SQL_${row.id_employe}`;
-      
-      // Create an Employee object and add to collection
-      const employee = new Employee(employeeData);
-      employees.addItem(employee);
-    }
-    
-    return employees;
+    return this.executeEntityQuery<Employee, EmployeeCollection>(
+      'Employees',
+      filter,
+      'id_employe',
+      'idEmploye',
+      (data) => new Employee(data),
+      EmployeeCollection
+    );
   }
 
   /**
@@ -831,29 +801,14 @@ export class SQLAdapter implements IAdapter {
    */
 
   public async getAgences(filter?: QueryFilter): Promise<AgenceCollection> {
-    if (!this.isConnected()) {
-      await this.connect();
-    }
-    
-    // Use "Agences" with capital A to match the actual table name in database
-    const { sql, params } = this.buildSelectQuery('Agences', filter);
-    const rows = await this.executeQuery(sql, params);
-    
-    const agences = new AgenceCollection();
-    
-    for (const row of rows) {
-      // Convert snake_case keys to camelCase for data model compatibility
-      const agenceData = this.convertKeysToCamelCase(row);
-      
-      // Add SQL_ prefix to IDs to identify the source
-      agenceData.idAgence = `SQL_${row.id_agence}`;
-      
-      // Create an Agence object and add to collection
-      const agence = new Agence(agenceData);
-      agences.addItem(agence);
-    }
-    
-    return agences;
+    return this.executeEntityQuery<Agence, AgenceCollection>(
+      'Agences',
+      filter,
+      'id_agence',
+      'idAgence',
+      (data) => new Agence(data),
+      AgenceCollection
+    );
   }
 
   /**
@@ -861,29 +816,14 @@ export class SQLAdapter implements IAdapter {
    */
 
   public async getFournisseurs(filter?: QueryFilter): Promise<FournisseurCollection> {
-    if (!this.isConnected()) {
-      await this.connect();
-    }
-    
-    // Use "Fournisseurs" with capital F to match the actual table name in database
-    const { sql, params } = this.buildSelectQuery('Fournisseurs', filter);
-    const rows = await this.executeQuery(sql, params);
-    
-    const fournisseurs = new FournisseurCollection();
-    
-    for (const row of rows) {
-      // Convert snake_case keys to camelCase for data model compatibility
-      const fournisseurData = this.convertKeysToCamelCase(row);
-      
-      // Add SQL_ prefix to IDs to identify the source
-      fournisseurData.idFournisseur = `SQL_${row.id_fournisseur}`;
-      
-      // Create a Fournisseur object and add to collection
-      const fournisseur = new Fournisseur(fournisseurData);
-      fournisseurs.addItem(fournisseur);
-    }
-    
-    return fournisseurs;
+    return this.executeEntityQuery<Fournisseur, FournisseurCollection>(
+      'Fournisseurs',
+      filter,
+      'id_fournisseur',
+      'idFournisseur',
+      (data) => new Fournisseur(data),
+      FournisseurCollection
+    );
   }
 
   /**
@@ -891,29 +831,14 @@ export class SQLAdapter implements IAdapter {
    */
 
   public async getProduits(filter?: QueryFilter): Promise<ProduitCollection> {
-    if (!this.isConnected()) {
-      await this.connect();
-    }
-    
-    // Use "Produits" with capital P to match the actual table name in database
-    const { sql, params } = this.buildSelectQuery('Produits', filter);
-    const rows = await this.executeQuery(sql, params);
-    
-    const produits = new ProduitCollection();
-    
-    for (const row of rows) {
-      // Convert snake_case keys to camelCase for data model compatibility
-      const produitData = this.convertKeysToCamelCase(row);
-      
-      // Add SQL_ prefix to IDs to identify the source
-      produitData.idProduit = `SQL_${row.id_produit}`;
-      
-      // Create a Produit object and add to collection
-      const produit = new Produit(produitData);
-      produits.addItem(produit);
-    }
-    
-    return produits;
+    return this.executeEntityQuery<Produit, ProduitCollection>(
+      'Produits',
+      filter,
+      'id_produit',
+      'idProduit',
+      (data) => new Produit(data),
+      ProduitCollection
+    );
   }
 
   /**
@@ -921,29 +846,14 @@ export class SQLAdapter implements IAdapter {
    */
 
   public async getCommandes(filter?: QueryFilter): Promise<CommandeCollection> {
-    if (!this.isConnected()) {
-      await this.connect();
-    }
-    
-    // Use "Commandes" with capital C to match the actual table name in database
-    const { sql, params } = this.buildSelectQuery('Commandes', filter);
-    const rows = await this.executeQuery(sql, params);
-    
-    const commandes = new CommandeCollection();
-    
-    for (const row of rows) {
-      // Convert snake_case keys to camelCase for data model compatibility
-      const commandeData = this.convertKeysToCamelCase(row);
-      
-      // Add SQL_ prefix to IDs to identify the source
-      commandeData.idCommande = `SQL_${row.id_commande}`;
-      
-      // Create a Commande object and add to collection
-      const commande = new Commande(commandeData);
-      commandes.addItem(commande);
-    }
-    
-    return commandes;
+    return this.executeEntityQuery<Commande, CommandeCollection>(
+      'Commandes',
+      filter,
+      'id_commande',
+      'idCommande',
+      (data) => new Commande(data),
+      CommandeCollection
+    );
   }
 
   /**
@@ -951,27 +861,14 @@ export class SQLAdapter implements IAdapter {
    */
 
   public async getDetailsCommande(filter?: QueryFilter): Promise<DetailCommandeCollection> {
-    if (!this.isConnected()) {
-      await this.connect();
-    }
-
-    // Use "Details_Commande" with capital D to match the actual table name in database
-    const { sql, params } = this.buildSelectQuery('Details_Commande', filter);
-    const rows = await this.executeQuery(sql, params);
-    const detailsCommandes = new DetailCommandeCollection();
-
-    for (const row of rows) {
-
-      const detailCommandeData = this.convertKeysToCamelCase(row);
-      
-
-      detailCommandeData.idDetailCommande = `SQL_${row.id_detail_commande}`;
-      
-
-      const detailCommande = new DetailCommande(detailCommandeData);
-      detailsCommandes.addItem(detailCommande);
-    }
-    return detailsCommandes;
+    return this.executeEntityQuery<DetailCommande, DetailCommandeCollection>(
+      'Details_Commande',
+      filter,
+      'id_detail',
+      'idDetail',
+      (data) => new DetailCommande(data),
+      DetailCommandeCollection
+    );
   }
 
   /**
@@ -979,58 +876,28 @@ export class SQLAdapter implements IAdapter {
    */
 
   public async getFactures(filter?: QueryFilter): Promise<FactureCollection> {
-    if (!this.isConnected()) {
-      await this.connect();
-    }
-    
-    // Use "Factures" with capital F to match the actual table name in database
-    const { sql, params } = this.buildSelectQuery('Factures', filter);
-    const rows = await this.executeQuery(sql, params);
-    
-    const factures = new FactureCollection();
-    
-    for (const row of rows) {
-      // Convert snake_case keys to camelCase for data model compatibility
-      const factureData = this.convertKeysToCamelCase(row);
-      
-      // Add SQL_ prefix to IDs to identify the source
-      factureData.idFacture = `SQL_${row.id_facture}`;
-      
-      // Create a Facture object and add to collection
-      const facture = new Facture(factureData);
-      factures.addItem(facture);
-    }
-    
-    return factures;
+    return this.executeEntityQuery<Facture, FactureCollection>(
+      'Factures',
+      filter,
+      'id_facture',
+      'idFacture',
+      (data) => new Facture(data),
+      FactureCollection
+    );
   }
 
   /**
    * 
    */
   public async getLivraisons(filter?: QueryFilter): Promise<LivraisonCollection> {
-    if (!this.isConnected()) {
-      await this.connect();
-    }
-    
-    // Use "Livraisons" with capital L to match the actual table name in database
-    const { sql, params } = this.buildSelectQuery('Livraisons', filter);
-    const rows = await this.executeQuery(sql, params);
-    
-    const livraisons = new LivraisonCollection();
-    
-    for (const row of rows) {
-      // Convert snake_case keys to camelCase for data model compatibility
-      const livraisonData = this.convertKeysToCamelCase(row);
-      
-      // Add SQL_ prefix to IDs to identify the source
-      livraisonData.idLivraison = `SQL_${row.id_livraison}`;
-      
-      // Create a Livraison object and add to collection
-      const livraison = new Livraison(livraisonData);
-      livraisons.addItem(livraison);
-    }
-    
-    return livraisons;
+    return this.executeEntityQuery<Livraison, LivraisonCollection>(
+      'Livraisons',
+      filter,
+      'id_livraison',
+      'idLivraison',
+      (data) => new Livraison(data),
+      LivraisonCollection
+    );
   }
 
   /**
@@ -1038,29 +905,14 @@ export class SQLAdapter implements IAdapter {
    */
 
   public async getApprovisionnements(filter?: QueryFilter): Promise<ApprovisionnementCollection> {
-    if (!this.isConnected()) {
-      await this.connect();
-    }
-    
-    // Use "Approvisionnements" with capital A to match the actual table name in database
-    const { sql, params } = this.buildSelectQuery('Approvisionnements', filter);
-    const rows = await this.executeQuery(sql, params);
-    
-    const approvisionnements = new ApprovisionnementCollection();
-    
-    for (const row of rows) {
-      // Convert snake_case keys to camelCase for data model compatibility
-      const approvisionnementData = this.convertKeysToCamelCase(row);
-      
-      // Add SQL_ prefix to IDs to identify the source
-      approvisionnementData.idProduit = `SQL_${row.id_produit}`;
-      
-      // Create an Approvisionnement object and add to collection
-      const approvisionnement = new Approvisionnement(approvisionnementData);
-      approvisionnements.addItem(approvisionnement);
-    }
-    
-    return approvisionnements;
+    return this.executeEntityQuery<Approvisionnement, ApprovisionnementCollection>(
+      'Approvisionnements',
+      filter,
+      'id_produit',
+      'idProduit',
+      (data) => new Approvisionnement(data),
+      ApprovisionnementCollection
+    );
   }
 
   
@@ -1304,7 +1156,9 @@ export class SQLAdapter implements IAdapter {
           mapping: {
             'global_id': 'id_client',
             'global_name': 'nom_complet',
-            'global_email': 'email_contact'
+            'global_email': 'email_contact',
+            'global_phone': 'numero_telephone',
+            'global_address': 'adresse'
           }
         }
       },
@@ -1313,11 +1167,14 @@ export class SQLAdapter implements IAdapter {
         viewName: 'sql_employees',
         query: 'SELECT * FROM employees',
         bucketId: 'employees',
+        queryLanguage: 'sql',
         parameters: {
           mapping: {
-            'global_id': 'id_employee',
-            'global_name': 'nom',
-            'global_position': 'poste'
+            'global_id': 'id_employe',
+            'global_name': 'nom_complet',
+            'global_email': 'email',
+            'global_position': 'poste',
+            'global_agence_ref': 'agence_ref'
           }
         }
       },
@@ -1326,11 +1183,13 @@ export class SQLAdapter implements IAdapter {
         viewName: 'sql_agences',
         query: 'SELECT * FROM agences',
         bucketId: 'agences',
+        queryLanguage: 'sql',
         parameters: {
           mapping: {
             'global_id': 'id_agence',
-            'global_name': 'nom',
-            'global_address': 'adresse'
+            'global_ville': 'ville',
+            'global_address': 'adresse',
+            'global_responsable_ref': 'responsable_ref'
           }
         }
       },
@@ -1339,11 +1198,14 @@ export class SQLAdapter implements IAdapter {
         viewName: 'sql_fournisseurs',
         query: 'SELECT * FROM fournisseurs',
         bucketId: 'fournisseurs',
+        queryLanguage: "sql",
+        queryLanguage: 'sql',
         parameters: {
           mapping: {
             'global_id': 'id_fournisseur',
-            'global_name': 'nom',
-            'global_contact': 'personne_contact'
+            'global_name': 'nom_fournisseur',
+            'global_address': 'adresse',
+            'global_phone': 'numero_telephone'
           }
         }
       },
@@ -1352,11 +1214,14 @@ export class SQLAdapter implements IAdapter {
         viewName: 'sql_produits',
         query: 'SELECT * FROM produits',
         bucketId: 'produits',
+        queryLanguage: "sql",
+        queryLanguage: 'sql',
         parameters: {
           mapping: {
             'global_id': 'id_produit',
             'global_desc': 'description',
-            'global_price': 'prix_cout'
+            'global_price': 'prix_cout',
+            'global_category': 'categorie'
           }
         }
       },
@@ -1365,11 +1230,17 @@ export class SQLAdapter implements IAdapter {
         viewName: 'sql_commandes',
         query: 'SELECT * FROM commandes',
         bucketId: 'commandes',
+        queryLanguage: "sql",
+        queryLanguage: 'sql',
         parameters: {
           mapping: {
             'global_id': 'id_commande',
-            'global_client': 'client_ref',
-            'global_date': 'date_commande'
+            'global_date': 'date_commande',
+            'global_montant': 'montant',
+            'global_statut': 'statut',
+            'global_mode_paiement': 'mode_paiement',
+            'global_client_ref': 'client_ref',
+            'global_employe_ref': 'employe_ref'
           }
         }
       },
@@ -1378,11 +1249,14 @@ export class SQLAdapter implements IAdapter {
         viewName: 'sql_details_commande',
         query: 'SELECT * FROM details_commande',
         bucketId: 'details_commande',
+        queryLanguage: "sql",
+        queryLanguage: 'sql',
         parameters: {
           mapping: {
-            'global_id': 'id',
-            'global_order': 'id_commande',
-            'global_product': 'id_produit'
+            'global_id': 'id_detail',
+            'global_commande_ref': 'id_commande',
+            'global_produit_ref': 'id_produit',
+            'global_quantite': 'quantite'
           }
         }
       },
@@ -1391,11 +1265,14 @@ export class SQLAdapter implements IAdapter {
         viewName: 'sql_factures',
         query: 'SELECT * FROM factures',
         bucketId: 'factures',
+        queryLanguage: "sql",
+        queryLanguage: 'sql',
         parameters: {
           mapping: {
             'global_id': 'id_facture',
-            'global_order': 'id_commande',
-            'global_amount': 'montant_total'
+            'global_montant_total': 'montant_total',
+            'global_date_facture': 'date_facture',
+            'global_commande_ref': 'commande_ref'
           }
         }
       },
@@ -1404,11 +1281,15 @@ export class SQLAdapter implements IAdapter {
         viewName: 'sql_livraisons',
         query: 'SELECT * FROM livraisons',
         bucketId: 'livraisons',
+        queryLanguage: "sql",
+        queryLanguage: 'sql',
         parameters: {
           mapping: {
             'global_id': 'id_livraison',
-            'global_order': 'id_commande',
-            'global_date': 'date_livraison'
+            'global_transporteur': 'transporteur',
+            'global_date_estimee': 'date_estimee',
+            'global_statut': 'statut',
+            'global_commande_ref': 'commande_ref'
           }
         }
       },
@@ -1417,11 +1298,13 @@ export class SQLAdapter implements IAdapter {
         viewName: 'sql_approvisionnements',
         query: 'SELECT * FROM approvisionnements',
         bucketId: 'approvisionnements',
+        queryLanguage: "sql",
+        queryLanguage: 'sql',
         parameters: {
           mapping: {
-            'global_id': 'id',
-            'global_supplier': 'id_fournisseur',
-            'global_product': 'id_produit'
+            'global_produit_ref': 'id_produit',
+            'global_fournisseur_ref': 'id_fournisseur',
+            'global_quantite': 'quantite'
           }
         }
       },
@@ -1545,24 +1428,18 @@ export class SQLAdapter implements IAdapter {
       return [];
     }
     
-    // Create reverse mapping (source → global)
-    const reverseMapping: Record<string, string> = {};
-    for (const [globalAttr, sourceAttr] of Object.entries(mapping)) {
-      reverseMapping[sourceAttr] = globalAttr;
-    }
-    
     return results.map(row => {
       const globalRow: Record<string, any> = {};
       
-      // Copy all original attributes
-      for (const [key, value] of Object.entries(row)) {
-        globalRow[key] = value;
-        
-        // If there's a mapping for this attribute, add the global attribute as well
-        if (reverseMapping[key]) {
-          globalRow[reverseMapping[key]] = value;
+      // Only include mapped fields with global schema names
+      for (const [globalAttr, sourceAttr] of Object.entries(mapping)) {
+        if (row[sourceAttr] !== undefined) {
+          globalRow[globalAttr] = row[sourceAttr];
         }
       }
+      
+      // Add source system for identification
+      globalRow.source_system = this.getSourceSystem();
       
       return globalRow;
     });
@@ -1637,5 +1514,52 @@ export class SQLAdapter implements IAdapter {
     }
     
     return tables;
+  }
+
+  /**
+   * Generic method to execute a query for any entity type
+   * This method eliminates duplication in the get* methods by abstracting the common pattern
+   * 
+   * @param entityName The SQL table name to query
+   * @param filter Optional query filter
+   * @param idField The ID field name in the database (snake_case)
+   * @param idFieldCamel The ID field name in camelCase for the model
+   * @param entityConstructor Constructor function for the entity
+   * @param collectionConstructor Constructor for the collection
+   * @returns Collection of entities
+   */
+  private async executeEntityQuery<T, C>(
+    entityName: string,
+    filter: QueryFilter | undefined,
+    idField: string,
+    idFieldCamel: string,
+    entityConstructor: new (data: any) => T,
+    collectionConstructor: new () => C & { addItem(item: T): void }
+  ): Promise<C> {
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+    
+    // Build and execute the query
+    const { sql, params } = this.buildSelectQuery(entityName, filter);
+    const rows = await this.executeQuery(sql, params);
+    
+    // Create the collection
+    const collection = new collectionConstructor();
+    
+    // Convert rows to entities and add to collection
+    for (const row of rows) {
+      // Convert snake_case keys to camelCase for data model compatibility
+      const entityData = this.convertKeysToCamelCase(row);
+      
+      // Add SQL_ prefix to IDs to identify the source
+      entityData[idFieldCamel] = `SQL_${row[idField]}`;
+      
+      // Create entity and add to collection
+      const entity = new entityConstructor(entityData);
+      collection.addItem(entity);
+    }
+    
+    return collection;
   }
 }

@@ -425,7 +425,7 @@ export class Neo4jAdapter implements IAdapter {
   }
 
   /**
-   * Convert filter conditions to Cypher WHERE clause
+   * Build where clause for Neo4j queries
    */
   private buildWhereClause(filter: QueryFilter, nodeAlias: string): { whereClause: string, params: Record<string, any> } {
     const params: Record<string, any> = {};
@@ -1127,33 +1127,21 @@ export class Neo4jAdapter implements IAdapter {
     console.log('Neo4jAdapter: executing getClients with filter:', filter);
     
     try {
-      // Direct implementation instead of calling executeFilteredQuery
-      const query = `
-        MATCH (c:Client)
-        RETURN c.id_client as id, c.nom as nom, c.adresse as adresse, c.email as email, c.telephone as telephone
-      `;
-      
-      const records = await this.executeCypherQuery(query);
-      const clients = new ClientCollection();
-      
-      for (const record of records) {
-        try {
-          const client = new Client({
-            idClient: `NEO_${record.id}`,
-            sourceSystem: this.sourceSystem,
-            nomComplet: record.nom,
-            adresse: record.adresse,
-            emailContact: record.email,
-            numeroTelephone: record.telephone
-          });
-          clients.addItem(client);
-        } catch (itemError) {
-          console.warn('Error creating client from record:', itemError);
-        }
-      }
-      
-      console.log(`Fetched result : `, clients.getItems());
-      return clients;
+      // Use the generic queryEntityWithFilter method
+      return this.queryEntityWithFilter<Client, ClientCollection>(
+        'Client',
+        filter,
+        'id_client',
+        (record) => new Client({
+          idClient: `NEO_${record.id}`,
+          sourceSystem: this.sourceSystem,
+          nomComplet: record.nom,
+          adresse: record.adresse,
+          emailContact: record.email,
+          numeroTelephone: record.telephone
+        }),
+        ClientCollection
+      );
     } catch (error) {
       console.error('Error executing getClients:', error);
       return new ClientCollection();
@@ -1172,31 +1160,20 @@ export class Neo4jAdapter implements IAdapter {
     console.log('Neo4jAdapter: executing getEmployees with filter:', filter);
     
     try {
-      // Direct implementation instead of calling executeFilteredQuery
-      const query = `
-        MATCH (e:Employe)
-        RETURN e.id_employe as id, e.nom as nom, e.email as email, e.poste as poste
-      `;
-      
-      const records = await this.executeCypherQuery(query);
-      const employees = new EmployeeCollection();
-      
-      for (const record of records) {
-        try {
-          const employee = new Employee({
-            idEmploye: `NEO_${record.id}`,
-            sourceSystem: this.sourceSystem,
-            nomComplet: record.nom,
-            email: record.email,
-            poste: record.poste
-          });
-          employees.addItem(employee);
-        } catch (itemError) {
-          console.warn('Error creating employee from record:', itemError);
-        }
-      }
-      
-      return employees;
+      // Use the generic queryEntityWithFilter method
+      return this.queryEntityWithFilter<Employee, EmployeeCollection>(
+        'Employe',
+        filter,
+        'id_employe',
+        (record) => new Employee({
+          idEmploye: `NEO_${record.id}`,
+          sourceSystem: this.sourceSystem,
+          nomComplet: record.nom || '',
+          email: record.email || '',
+          poste: record.poste || ''
+        }),
+        EmployeeCollection
+      );
     } catch (error) {
       console.error('Error executing getEmployees:', error);
       return new EmployeeCollection();
@@ -1215,29 +1192,19 @@ export class Neo4jAdapter implements IAdapter {
     console.log('Neo4jAdapter: executing getAgences with filter:', filter);
     
     try {
-      const query = `
-        MATCH (a:Agence)
-        RETURN a.id_agence as id, a.ville as ville, a.adresse as adresse
-      `;
-      
-      const records = await this.executeCypherQuery(query);
-      const agences = new AgenceCollection();
-      
-      for (const record of records) {
-        try {
-          const agence = new Agence({
-            idAgence: `NEO_${record.id}`,
-            sourceSystem: this.sourceSystem,
-            ville: record.ville,
-            adresse: record.adresse
-          });
-          agences.addItem(agence);
-        } catch (itemError) {
-          console.warn('Error creating agence from record:', itemError);
-        }
-      }
-      
-      return agences;
+      // Use the generic queryEntityWithFilter method
+      return this.queryEntityWithFilter<Agence, AgenceCollection>(
+        'Agence',
+        filter,
+        'id_agence',
+        (record) => new Agence({
+          idAgence: `NEO_${record.id}`,
+          sourceSystem: this.sourceSystem,
+          ville: record.ville,
+          adresse: record.adresse
+        }),
+        AgenceCollection
+      );
     } catch (error) {
       console.error('Error executing getAgences:', error);
       return new AgenceCollection();
@@ -1256,30 +1223,20 @@ export class Neo4jAdapter implements IAdapter {
     console.log('Neo4jAdapter: executing getFournisseurs with filter:', filter);
     
     try {
-      const query = `
-        MATCH (f:Fournisseur)
-        RETURN f.id_fournisseur as id, f.nom as nom, f.adresse as adresse, f.telephone as telephone
-      `;
-      
-      const records = await this.executeCypherQuery(query);
-      const fournisseurs = new FournisseurCollection();
-      
-      for (const record of records) {
-        try {
-          const fournisseur = new Fournisseur({
-            idFournisseur: `NEO_${record.id}`,
-            sourceSystem: this.sourceSystem,
-            nomFournisseur: record.nom,
-            adresse: record.adresse,
-            numeroTelephone: record.telephone
-          });
-          fournisseurs.addItem(fournisseur);
-        } catch (itemError) {
-          console.warn('Error creating fournisseur from record:', itemError);
-        }
-      }
-      
-      return fournisseurs;
+      // Use the generic queryEntityWithFilter method
+      return this.queryEntityWithFilter<Fournisseur, FournisseurCollection>(
+        'Fournisseur',
+        filter,
+        'id_fournisseur',
+        (record) => new Fournisseur({
+          idFournisseur: `NEO_${record.id}`,
+          sourceSystem: this.sourceSystem,
+          nomFournisseur: record.nom,
+          adresse: record.adresse,
+          numeroTelephone: record.telephone
+        }),
+        FournisseurCollection
+      );
     } catch (error) {
       console.error('Error executing getFournisseurs:', error);
       return new FournisseurCollection();
@@ -1298,30 +1255,20 @@ export class Neo4jAdapter implements IAdapter {
     console.log('Neo4jAdapter: executing getProduits with filter:', filter);
     
     try {
-      const query = `
-        MATCH (p:Produit)
-        RETURN p.id_produit as id, p.description as description, p.prix as prix, p.categorie as categorie
-      `;
-      
-      const records = await this.executeCypherQuery(query);
-      const produits = new ProduitCollection();
-      
-      for (const record of records) {
-        try {
-          const produit = new Produit({
-            idProduit: `NEO_${record.id}`,
-            sourceSystem: this.sourceSystem,
-            description: record.description,
-            prixCout: record.prix,
-            categorie: record.categorie
-          });
-          produits.addItem(produit);
-        } catch (itemError) {
-          console.warn('Error creating produit from record:', itemError);
-        }
-      }
-      
-      return produits;
+      // Use the generic queryEntityWithFilter method
+      return this.queryEntityWithFilter<Produit, ProduitCollection>(
+        'Produit',
+        filter,
+        'id_produit',
+        (record) => new Produit({
+          idProduit: `NEO_${record.id}`,
+          sourceSystem: this.sourceSystem,
+          description: record.description,
+          prixCout: record.prix,
+          categorie: record.categorie
+        }),
+        ProduitCollection
+      );
     } catch (error) {
       console.error('Error executing getProduits:', error);
       return new ProduitCollection();
@@ -1333,9 +1280,34 @@ export class Neo4jAdapter implements IAdapter {
    * @param filter Optional query filter
    */
   public async getCommandes(filter?: QueryFilter): Promise<CommandeCollection> {
-    return filter ? 
-      this.executeFilteredQuery('commandes', filter) : 
-      this.executeFilteredQuery('commandes', {});
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+    
+    console.log('Neo4jAdapter: executing getCommandes with filter:', filter);
+    
+    try {
+      // Use the generic queryEntityWithFilter method
+      return this.queryEntityWithFilter<Commande, CommandeCollection>(
+        'Commande',
+        filter,
+        'id_commande',
+        (record) => new Commande({
+          idCommande: `NEO_${record.id}`,
+          sourceSystem: this.sourceSystem,
+          dateCommande: record.date ? formatDate(record.date) : '',
+          montant: record.montant || 0,
+          statut: record.statut || '',
+          modePaiement: record.mode_paiement || '',
+          clientRef: record.client_id ? `NEO_${record.client_id}` : '',
+          employeRef: record.employe_id ? `NEO_${record.employe_id}` : ''
+        }),
+        CommandeCollection
+      );
+    } catch (error) {
+      console.error('Error executing getCommandes:', error);
+      return new CommandeCollection();
+    }
   }
   
   /**
@@ -1353,9 +1325,31 @@ export class Neo4jAdapter implements IAdapter {
    * @param filter Optional query filter
    */
   public async getFactures(filter?: QueryFilter): Promise<FactureCollection> {
-    return filter ? 
-      this.executeFilteredQuery('factures', filter) : 
-      this.executeFilteredQuery('factures', {});
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+    
+    console.log('Neo4jAdapter: executing getFactures with filter:', filter);
+    
+    try {
+      // Use the generic queryEntityWithFilter method
+      return this.queryEntityWithFilter<Facture, FactureCollection>(
+        'Facture',
+        filter,
+        'id_facture',
+        (record) => new Facture({
+          idFacture: `NEO_${record.id}`,
+          sourceSystem: this.sourceSystem,
+          montantTotal: record.montant_total || 0,
+          dateFacture: record.date ? formatDate(record.date) : '',
+          commandeRef: record.commande_ref ? `NEO_${record.commande_ref}` : ''
+        }),
+        FactureCollection
+      );
+    } catch (error) {
+      console.error('Error executing getFactures:', error);
+      return new FactureCollection();
+    }
   }
   
   /**
@@ -1363,9 +1357,32 @@ export class Neo4jAdapter implements IAdapter {
    * @param filter Optional query filter
    */
   public async getLivraisons(filter?: QueryFilter): Promise<LivraisonCollection> {
-    return filter ? 
-      this.executeFilteredQuery('livraisons', filter) : 
-      this.executeFilteredQuery('livraisons', {});
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+    
+    console.log('Neo4jAdapter: executing getLivraisons with filter:', filter);
+    
+    try {
+      // Use the generic queryEntityWithFilter method
+      return this.queryEntityWithFilter<Livraison, LivraisonCollection>(
+        'Livraison',
+        filter,
+        'id_livraison',
+        (record) => new Livraison({
+          idLivraison: `NEO_${record.id}`,
+          sourceSystem: this.sourceSystem,
+          transporteur: record.transporteur || '',
+          dateEstimee: record.date_estimee ? formatDate(record.date_estimee) : '',
+          statut: record.statut || '',
+          commandeRef: record.commande_ref ? `NEO_${record.commande_ref}` : ''
+        }),
+        LivraisonCollection
+      );
+    } catch (error) {
+      console.error('Error executing getLivraisons:', error);
+      return new LivraisonCollection();
+    }
   }
   
   /**
@@ -1378,449 +1395,647 @@ export class Neo4jAdapter implements IAdapter {
       this.executeFilteredQuery('approvisionnements', {});
   }
 
-  private convertRecordsToCollection(entityType: string, records: any[]): any {
-    // Normalize the entity type to handle plurals and casing
-    const normalizedEntityType = entityType.toLowerCase().replace(/s$/, '');
+  /**
+   * Generic method to query any entity type from Neo4j
+   * This reduces code duplication across the get* methods
+   * 
+   * @param entityType The entity type (node label) in Neo4j
+   * @param filter Optional query filter
+   * @param idField The ID field name in Neo4j
+   * @param mapping Function to map Neo4j record to entity object
+   * @param collectionConstructor Constructor for collection
+   * @returns Collection of entities
+   */
+  private async queryEntityWithFilter<T, C>(
+    entityType: string,
+    filter: QueryFilter | undefined,
+    idField: string,
+    mapping: (record: Record<string, any>) => T,
+    collectionConstructor: new () => C & { addItem(item: T): void }
+  ): Promise<C> {
+    if (!this.isConnected()) {
+      await this.connect();
+    }
     
-    switch (normalizedEntityType) {
-      case 'client':
-        const clientCollection = new ClientCollection();
-        for (const record of records) {
-          const client = new Client({
-            idClient: `NEO_${record.id}`,
-            sourceSystem: this.sourceSystem,
-            nomComplet: record.nom || '',
-            adresse: record.adresse || '',
-            emailContact: record.email || '',
-            numeroTelephone: record.telephone || ''
-          });
-          clientCollection.addItem(client);
+    console.log(`Neo4jAdapter: executing query for ${entityType} with filter:`, filter);
+    
+    try {
+      // Build query based on entity type
+      const nodeAlias = entityType.charAt(0).toLowerCase();
+      let query = `MATCH (${nodeAlias}:${entityType})`;
+      
+      // Add return clause based on entity type
+      let returnClause = '';
+      switch (entityType) {
+        case 'Client':
+          returnClause = `RETURN ${nodeAlias}.id_client as id, ${nodeAlias}.nom as nom, ${nodeAlias}.adresse as adresse, ${nodeAlias}.email as email, ${nodeAlias}.telephone as telephone`;
+          break;
+        case 'Employe':
+          returnClause = `RETURN ${nodeAlias}.id_employe as id, ${nodeAlias}.nom as nom, ${nodeAlias}.email as email, ${nodeAlias}.poste as poste`;
+          break;
+        case 'Agence':
+          returnClause = `RETURN ${nodeAlias}.id_agence as id, ${nodeAlias}.ville as ville, ${nodeAlias}.adresse as adresse`;
+          break;
+        case 'Fournisseur':
+          returnClause = `RETURN ${nodeAlias}.id_fournisseur as id, ${nodeAlias}.nom as nom, ${nodeAlias}.adresse as adresse, ${nodeAlias}.telephone as telephone`;
+          break;
+        case 'Produit':
+          returnClause = `RETURN ${nodeAlias}.id_produit as id, ${nodeAlias}.description as description, ${nodeAlias}.prix as prix, ${nodeAlias}.categorie as categorie`;
+          break;
+        case 'Commande':
+          query = `MATCH (${nodeAlias}:${entityType})
+                  OPTIONAL MATCH (c:Client)-[:PASSE]->(${nodeAlias})
+                  OPTIONAL MATCH (e:Employe)-[:GERE]->(${nodeAlias})`;
+          returnClause = `RETURN ${nodeAlias}.id_commande as id, ${nodeAlias}.date as date, ${nodeAlias}.montant as montant, ${nodeAlias}.statut as statut, 
+                  ${nodeAlias}.mode_paiement as mode_paiement, c.id_client as client_id, e.id_employe as employe_id`;
+          break;
+        case 'Facture':
+          query = `MATCH (c:Commande)-[:FACTURE]->(${nodeAlias}:${entityType})`;
+          returnClause = `RETURN ${nodeAlias}.id_facture as id, ${nodeAlias}.montant_total as montant_total, ${nodeAlias}.date as date, c.id_commande as commande_ref`;
+          break;
+        case 'Livraison':
+          query = `MATCH (c:Commande)-[:LIVREE_PAR]->(${nodeAlias}:${entityType})`;
+          returnClause = `RETURN ${nodeAlias}.id_livraison as id, ${nodeAlias}.transporteur as transporteur, 
+                  ${nodeAlias}.date_estimee as date_estimee, ${nodeAlias}.statut as statut, c.id_commande as commande_ref`;
+          break;
+        default:
+          throw new Error(`Unknown entity type: ${entityType}`);
+      }
+      
+      // Add filter conditions if provided
+      let params: Record<string, any> = {};
+      if (filter && filter.conditions && filter.conditions.length > 0) {
+        const { whereClause, params: whereParams } = this.buildWhereClause(filter, nodeAlias);
+        if (whereClause) {
+          query += `\n${whereClause}`;
+          params = whereParams;
         }
-        return clientCollection;
-        
-      case 'employe':
-      case 'employee':
-        const employeeCollection = new EmployeeCollection();
-        for (const record of records) {
-          const employee = new Employee({
-            idEmploye: `NEO_${record.id}`,
-            sourceSystem: this.sourceSystem,
-            nomComplet: record.nom || '',
-            email: record.email || '',
-            poste: record.poste || '',
-            agenceRef: `NEO_${record.agence_id}`
-          });
-          employeeCollection.addItem(employee);
+      }
+      
+      // Complete query with return clause
+      query += `\n${returnClause}`;
+      
+      // Execute query
+      const records = await this.executeCypherQuery(query, params);
+      const collection = new collectionConstructor();
+      
+      // Map results to entities
+      for (const record of records) {
+        try {
+          const entity = mapping(record);
+          collection.addItem(entity);
+        } catch (itemError) {
+          console.warn(`Error creating ${entityType} from record:`, itemError, record);
         }
-        return employeeCollection;
-        
-      case 'agence':
-        const agenceCollection = new AgenceCollection();
-        for (const record of records) {
-          const agence = new Agence({
-            idAgence: `NEO_${record.id}`,
-            sourceSystem: this.sourceSystem,
-            ville: record.ville || '',
-            adresse: record.adresse || '',
-            responsableRef: `NEO_${record.responsable_id}`
-          });
-          agenceCollection.addItem(agence);
+      }
+      
+      return collection;
+    } catch (error) {
+      console.error(`Error executing query for ${entityType}:`, error);
+      return new collectionConstructor();
+    }
+  }
+  
+  /**
+   * Execute a LAV view definition to get mapped data
+   * 
+   * @param viewDef The LAV view definition to execute
+   * @param filter Query filter to apply to the view
+   * @returns Results from executing the view with the filter applied
+   */
+  public async executeLAVView(viewDef: any, filter: QueryFilter = {}): Promise<any[]> {
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+    
+    if (!viewDef) {
+      console.error('No view definition provided to executeLAVView');
+      return [];
+    }
+    
+    // Extract the actual view definition from the parameters if necessary
+    const viewDefinition = viewDef.parameters?.mapping?.viewDefinition || viewDef;
+    
+    console.log(`Executing LAV view: ${viewDefinition.name || 'unnamed'}`);
+    
+    try {
+      // Extract entity information from view definition
+      const entityType = viewDefinition.entityType || 'Client';
+      const nodeAlias = viewDefinition.entityAlias || entityType.charAt(0).toLowerCase();
+      
+      // Build the Cypher query based on entity type
+      let query = `MATCH (${nodeAlias}:${entityType})`;
+      
+      // Add joins if defined in the view
+      if (viewDefinition.joins && viewDefinition.joins.length > 0) {
+        for (const join of viewDefinition.joins) {
+          const joinAlias = join.entityAlias || join.entityType.charAt(0).toLowerCase();
+          
+          // Handle different relationship types based on the entities being joined
+          let relationshipType = '';
+          
+          if (entityType === 'Commande' && join.entityType === 'Client') {
+            // Client to Order relationship
+            query += `\nOPTIONAL MATCH (${joinAlias}:${join.entityType})-[:PASSE]->(${nodeAlias})`;
+          } else if (entityType === 'Commande' && join.entityType === 'Employe') {
+            // Employee to Order relationship
+            query += `\nOPTIONAL MATCH (${joinAlias}:${join.entityType})-[:GERE]->(${nodeAlias})`;
+          } else if (entityType === 'Facture' && join.entityType === 'Commande') {
+            // Order to Invoice relationship
+            query += `\nOPTIONAL MATCH (${joinAlias}:${join.entityType})-[:FACTURE]->(${nodeAlias})`;
+          } else if (entityType === 'Livraison' && join.entityType === 'Commande') {
+            // Order to Delivery relationship
+            query += `\nOPTIONAL MATCH (${joinAlias}:${join.entityType})-[:LIVREE_PAR]->(${nodeAlias})`;
+          } else {
+            // Generic relationship with explicit join fields
+            query += `\nOPTIONAL MATCH (${joinAlias}:${join.entityType})`;
+            if (join.leftField && join.rightField) {
+              query += `\n  WHERE ${nodeAlias}.${join.leftField} = ${joinAlias}.${join.rightField}`;
+            }
+          }
         }
-        return agenceCollection;
-        
-      case 'fournisseur':
-        const fournisseurCollection = new FournisseurCollection();
-        for (const record of records) {
-          const fournisseur = new Fournisseur({
-            idFournisseur: `NEO_${record.id}`,
-            sourceSystem: this.sourceSystem,
-            nomFournisseur: record.nom || '',
-            adresse: record.adresse || '',
-            numeroTelephone: record.telephone || ''
-          });
-          fournisseurCollection.addItem(fournisseur);
+      }
+      
+      // Add WHERE clause if there are conditions in the filter
+      const params: Record<string, any> = {};
+      if (filter.conditions && filter.conditions.length > 0) {
+        const { whereClause, params: whereParams } = this.buildWhereClause(filter, nodeAlias);
+        if (whereClause) {
+          query += `\n${whereClause}`;
+          Object.assign(params, whereParams);
         }
-        return fournisseurCollection;
+      }
+      
+      // Build the appropriate RETURN clause based on entity type
+      let returnClause = '';
+      switch (entityType) {
+        case 'Client':
+          returnClause = `RETURN ${nodeAlias}.id_client as id, ${nodeAlias}.nom as nom, ${nodeAlias}.adresse as adresse, 
+                          ${nodeAlias}.email as email, ${nodeAlias}.telephone as telephone`;
+          break;
+        case 'Employe':
+          returnClause = `RETURN ${nodeAlias}.id_employe as id, ${nodeAlias}.nom as nom, ${nodeAlias}.email as email, 
+                          ${nodeAlias}.poste as poste`;
+          break;
+        case 'Agence':
+          returnClause = `RETURN ${nodeAlias}.id_agence as id, ${nodeAlias}.ville as ville, ${nodeAlias}.adresse as adresse`;
+          break;
+        case 'Fournisseur':
+          returnClause = `RETURN ${nodeAlias}.id_fournisseur as id, ${nodeAlias}.nom as nom, ${nodeAlias}.adresse as adresse, 
+                          ${nodeAlias}.telephone as telephone`;
+          break;
+        case 'Produit':
+          returnClause = `RETURN ${nodeAlias}.id_produit as id, ${nodeAlias}.description as description, 
+                          ${nodeAlias}.prix as prix, ${nodeAlias}.categorie as categorie`;
+          break;
+        case 'Commande':
+          returnClause = `RETURN ${nodeAlias}.id_commande as id, ${nodeAlias}.date as date, ${nodeAlias}.montant as montant, 
+                          ${nodeAlias}.statut as statut, ${nodeAlias}.mode_paiement as mode_paiement, 
+                          c.id_client as client_id, e.id_employe as employe_id`;
+          break;
+        case 'Facture':
+          returnClause = `RETURN ${nodeAlias}.id_facture as id, ${nodeAlias}.montant_total as montant_total, 
+                          ${nodeAlias}.date as date, c.id_commande as commande_ref`;
+          break;
+        case 'Livraison':
+          returnClause = `RETURN ${nodeAlias}.id_livraison as id, ${nodeAlias}.transporteur as transporteur, 
+                          ${nodeAlias}.date_estimee as date_estimee, ${nodeAlias}.statut as statut, 
+                          c.id_commande as commande_ref`;
+          break;
+        default:
+          // Generic return clause for unknown entity types
+          returnClause = `RETURN ${nodeAlias}`;
+          break;
+      }
+      
+      // Complete the query with RETURN, ORDER BY, and LIMIT clauses
+      query += `\n${returnClause}`;
+      
+      // Add ORDER BY clause if specified in the filter
+      if (filter.orderBy && filter.orderBy.length > 0) {
+        const orderTerms = filter.orderBy.map(order => {
+          const prop = this.translateProperty(order.column);
+          return `${nodeAlias}.${prop} ${order.type}`;
+        });
+        query += `\nORDER BY ${orderTerms.join(', ')}`;
+      }
+      
+      // Add LIMIT and SKIP (for pagination) if specified in the filter
+      if (filter.limit) {
+        query += `\nLIMIT ${filter.limit}`;
+      }
+      
+      if (filter.offset) {
+        query += `\nSKIP ${filter.offset}`;
+      }
+      
+      console.log('Executing Cypher query for LAV view:', query);
+      console.log('With parameters:', params);
+      
+      // Execute the Cypher query
+      const result = await this.executeCypherQuery(query, params);
+      return result;
+    } catch (error) {
+      console.error('Error executing LAV view:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * Execute a query that has been rewritten using the LAV bucket algorithm
+   * 
+   * @param query The rewritten query specific to this source
+   * @param parameters Additional parameters for the query
+   * @returns Query results
+   */
+  public async executeQuery(query: string, parameters: Record<string, any> = {}): Promise<any[]> {
+    if (!this.isConnected()) {
+      await this.connect();
+    }
+    
+    console.log('Executing Neo4j query:', query);
+    console.log('Parameters:', JSON.stringify(parameters, null, 2));
+    
+    try {
+      // Extract view definition and attribute mappings from parameters
+      let viewDefinition = null;
+      let attributeMappings: Record<string, string> = {};
+      
+      // Case 1: viewDefinition is directly in parameters
+      if (parameters.viewDefinition) {
+        viewDefinition = parameters.viewDefinition;
+        attributeMappings = parameters.attributeMappings || {};
+      } 
+      // Case 2: viewDefinition is in parameters.mapping
+      else if (parameters.mapping && parameters.mapping.viewDefinition) {
+        viewDefinition = parameters.mapping.viewDefinition;
+        attributeMappings = parameters.mapping.attributeMappings || {};
+      } 
+      // Case 3: No explicit mapping, look for a matching LAV view
+      else {
+        console.log('No explicit mapping provided for Neo4j query. Looking for matching LAV view...');
         
-      case 'produit':
-        const produitCollection = new ProduitCollection();
-        for (const record of records) {
-          const produit = new Produit({
-            idProduit: `NEO_${record.id}`,
-            sourceSystem: this.sourceSystem,
-            description: record.description || '',
-            prixCout: record.prix || 0,
-            categorie: record.categorie || ''
-          });
-          produitCollection.addItem(produit);
+        // Try to find a matching LAV view from our defined views
+        const views = this.getLAVViews();
+        console.log(`Found ${views.length} LAV views to check for a match`);
+        
+        const matchingView = views.find(view => {
+          // Check if the query matches this view's query or view name
+          return view.query.toLowerCase().includes(query.toLowerCase()) || 
+                 query.toLowerCase().includes(view.viewName.toLowerCase());
+        });
+        
+        if (matchingView) {
+          console.log('Found matching LAV view:', matchingView.viewName);
+          viewDefinition = matchingView.parameters?.mapping?.viewDefinition;
+          attributeMappings = matchingView.parameters?.mapping?.attributeMappings || {};
+        } else {
+          console.warn('No mapping provided for Neo4j query. Returning empty result set.');
+          return [];
         }
-        return produitCollection;
+      }
+      
+      // Validate view definition
+      if (!viewDefinition) {
+        console.error('No view definition found for query execution');
+        return [];
+      }
+      
+      console.log('Using view definition:', JSON.stringify(viewDefinition, null, 2));
+      
+      // Create a filter for the executeLAVView method
+      const filter: QueryFilter = {
+        conditions: []
+      };
+      
+      // Add any query-specific filters from parameters
+      if (parameters.filter) {
+        Object.assign(filter, parameters.filter);
+      }
+      
+      // Execute the LAV view with the filter
+      const results = await this.executeLAVView(viewDefinition, filter);
+      console.log(`Neo4j query returned ${results.length} results`);
+      
+      // Transform results according to the attribute mapping
+      return results.map((record: Record<string, any>) => {
+        const mappedRecord: Record<string, any> = {};
         
-      case 'commande':
-        const commandeCollection = new CommandeCollection();
-        for (const record of records) {
-          const commande = new Commande({
-            idCommande: `NEO_${record.id}`,
-            sourceSystem: this.sourceSystem,
-            dateCommande: formatDate(record.date),
-            montant: record.montant || 0,
-            statut: record.statut || '',
-            modePaiement: record.mode_paiement || '',
-            clientRef: `NEO_${record.client_id}`,
-            employeRef: `NEO_${record.employe_id}`
-          });
-          commandeCollection.addItem(commande);
+        // Map each attribute according to the defined mappings
+        for (const [globalAttribute, sourceAttribute] of Object.entries(attributeMappings)) {
+          if (record[sourceAttribute] !== undefined) {
+            mappedRecord[globalAttribute] = record[sourceAttribute];
+          }
         }
-        return commandeCollection;
         
-      case 'detail_commande':
-      case 'details_commande':
-      case 'detailscommande':
-      case 'detailcommande':
-        const detailCommandeCollection = new DetailCommandeCollection();
-        for (const record of records) {
-          const detailCommande = new DetailCommande({
-            idCommande: `NEO_${record.commande_id}`,
-            idProduit: `NEO_${record.produit_id}`,
-            sourceSystem: this.sourceSystem,
-            quantite: record.quantite || 0
-          });
-          detailCommandeCollection.addItem(detailCommande);
+        // Always include source system information
+        mappedRecord.sourceSystem = this.sourceSystem;
+        
+        // For Neo4j IDs, prefix them to avoid conflicts with other sources
+        if (mappedRecord.idClient && !mappedRecord.idClient.toString().startsWith('NEO_')) {
+          mappedRecord.idClient = `NEO_${mappedRecord.idClient}`;
         }
-        return detailCommandeCollection;
         
-      case 'facture':
-        const factureCollection = new FactureCollection();
-        for (const record of records) {
-          const facture = new Facture({
-            idFacture: `NEO_${record.id}`,
-            sourceSystem: this.sourceSystem,
-            montantTotal: record.montant || 0,
-            dateFacture: formatDate(record.date),
-            commandeRef: `NEO_${record.commande_id}`
-          });
-          factureCollection.addItem(facture);
+        return mappedRecord;
+      });
+    } catch (error) {
+      console.error('Error executing Neo4j query:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * Parse a SQL-like query string into entity name and filter
+   * This is a simplified parser for demonstration purposes
+   */
+  private parseQuery(query: string): { entityName: string, filter: QueryFilter } | null {
+    try {
+      // Basic parsing of SELECT queries
+      if (query.toUpperCase().startsWith('SELECT')) {
+        const fromMatch = query.match(/FROM\s+(\w+)/i);
+        if (!fromMatch) {
+          return null;
         }
-        return factureCollection;
         
-      case 'livraison':
-        const livraisonCollection = new LivraisonCollection();
-        for (const record of records) {
-          const livraison = new Livraison({
-            idLivraison: `NEO_${record.id}`,
-            sourceSystem: this.sourceSystem,
-            transporteur: record.transporteur || '',
-            dateEstimee: formatDate(record.date_estimee),
-            statut: record.statut || '',
-            commandeRef: `NEO_${record.commande_id}`
-          });
-          livraisonCollection.addItem(livraison);
+        const entityName = fromMatch[1];
+        const filter: QueryFilter = {};
+        
+        // Extract WHERE conditions
+        const whereMatch = query.match(/WHERE\s+(.*?)(?:ORDER BY|LIMIT|$)/i);
+        if (whereMatch) {
+          // Very basic condition parsing - in a real implementation,
+          // you would use a proper SQL parser here
+          const conditions = whereMatch[1].split('AND').map(condition => {
+            const parts = condition.trim().match(/([\w.]+)\s*([=<>]+)\s*(.+)/);
+            if (parts) {
+              return {
+                type: 'binary_expr',
+                left: { type: 'column_ref', column: parts[1].trim() },
+                operator: parts[2].trim(),
+                right: { 
+                  type: 'value', 
+                  value: parts[3].trim().replace(/^'|'$/g, '') // Strip quotes if present
+                }
+              };
+            }
+            return null;
+          }).filter(Boolean);
+          
+          if (conditions.length > 0) {
+            filter.conditions = conditions;
+          }
         }
-        return livraisonCollection;
         
-      case 'approvisionnements':
-        const approvisionnementCollection = new ApprovisionnementCollection();
-        for (const record of records) {
-          const approvisionnement = new Approvisionnement({
-            idProduit: `NEO_${record.produit_id}`,
-            idFournisseur: `NEO_${record.fournisseur_id}`,
-            sourceSystem: this.sourceSystem,
-            quantite: record.quantite || 0
-          });
-          approvisionnementCollection.addItem(approvisionnement);
-        }
-        return approvisionnementCollection;
-        
-      default:
-        console.warn(`Unknown entity type: ${entityType}, returning original records`);
-        return records;
+        return { entityName, filter };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error parsing query:', error);
+      return null;
     }
   }
 
   /**
-   * Get LAV view definitions for this Neo4j data source
+   * Get LAV view definitions for this adapter
+   * This defines how local Neo4j data maps to the global schema
+   * 
+   * @returns Array of LAV view definitions
    */
   public getLAVViews(): LAVViewDefinition[] {
     const sourceId = this.getSourceSystem();
     
     return [
+      // Client mapping
       {
         sourceId,
         viewName: 'neo4j_clients',
-        query: 'MATCH (c:Client) RETURN c',
+        query: 'SELECT * FROM Clients',
         bucketId: 'clients',
         queryLanguage: 'cypher',
         parameters: {
           mapping: {
-            'global_id': 'c.id',
-            'global_name': 'c.nom',
-            'global_email': 'c.email',
-            'global_phone': 'c.telephone',
-            'global_address': 'c.adresse'
+            viewDefinition: {
+              name: 'clients',
+              entityType: 'Client',
+              entityAlias: 'c',
+              joins: []
+            },
+            attributeMappings: {
+              'idClient': 'id',
+              'nomComplet': 'nom',
+              'adresse': 'adresse',
+              'emailContact': 'email',
+              'numeroTelephone': 'telephone'
+            }
           }
         }
       },
+      
+      // Employee mapping
+      {
+        sourceId,
+        viewName: 'neo4j_employees',
+        query: 'SELECT * FROM Employees',
+        bucketId: 'employees',
+        queryLanguage: 'cypher',
+        parameters: {
+          mapping: {
+            viewDefinition: {
+              name: 'employees',
+              entityType: 'Employe',
+              entityAlias: 'e',
+              joins: []
+            },
+            attributeMappings: {
+              'idEmploye': 'id',
+              'nomComplet': 'nom',
+              'email': 'email',
+              'poste': 'poste'
+            }
+          }
+        }
+      },
+      
+      // Agency mapping
+      {
+        sourceId,
+        viewName: 'neo4j_agences',
+        query: 'SELECT * FROM Agences',
+        bucketId: 'agences',
+        queryLanguage: 'cypher',
+        parameters: {
+          mapping: {
+            viewDefinition: {
+              name: 'agences',
+              entityType: 'Agence',
+              entityAlias: 'a',
+              joins: []
+            },
+            attributeMappings: {
+              'idAgence': 'id',
+              'ville': 'ville',
+              'adresse': 'adresse'
+            }
+          }
+        }
+      },
+      
+      // Supplier mapping
+      {
+        sourceId,
+        viewName: 'neo4j_fournisseurs',
+        query: 'SELECT * FROM Fournisseurs',
+        bucketId: 'fournisseurs',
+        queryLanguage: 'cypher',
+        parameters: {
+          mapping: {
+            viewDefinition: {
+              name: 'fournisseurs',
+              entityType: 'Fournisseur',
+              entityAlias: 'f',
+              joins: []
+            },
+            attributeMappings: {
+              'idFournisseur': 'id',
+              'nomFournisseur': 'nom',
+              'adresse': 'adresse',
+              'numeroTelephone': 'telephone'
+            }
+          }
+        }
+      },
+      
+      // Product mapping
       {
         sourceId,
         viewName: 'neo4j_produits',
-        query: 'MATCH (p:Produit) RETURN p',
+        query: 'SELECT * FROM Produits',
         bucketId: 'produits',
         queryLanguage: 'cypher',
         parameters: {
           mapping: {
-            'global_id': 'p.id',
-            'global_name': 'p.nom',
-            'global_desc': 'p.description',
-            'global_price': 'p.prix',
-            'global_category': 'p.categorie'
+            viewDefinition: {
+              name: 'produits',
+              entityType: 'Produit',
+              entityAlias: 'p',
+              joins: []
+            },
+            attributeMappings: {
+              'idProduit': 'id',
+              'description': 'description',
+              'prixCout': 'prix',
+              'categorie': 'categorie'
+            }
           }
         }
       },
+      
+      // Order mapping
       {
         sourceId,
         viewName: 'neo4j_commandes',
-        query: 'MATCH (o:Commande) RETURN o',
+        query: 'SELECT * FROM Commandes',
         bucketId: 'commandes',
+        queryLanguage: 'cypher',
         parameters: {
           mapping: {
-            'global_id': 'o.id',
-            'global_date': 'o.date',
-            'global_client_id': 'o.clientId',
-            'global_status': 'o.statut',
-            'global_total': 'o.total'
+            viewDefinition: {
+              name: 'commandes',
+              entityType: 'Commande',
+              entityAlias: 'o',
+              joins: [
+                {
+                  entityType: 'Client',
+                  entityAlias: 'c',
+                  leftField: 'client_id',
+                  rightField: 'id_client'
+                },
+                {
+                  entityType: 'Employe',
+                  entityAlias: 'e',
+                  leftField: 'employe_id',
+                  rightField: 'id_employe'
+                }
+              ]
+            },
+            attributeMappings: {
+              'idCommande': 'id',
+              'dateCommande': 'date',
+              'montant': 'montant',
+              'statut': 'statut',
+              'modePaiement': 'mode_paiement',
+              'clientRef': 'client_id',
+              'employeRef': 'employe_id'
+            }
           }
         }
       },
+      
+      // Invoice mapping
       {
         sourceId,
-        viewName: 'neo4j_client_orders',
-        query: 'MATCH (c:Client)-[r:A_COMMANDE]->(o:Commande) RETURN c, o, r',
-        bucketId: 'client_orders',
+        viewName: 'neo4j_factures',
+        query: 'SELECT * FROM Factures',
+        bucketId: 'factures',
+        queryLanguage: 'cypher',
         parameters: {
           mapping: {
-            'global_client_id': 'c.id',
-            'global_client_name': 'c.nom',
-            'global_order_id': 'o.id',
-            'global_order_date': 'o.date',
-            'global_order_total': 'o.total'
+            viewDefinition: {
+              name: 'factures',
+              entityType: 'Facture',
+              entityAlias: 'f',
+              joins: [
+                {
+                  entityType: 'Commande',
+                  entityAlias: 'c',
+                  leftField: 'commande_ref',
+                  rightField: 'id_commande'
+                }
+              ]
+            },
+            attributeMappings: {
+              'idFacture': 'id',
+              'montantTotal': 'montant_total',
+              'dateFacture': 'date',
+              'commandeRef': 'commande_ref'
+            }
           }
         }
       },
+      
+      // Delivery mapping
       {
         sourceId,
-        viewName: 'neo4j_order_products',
-        query: 'MATCH (o:Commande)-[r:CONTIENT]->(p:Produit) RETURN o, r, p',
-        bucketId: 'order_items',
+        viewName: 'neo4j_livraisons',
+        query: 'SELECT * FROM Livraisons',
+        bucketId: 'livraisons',
+        queryLanguage: 'cypher',
         parameters: {
           mapping: {
-            'global_order_id': 'o.id',
-            'global_product_id': 'p.id',
-            'global_quantity': 'r.quantite',
-            'global_price': 'r.prix',
-            'global_subtotal': 'r.sousTotal'
-          }
-        }
-      },
-      {
-        sourceId,
-        viewName: 'neo4j_complete_order_path',
-        query: 'MATCH (c:Client)-[:A_COMMANDE]->(o:Commande)-[r:CONTIENT]->(p:Produit) RETURN c, o, r, p',
-        bucketId: 'client_product_path',
-        parameters: {
-          mapping: {
-            'global_client_id': 'c.id',
-            'global_client_name': 'c.nom',
-            'global_order_id': 'o.id',
-            'global_order_date': 'o.date',
-            'global_product_id': 'p.id',
-            'global_product_name': 'p.nom',
-            'global_quantity': 'r.quantite',
-            'global_price': 'r.prix'
+            viewDefinition: {
+              name: 'livraisons',
+              entityType: 'Livraison',
+              entityAlias: 'l',
+              joins: [
+                {
+                  entityType: 'Commande',
+                  entityAlias: 'c',
+                  leftField: 'commande_ref',
+                  rightField: 'id_commande'
+                }
+              ]
+            },
+            attributeMappings: {
+              'idLivraison': 'id',
+              'transporteur': 'transporteur',
+              'dateEstimee': 'date_estimee',
+              'statut': 'statut',
+              'commandeRef': 'commande_ref'
+            }
           }
         }
       }
     ];
   }
-
-  /**
-   * Execute a Cypher query that has been rewritten using the LAV bucket algorithm
-   * 
-   * @param query The Cypher query to execute
-   * @param parameters Additional parameters for the query
-   * @returns Query results
-   */
-  public async executeQuery(query: string, parameters: Record<string, any> = {}): Promise<any[]> {
-    // Ensure we have a valid session
-    if (!this.isConnected() || !this.session) {
-      await this.connect();
-    }
-    
-    if (!this.session) {
-      throw new Error('Cannot execute query: Not connected to Neo4j database');
-    }
-    
-    try {
-      console.log('Executing Neo4j query:', query, 'with parameters:', parameters);
-      
-      // Handle special combined queries from the bucket algorithm
-      if (query.includes('/* Combined query: */')) {
-        const queryParts = query.split(/\/\*.*?\*\//g).filter(part => part.trim().length > 0);
-        let allResults: any[] = [];
-        
-        for (const part of queryParts) {
-          const results = await this.executeCypherQuery(part.trim());
-          allResults = [...allResults, ...results];
-        }
-        
-        // Apply mapping to global schema if provided
-        if (parameters.mapping) {
-          return this.mapResultsToGlobalSchema(allResults, parameters.mapping);
-        }
-        
-        return allResults;
-      } else {
-        // Standard Cypher query execution
-        const results = await this.executeCypherQuery(query);
-        
-        // Apply mapping to global schema if provided
-        if (parameters.mapping) {
-          return this.mapResultsToGlobalSchema(results, parameters.mapping);
-        }
-        
-        return results;
-      }
-    } catch (error) {
-      console.error(`Error executing Neo4j query: ${query}`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Execute a Cypher query directly
-   * 
-   * @param query Cypher query string
-   * @returns Query results
-   */
-  private async executeCypherQuery(query: string): Promise<any[]> {
-    try {
-      // Ensure we have a valid session
-      if (!this.isConnected() || !this.session) {
-        await this.connect();
-      }
-      
-      if (!this.session) {
-        throw new Error('Failed to create a Neo4j session');
-      }
-      
-      const result = await this.session.run(query);
-      
-      // Transform Neo4j records to plain objects
-      return result.records.map(record => {
-        const obj: Record<string, any> = {};
-        
-        // Extract keys and values from the record
-        record.keys.forEach(key => {
-          const value = record.get(key);
-          
-          if (value && typeof value === 'object' && value.constructor.name === 'Node') {
-            // Extract Node properties
-            obj[key] = { ...value.properties, id: value.identity.toString() };
-          } else if (value && typeof value === 'object' && value.constructor.name === 'Relationship') {
-            // Extract Relationship properties
-            obj[key] = { ...value.properties, type: value.type };
-          } else {
-            obj[key] = value;
-          }
-        });
-        
-        // Add source system to each result
-        obj.sourceSystem = this.getSourceSystem();
-        
-        // Add a get method for compatibility with older code
-        obj.get = function(field: string) {
-          return this[field];
-        };
-        
-        return obj;
-      });
-    } catch (error) {
-      console.error(`Error executing Neo4j query: ${query}`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Map Neo4j query results to the global schema
-   * 
-   * @param results The Neo4j query results to map
-   * @param mapping The mapping from source attributes to global attributes
-   * @returns Mapped results
-   */
-  private mapResultsToGlobalSchema(results: any[], mapping: Record<string, string>): any[] {
-    return results.map(row => {
-      const globalRow: Record<string, any> = { ...row }; // Start with original data
-      
-      // Apply mappings
-      for (const [globalAttr, neoAttr] of Object.entries(mapping)) {
-        // Handle nested properties (e.g., "c.id")
-        if (neoAttr.includes('.')) {
-          const [objName, propName] = neoAttr.split('.');
-          
-          if (row[objName] && row[objName][propName] !== undefined) {
-            globalRow[globalAttr] = row[objName][propName];
-          }
-        } else if (row[neoAttr] !== undefined) {
-          // Direct property mapping
-          globalRow[globalAttr] = row[neoAttr];
-        }
-      }
-      
-      return globalRow;
-    });
-  }
-
-  /**
-   * Check if this adapter can handle a specific query pattern
-   * 
-   * @param pattern The query pattern to check
-   * @returns Whether this adapter can handle the pattern
-   */
-  public canHandleQueryPattern(pattern: string): boolean {
-    try {
-      // Check if pattern mentions nodes or relationships
-      const hasNodes = /(Client|Produit|Commande|Fournisseur)/i.test(pattern);
-      const hasRelationships = /(A_COMMANDE|CONTIENT|FOURNIT)/i.test(pattern);
-      
-      if (hasNodes || hasRelationships) {
-        return true;
-      }
-      
-      // Extract entity/relationship patterns from the query
-      const bucketMatch = pattern.match(/FROM\s+(\w+)/i);
-      if (bucketMatch) {
-        const requestedBucket = bucketMatch[1].toLowerCase();
-        
-        // Check against our LAV views
-        const views = this.getLAVViews();
-        for (const view of views) {
-          // Check if any view matches this bucket ID
-          if (view.bucketId?.toLowerCase() === requestedBucket) {
-            return true;
-          }
-        }
-      }
-      
-      return false;
-    } catch (error) {
-      console.error(`Error in canHandleQueryPattern: ${error}`);
-      return false;
-  }
-}
-
-/**
- * Capitalize first letter of a string
- */
-private capitalizeFirstLetter(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
 }

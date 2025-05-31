@@ -333,6 +333,13 @@ export class LAVMappingManager {
 
       // Step 3: Create buckets for each predicate
       const predicateBuckets = this.createPredicateBuckets(queryPredicates);
+      console.log(`Created predicate buckets:`,
+        Array.from(predicateBuckets.keys()).map(key => ({
+          predicate: key,
+          views: predicateBuckets.get(key)?.length || 0
+        }))
+      );
+      
 
       // Step 4: Generate rewritings using the bucket algorithm
       const candidateRewritings = this.executeBucketAlgorithm(query, predicateBuckets);
@@ -445,30 +452,41 @@ export class LAVMappingManager {
     const queryLanguage = view.queryLanguage || this.detectQueryLanguage(view.query);
     
     if (queryLanguage === 'cypher') {
-      // For Cypher queries, check if the node label matches the predicate
-      return view.query.includes(`:${predicate}`) || 
-             view.query.toLowerCase().includes(predicate.toLowerCase());
+      // Consider both singular and plural forms and case-insensitive matching
+      const predicateLower = predicate.toLowerCase();
+      const singularForm = predicateLower.endsWith('s') ? predicateLower.slice(0, -1) : predicateLower;
+      const pluralForm = predicateLower.endsWith('s') ? predicateLower : predicateLower + 's';
+      
+      return view.query.toLowerCase().includes(`:${singularForm}`) || 
+             view.query.toLowerCase().includes(`:${pluralForm}`) || 
+             view.query.toLowerCase().includes(predicateLower) ||
+             (view.bucketId && view.bucketId.toLowerCase() === predicateLower);
     }
     
     if (queryLanguage === 'xpath') {
-      // For XPath queries, check if the element name matches the predicate
-      return view.query.includes(`/${predicate}`) || 
-             view.query.includes(`/${predicate}/`) ||
-             view.query.includes(`//${predicate}`) ||
-             view.query.toLowerCase().includes(predicate.toLowerCase());
+      // For XPath queries, use case-insensitive matching and check bucket ID
+      const predicateLower = predicate.toLowerCase();
+      return view.query.toLowerCase().includes(`/${predicateLower}`) || 
+             view.query.toLowerCase().includes(`/${predicateLower}/`) ||
+             view.query.toLowerCase().includes(`//${predicateLower}`) ||
+             (view.bucketId && view.bucketId.toLowerCase() === predicateLower);
     }
     
-    // For SQL, use the standard parsing approach
+    // For SQL, use the standard parsing approach with enhanced bucket matching
     const ast = this.parseQuery(view.query);
-    if (!ast) return false;
+    if (!ast) {
+      // If parsing fails, fall back to simple string matching and bucket ID check
+      return view.query.toLowerCase().includes(predicate.toLowerCase()) ||
+             (view.bucketId && view.bucketId.toLowerCase() === predicate.toLowerCase());
+    }
     
     // Extract tables from the view query
     const viewTables = this.extractTableNames(ast);
     
-    // Check if the predicate (table name) is in the view definition
+    // Check if the predicate (table name) is in the view definition or matches the bucket ID
     return viewTables.some(table => 
       table.toLowerCase() === predicate.toLowerCase()
-    );
+    ) || (view.bucketId && view.bucketId.toLowerCase() === predicate.toLowerCase());
   }
 
   /**

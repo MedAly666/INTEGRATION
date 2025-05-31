@@ -292,20 +292,33 @@ export interface IAdapter {
   /**
    * Get LAV view definitions for this data source
    * Following the LAV approach, this describes what each data source can provide
-   * in terms of the global schema
+   * in terms of the global schema. These views map local data to the global schema
+   * and are used by the mediator to determine how to rewrite queries.
    * 
-   * @returns Array of LAV view definitions
+   * @returns Array of LAV view definitions that map local data to global schema
    */
   getLAVViews(): LAVViewDefinition[];
   
   /**
    * Execute a query that has been rewritten using the LAV bucket algorithm
+   * This method should handle the execution of a query that has been transformed 
+   * by the mediator using LAV view definitions
    * 
    * @param query The rewritten query specific to this source
-   * @param parameters Additional parameters for the query
-   * @returns Query results
+   * @param parameters Additional parameters including mapping information for LAV
+   * @returns Query results mapped to the global schema
    */
   executeQuery(query: string, parameters: Record<string, any>): Promise<any[]>;
+  
+  /**
+   * Execute a specific LAV view with the provided filter
+   * This method is called by executeQuery to process a specific view definition
+   * 
+   * @param viewDef The LAV view definition to execute
+   * @param filter Query filter to apply to the view
+   * @returns Results from executing the view with the filter applied
+   */
+  executeLAVView?(viewDef: any, filter: QueryFilter): Promise<any[]>;
   
   /**
    * Check if this adapter can handle a specific query pattern

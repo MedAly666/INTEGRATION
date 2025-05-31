@@ -126,25 +126,53 @@ export class XMLAdapter implements IAdapter {
   }
 
   /**
-   * Execute an XPath query
+   * Execute an XPath query directly
    * 
-   * @param xpathQuery The XPath query
-   * @returns Array of matched nodes
+   * @param xpathQuery XPath query
+   * @param queryParams Query parameters
+   * @returns Query results
    */
-  private executeXPathQuery(xpathQuery: string): Element[] {
-    if (!this.isConnected()) {
-      throw new Error('Not connected to XML data source');
-    }
-    
-    console.log(`Executing XPath query: ${xpathQuery}`);
-    
+  private async executeXPathQuery(xpathQuery: string, queryParams: Record<string, any> = {}): Promise<any[]> {
     try {
-      const nodes = xpath.select(xpathQuery, this.xmlDoc as Node) as Element[];
+      if (!this.isConnected()) {
+        throw new Error('Not connected to XML data source');
+      }
+      
+      // Process the query - if it's SQL-like, convert to XPath
+      let finalQuery = xpathQuery;
+      
+      // Check if the query looks like SQL and needs conversion to XPath
+      if (xpathQuery.toUpperCase().includes('SELECT')) {
+        finalQuery = this.convertSQLToXPath(xpathQuery);
+      }
+      
+      console.log(`Executing XPath query: ${finalQuery}`);
+      
+      // Execute the XPath query using the xpath library instead of DOM API
+      const nodes = xpath.select(finalQuery, this.xmlDoc as Node) as Node[];
       console.log(`XPath query returned ${nodes.length} nodes.`);
-      return nodes;
+      
+      // Process results
+      const results: any[] = [];
+      
+      // Process each node
+      for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+        if (node) {
+          const nodeData = this.extractNodeData(node);
+          results.push(nodeData);
+        }
+      }
+      
+      // Add source system identification
+      results.forEach(result => {
+        result.sourceSystem = this.getSourceSystem();
+      });
+      
+      return results;
     } catch (error) {
-      console.error('XPath Query Error:', error);
-      throw new Error(`XPath query failed: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`Error executing XPath query: ${xpathQuery}`, error);
+      throw error;
     }
   }
 
@@ -317,9 +345,8 @@ export class XMLAdapter implements IAdapter {
     const xpathQuery = this.buildXPathQuery(xpathBase, filter);
     console.log(`Generated XPath: ${xpathQuery}`);
     
-    const nodesResult = this.executeXPathQuery(xpathQuery);
-    // Convert to array to ensure it's iterable
-    const nodes = Array.isArray(nodesResult) ? nodesResult : Array.from(nodesResult);
+    // Execute the XPath query (sync version for this method)
+    const nodes = xpath.select(xpathQuery, this.xmlDoc as Node) as Element[];
     console.log(`Found ${nodes.length} ${entityName}`);
 
     // Create collection and map XML nodes to objects
@@ -420,7 +447,7 @@ export class XMLAdapter implements IAdapter {
   public async getClients(filter?: QueryFilter): Promise<ClientCollection> {
     return this.queryEntityWithFilter<Client, ClientCollection>(
       'clients',
-      '//clients/client',
+      '//Vente/clients/client',
       filter,
       (node: Element): Client => ({
         idClient: `XML_${this.getNodeAttribute(node, 'id')}`,
@@ -443,7 +470,7 @@ export class XMLAdapter implements IAdapter {
   public async getEmployees(filter?: QueryFilter): Promise<EmployeeCollection> {
     return this.queryEntityWithFilter<Employee, EmployeeCollection>(
       'employees',
-      '//employes/employe',
+      '//Vente/employes/employe',
       filter,
       (node: Element): Employee => ({
         idEmploye: `XML_${this.getNodeAttribute(node, 'id')}`,
@@ -474,7 +501,7 @@ export class XMLAdapter implements IAdapter {
   public async getFournisseurs(filter?: QueryFilter): Promise<FournisseurCollection> {
     return this.queryEntityWithFilter<Fournisseur, FournisseurCollection>(
       'fournisseurs',
-      '//fournisseurs/fournisseur',
+      '//Vente/fournisseurs/fournisseur',
       filter,
       (node: Element): Fournisseur => ({
         idFournisseur: `XML_${this.getNodeAttribute(node, 'id')}`,
@@ -496,7 +523,7 @@ export class XMLAdapter implements IAdapter {
   public async getProduits(filter?: QueryFilter): Promise<ProduitCollection> {
     return this.queryEntityWithFilter<Produit, ProduitCollection>(
       'produits',
-      '//produits/produit',
+      '//Vente/produits/produit',
       filter,
       (node: Element): Produit => ({
         idProduit: `XML_${this.getNodeAttribute(node, 'id')}`,
@@ -518,7 +545,7 @@ export class XMLAdapter implements IAdapter {
   public async getCommandes(filter?: QueryFilter): Promise<CommandeCollection> {
     return this.queryEntityWithFilter<Commande, CommandeCollection>(
       'commandes',
-      '//commandes/commande',
+      '//Vente/commandes/commande',
       filter,
       (node: Element): Commande => ({
         idCommande: `XML_${this.getNodeAttribute(node, 'id')}`,
@@ -545,7 +572,7 @@ export class XMLAdapter implements IAdapter {
   public async getDetailsCommande(filter?: QueryFilter): Promise<DetailCommandeCollection> {
     return this.queryEntityWithFilter<DetailCommande, DetailCommandeCollection>(
       'details_commande',
-      '//paniers/panier',
+      '//Vente/paniers/panier',
       filter,
       (node: Element): DetailCommande => {
         const commandeId = this.getNodeAttribute(node, 'id_commande');
@@ -570,7 +597,7 @@ export class XMLAdapter implements IAdapter {
   public async getFactures(filter?: QueryFilter): Promise<FactureCollection> {
     return this.queryEntityWithFilter<Facture, FactureCollection>(
       'factures',
-      '//factures/facture',
+      '//Vente/factures/facture',
       filter,
       (node: Element): Facture => ({
         idFacture: `XML_${this.getNodeAttribute(node, 'id')}`,
@@ -592,7 +619,7 @@ export class XMLAdapter implements IAdapter {
   public async getLivraisons(filter?: QueryFilter): Promise<LivraisonCollection> {
     return this.queryEntityWithFilter<Livraison, LivraisonCollection>(
       'livraisons',
-      '//livraisons/livraison',
+      '//Vente/livraisons/livraison',
       filter,
       (node: Element): Livraison => ({
         idLivraison: `XML_${this.getNodeAttribute(node, 'id')}`,
@@ -618,7 +645,7 @@ export class XMLAdapter implements IAdapter {
   public async getApprovisionnements(filter?: QueryFilter): Promise<ApprovisionnementCollection> {
     return this.queryEntityWithFilter<Approvisionnement, ApprovisionnementCollection>(
       'approvisionnements',
-      '//produits/produit[@id_fournisseur]', // Select products with supplier reference
+      '//Vente/produits/produit[@id_fournisseur]', // Select products with supplier reference
       filter,
       (node: Element): Approvisionnement => ({
         sourceSystem: this.sourceSystem,
@@ -878,31 +905,31 @@ export class XMLAdapter implements IAdapter {
     // Map entity name to XPath base pattern
     switch (normalizedEntityName) {
       case 'clients':
-        xpathBase = '//clients/client';
+        xpathBase = '//Vente/clients/client';
         break;
       case 'employes':
-        xpathBase = '//employes/employe';
+        xpathBase = '//Vente/employes/employe';
         break;
       case 'fournisseurs':
-        xpathBase = '//fournisseurs/fournisseur';
+        xpathBase = '//Vente/fournisseurs/fournisseur';
         break;
       case 'produits':
-        xpathBase = '//produits/produit';
+        xpathBase = '//Vente/produits/produit';
         break;
       case 'commandes':
-        xpathBase = '//commandes/commande';
+        xpathBase = '//Vente/commandes/commande';
         break;
       case 'paniers':
-        xpathBase = '//paniers/panier';
+        xpathBase = '//Vente/paniers/panier';
         break;
       case 'factures':
-        xpathBase = '//factures/facture';
+        xpathBase = '//Vente/factures/facture';
         break;
       case 'livraisons':
-        xpathBase = '//livraisons/livraison';
+        xpathBase = '//Vente/livraisons/livraison';
         break;
       default:
-        xpathBase = `//${normalizedEntityName}/${normalizedEntityName.substring(0, normalizedEntityName.length - 1)}`;
+        xpathBase = `//Vente/${normalizedEntityName}/${normalizedEntityName.substring(0, normalizedEntityName.length - 1)}`;
     }
     
     // Convert filter to XPath
@@ -940,14 +967,14 @@ export class XMLAdapter implements IAdapter {
     fieldName: string): boolean {
     // Define valid fields for each entity type
     const validFieldMappings: Record<string, string[]> = {
-      '//clients/client': ['@id', 'id', 'nom', 'courriel', 'telephone', 'adresse'],
-      '//employes/employe': ['@id', 'id', 'nom', 'email', 'poste'],
-      '//fournisseurs/fournisseur': ['@id', 'id', 'nom', 'telephone', 'adresse'],
-      '//produits/produit': ['@id', 'id', 'description', 'prix', 'categorie', 'quantite_totale', '@id_fournisseur', 'id_fournisseur'],
-      '//commandes/commande': ['@id', 'id', 'date', 'montant', 'statut', 'mode_paiement', '@clientID', 'clientID', '@employeID', 'employeID'],
-      '//paniers/panier': ['@id_commande', 'id_commande', '@id_produit', 'id_produit', 'nombre'],
-      '//factures/facture': ['@id', 'id', 'montant', 'date', '@commandeID', 'commandeID'],
-      '//livraisons/livraison': ['@id', 'id', 'transporteur', '@date_estimee', 'date_estimee', 'statut', '@commandeID', 'commandeID'],
+      '//Vente/clients/client': ['@id', 'id', 'nom', 'courriel', 'telephone', 'adresse'],
+      '//Vente/employes/employe': ['@id', 'id', 'nom', 'email', 'poste'],
+      '//Vente/fournisseurs/fournisseur': ['@id', 'id', 'nom', 'telephone', 'adresse'],
+      '//Vente/produits/produit': ['@id', 'id', 'description', 'prix', 'categorie', 'quantite_totale', '@id_fournisseur', 'id_fournisseur'],
+      '//Vente/commandes/commande': ['@id', 'id', 'date', 'montant', 'statut', 'mode_paiement', '@clientID', 'clientID', '@employeID', 'employeID'],
+      '//Vente/paniers/panier': ['@id_commande', 'id_commande', '@id_produit', 'id_produit', 'nombre'],
+      '//Vente/factures/facture': ['@id', 'id', 'montant', 'date', '@commandeID', 'commandeID'],
+      '//Vente/livraisons/livraison': ['@id', 'id', 'transporteur', '@date_estimee', 'date_estimee', 'statut', '@commandeID', 'commandeID'],
     };
     
     const validFields = validFieldMappings[entityPath] || [];
@@ -1002,10 +1029,12 @@ export class XMLAdapter implements IAdapter {
         parameters: {
           mapping: {
             'global_id': '@id',
-            'global_date': '@date',
-            'global_client_id': '@clientID',
-            'global_total': '@montant',
-            'global_status': '@statut'
+            'global_date_commande': '@date',
+            'global_client_ref': '@clientID',
+            'global_montant': '@montant',
+            'global_statut': '@statut',
+            'global_mode_paiement': '@mode_paiement',
+            'global_employe_ref': '@employeID'
           }
         }
       },
@@ -1017,10 +1046,10 @@ export class XMLAdapter implements IAdapter {
         queryLanguage: 'xpath',
         parameters: {
           mapping: {
-            'global_commande_id': '../@id',
-            'global_produit_id': '@produit_id',
-            'global_quantity': '@quantite',
-            'global_unit_price': '@prix_unitaire'
+            'global_commande_ref': '../@id',
+            'global_produit_ref': '@produit_id',
+            'global_quantite': '@quantite',
+            'global_prix_unitaire': '@prix_unitaire'
           }
         }
       },
@@ -1048,10 +1077,10 @@ export class XMLAdapter implements IAdapter {
         queryLanguage: 'xpath',
         parameters: {
           mapping: {
-            'global_fournisseur_id': '../@id',
-            'global_produit_id': '@produit_id',
-            'global_quantity': '@quantite',
-            'global_price': 'prix'
+            'global_fournisseur_ref': '../@id',
+            'global_produit_ref': '@produit_id',
+            'global_prix': '@prix',
+            'global_delai': '@delai'
           }
         }
       }
@@ -1070,6 +1099,12 @@ export class XMLAdapter implements IAdapter {
       throw new Error('Cannot execute query: XML document not loaded');
     }
     
+    // Mapping is required to ensure we only return global schema columns
+    if (!parameters.mapping) {
+      console.warn('No mapping provided for XML query. Returning empty result set.');
+      return [];
+    }
+    
     try {
       console.log('Executing XML query:', query, 'with parameters:', parameters);
       
@@ -1083,22 +1118,14 @@ export class XMLAdapter implements IAdapter {
           allResults = [...allResults, ...results];
         }
         
-        // Apply mapping to global schema if provided
-        if (parameters.mapping) {
-          return this.mapResultsToGlobalSchema(allResults, parameters.mapping);
-        }
-        
-        return allResults;
+        // Always apply mapping to global schema to ensure consistent column names
+        return this.mapResultsToGlobalSchema(allResults, parameters.mapping);
       } else {
         // Standard query execution
         const results = await this.executeXPathQuery(query, parameters);
         
-        // Apply mapping to global schema if provided
-        if (parameters.mapping) {
-          return this.mapResultsToGlobalSchema(results, parameters.mapping);
-        }
-        
-        return results;
+        // Always apply mapping to global schema to ensure consistent column names
+        return this.mapResultsToGlobalSchema(results, parameters.mapping);
       }
     } catch (error) {
       console.error(`Error executing XML query: ${query}`, error);
@@ -1106,56 +1133,7 @@ export class XMLAdapter implements IAdapter {
     }
   }
 
-  /**
-   * Execute an XPath query directly
-   * 
-   * @param xpathQuery XPath query
-   * @param queryParams Query parameters
-   * @returns Query results
-   */
-  private async executeXPathQuery(xpathQuery: string, queryParams: Record<string, any> = {}): Promise<any[]> {
-    try {
-      if (!this.isConnected()) {
-        throw new Error('Not connected to XML data source');
-      }
-      
-      // Process the query - if it's SQL-like, convert to XPath
-      let finalQuery = xpathQuery;
-      
-      // Check if the query looks like SQL and needs conversion to XPath
-      if (xpathQuery.toUpperCase().includes('SELECT')) {
-        finalQuery = this.convertSQLToXPath(xpathQuery);
-      }
-      
-      console.log(`Executing XPath query: ${finalQuery}`);
-      
-      // Execute the XPath query using the xpath library instead of DOM API
-      const nodes = xpath.select(finalQuery, this.xmlDoc as Node) as Node[];
-      console.log(`XPath query returned ${nodes.length} nodes.`);
-      
-      // Process results
-      const results: any[] = [];
-      
-      // Process each node
-      for (let i = 0; i < nodes.length; i++) {
-        const node = nodes[i];
-        if (node) {
-          const nodeData = this.extractNodeData(node);
-          results.push(nodeData);
-        }
-      }
-      
-      // Add source system identification
-      results.forEach(result => {
-        result.sourceSystem = this.getSourceSystem();
-      });
-      
-      return results;
-    } catch (error) {
-      console.error(`Error executing XPath query: ${xpathQuery}`, error);
-      throw error;
-    }
-  }
+  
 
   /**
    * Convert a SQL-like query to XPath
@@ -1181,22 +1159,22 @@ export class XMLAdapter implements IAdapter {
         let xpathBase: string;
         switch (table.toLowerCase()) {
           case 'clients':
-            xpathBase = '/clients/client';
+            xpathBase = '//Vente/clients/client';
             break;
           case 'produits':
-            xpathBase = '/produits/produit';
+            xpathBase = '//Vente/produits/produit';
             break;
           case 'commandes':
-            xpathBase = '/commandes/commande';
+            xpathBase = '//Vente/commandes/commande';
             break;
           case 'commande_details':
-            xpathBase = '/commandes/commande/ligne_commande';
+            xpathBase = '//Vente/commandes/commande/ligne_commande';
             break;
           case 'fournisseurs':
-            xpathBase = '/fournisseurs/fournisseur';
+            xpathBase = '//Vente/fournisseurs/fournisseur';
             break;
           case 'produit_fournisseur':
-            xpathBase = '/fournisseurs/fournisseur/produit_fourni';
+            xpathBase = '//Vente/fournisseurs/fournisseur/produit_fourni';
             break;
           default:
             xpathBase = `/${table}`;
@@ -1253,13 +1231,14 @@ export class XMLAdapter implements IAdapter {
     if (node.nodeType === NODE_TYPES.ELEMENT_NODE) {
       const element = node as Element;
       
-      // Add attributes
+      // Add attributes - these are typically the direct fields we need
       for (let i = 0; i < element.attributes.length; i++) {
         const attr = element.attributes[i];
+        // Store attributes with @ prefix so they can be correctly mapped later
         result[`@${attr.name}`] = attr.value;
       }
       
-      // Add child elements
+      // Add child elements that will be needed for mapping
       for (let i = 0; i < element.childNodes.length; i++) {
         const child = element.childNodes[i];
         if (child.nodeType === NODE_TYPES.ELEMENT_NODE) {
@@ -1267,17 +1246,15 @@ export class XMLAdapter implements IAdapter {
         }
       }
       
-      // Set node name and value
-      result._nodeName = element.nodeName;
-      
       // Set text content if this is a leaf element with no children
       if (element.childNodes.length === 0 && element.textContent) {
-        result._value = element.textContent.trim();
+        // Store the text value without prefix so it can be correctly mapped later
+        result.text = element.textContent.trim();
       }
     } else if (node.nodeType === NODE_TYPES.TEXT_NODE) {
-      result._value = node.textContent?.trim();
+      result.text = node.textContent?.trim();
     } else if (node.nodeType === NODE_TYPES.ATTRIBUTE_NODE) {
-      result._value = (node as Attr).value;
+      result.value = (node as Attr).value;
     }
     
     return result;
@@ -1292,7 +1269,8 @@ export class XMLAdapter implements IAdapter {
    */
   private mapResultsToGlobalSchema(results: any[], mapping: Record<string, string>): any[] {
     return results.map(row => {
-      const globalRow: Record<string, any> = { ...row }; // Start with original data
+      // Create empty object for global schema attributes only
+      const globalRow: Record<string, any> = {};
       
       for (const [globalAttr, sourceExpr] of Object.entries(mapping)) {
         // Handle XPath expressions in the mapping
@@ -1308,6 +1286,9 @@ export class XMLAdapter implements IAdapter {
           globalRow[globalAttr] = row[sourceExpr];
         }
       }
+      
+      // Add source system for identification
+      globalRow.source_system = this.getSourceSystem();
       
       return globalRow;
     });
