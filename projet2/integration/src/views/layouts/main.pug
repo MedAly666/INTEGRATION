@@ -3,7 +3,7 @@ html(lang="en")
   head
     meta(charset="UTF-8")
     meta(name="viewport", content="width=device-width, initial-scale=1.0")
-    title Data Integration Platform
+    title Data Integration SQL Interface
     // Font Awesome for icons
     link(rel="stylesheet", href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css")
     // Google Fonts - Inter and JetBrains Mono
@@ -835,30 +835,7 @@ html(lang="en")
               i.fas.fa-database
             span.logo-text Data Integration
       
-        nav.nav
-          .nav-section
-            .nav-section-title Main
-            ul.nav-list
-              li.nav-item
-                a.nav-link(href="/")
-                  .nav-link-icon
-                    i.fas.fa-home
-                  | Dashboard
-              li.nav-item
-                a.nav-link(href="/sql-interface" class=currentPath === '/sql-interface' ? 'active' : '')
-                  .nav-link-icon
-                    i.fas.fa-code
-                  | SQL Interface
-              li.nav-item
-                a.nav-link(href="/tables")
-                  .nav-link-icon
-                    i.fas.fa-table
-                  | Data Tables
-              li.nav-item 
-                a.nav-link(href="/reconciliation")
-                  .nav-link-icon
-                    i.fas.fa-code-branch
-                  |  Data Reconciliation
+        
           
         
         .sidebar-footer

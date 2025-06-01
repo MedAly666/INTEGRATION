@@ -79,37 +79,8 @@ app.use('/public/*', serveStatic({ root: './public' }));
 
 // Main routes
 app.get('/', async (c) => {
-  const html = await renderPug('index', {
-    title: 'Data Integration System'
-  });
-  return c.html(html);
-});
-
-app.get('/sql-interface', async (c) => {
   const html = await renderPug('sql-interface', {
     title: 'SQL Query Interface - Data Integration System'
-  });
-  return c.html(html);
-});
-
-app.get('/sql-chat', async (c) => {
-  const html = await renderPug('sql-chat', {
-    title: 'SQL Chat - Data Integration System'
-  });
-  return c.html(html);
-});
-
-app.get('/tables', async (c) => {
-  const html = await renderPug('tables', {
-    title: 'Database Tables - Data Integration System'
-  });
-  return c.html(html);
-});
-
-app.get('/reconciliation', async (c) => {
-  const html = await renderPug('reconciliation', {
-    title: 'Data Reconciliation',
-    active: 'reconciliation'
   });
   return c.html(html);
 });
@@ -214,40 +185,6 @@ api.post('/query', async (c) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return c.json({ error: errorMessage }, 400);
-  }
-});
-
-api.get('/reconciliation/stats', async (c) => {
-  try {
-    const dupeClients = await mediator.findPotentialDuplicateClients();
-    
-    // Calculate additional similarity scores for each duplicate pair
-    const duplicatesWithScores = dupeClients.map(dupe => ({
-      ...dupe,
-      jaroScore: mediator.calculateJaroSimilarity(
-        mediator.normalizeString(dupe.client1.nomComplet),
-        mediator.normalizeString(dupe.client2.nomComplet)
-      ),
-      jaccardScore: mediator.calculateJaccardSimilarity(
-        mediator.normalizeString(dupe.client1.nomComplet),
-        mediator.normalizeString(dupe.client2.nomComplet)
-      )
-    }));
-
-    const stats = {
-      totalReconciliations: duplicatesWithScores.length,
-      confidenceBreakdown: {
-        high: duplicatesWithScores.filter(d => d.confidenceScore >= 0.9).length,
-        medium: duplicatesWithScores.filter(d => d.confidenceScore >= 0.7 && d.confidenceScore < 0.9).length,
-        low: duplicatesWithScores.filter(d => d.confidenceScore < 0.7).length
-      },
-      recentDuplicates: duplicatesWithScores
-        .sort((a, b) => b.confidenceScore - a.confidenceScore)
-        .slice(0, 10)
-    };
-    return c.json(stats);
-  } catch (error) {
-    return c.json({ error: 'Failed to fetch reconciliation stats' }, 500);
   }
 });
 
