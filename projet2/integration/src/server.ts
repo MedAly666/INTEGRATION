@@ -75,7 +75,7 @@ app.get('/health', async (c) => {
 });
 
 // Static files middleware for public directory
-app.use('/public/*', serveStatic({ root: './public' }));
+app.use('/public/*', serveStatic({ root: './src/public' }));
 
 // Main routes
 app.get('/', async (c) => {
@@ -182,6 +182,28 @@ api.post('/query', async (c) => {
     
     const results = await mediator.executeQuery(query, parameters);
     return c.json(results);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return c.json({ error: errorMessage }, 400);
+  }
+});
+
+api.get('/table-preview', async (c) => {
+  try {
+    const tableName = c.req.query('table');
+    
+    if (!tableName) {
+      return c.json({ error: 'Table name is required' }, 400);
+    }
+    
+    // Execute a query to get the first 10 rows from the table
+    const query = `SELECT * FROM ${tableName} LIMIT 10`;
+    const results = await mediator.executeQuery(query);
+    
+    return c.json({
+      table: tableName,
+      rows: results.results || []
+    });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return c.json({ error: errorMessage }, 400);

@@ -142,7 +142,7 @@
   <employes>
     <employe id="e1" nom="Dubois" email="marie.dubois@entreprise.com">
       <id>1</id>
-      <nom>AKEB Dubois</nom>
+      <nom>Marie Dubois</nom>
       <email>marie.dubois@entreprise.com</email>
     </employe>
     <employe id="e2" nom="Lefebvre" email="thomas.lefebvre@entreprise.com">

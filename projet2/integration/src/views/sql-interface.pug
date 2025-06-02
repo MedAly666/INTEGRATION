@@ -1,166 +1,1759 @@
-extends layouts/main
+doctype html
+html(lang="en")
+  head
+    meta(charset="UTF-8")
+    meta(name="viewport", content="width=device-width, initial-scale=1.0")
+    title Data Integration SQL Interface
+    // Font Awesome for icons
+    link(rel="stylesheet", href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css")
+    // Google Fonts - Inter and JetBrains Mono
+    link(rel="preconnect", href="https://fonts.googleapis.com")
+    link(rel="preconnect", href="https://fonts.gstatic.com", crossorigin)
+    link(rel="stylesheet", href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap")
+    // CSS Stylesheets
+    link(rel="stylesheet", href="/public/css/sql-interface.css")
+        
+    style.
+      :root {
+        /* Colors - Light Theme */
+        --brand-primary: #2563EB;
+        --brand-primary-hover: #1D4ED8;
+        --brand-primary-bg: rgba(37, 99, 235, 0.08);
+        --brand-secondary: #8B5CF6;
+        --brand-secondary-hover: #7C3AED;
+        --brand-secondary-bg: rgba(139, 92, 246, 0.08);
+        --brand-accent: #F97316;
+        --brand-accent-hover: #EA580C;
+        --brand-accent-bg: rgba(249, 115, 22, 0.08);
+        
+        --text-primary: #111827;
+        --text-secondary: #374151;
+        --text-tertiary: #6B7280;
+        --text-disabled: #9CA3AF;
+        --text-inverse: #FFFFFF;
+        
+        --surface-body: #F9FAFB;
+        --surface-card: #FFFFFF;
+        --surface-overlay: rgba(255, 255, 255, 0.95);
+        --surface-nav: #F3F4F6;
+        --surface-nav-hover: #E5E7EB;
+        --surface-nav-active: rgba(37, 99, 235, 0.12);
+        --surface-code: #F3F4F6;
+        --surface-table-header: #F9FAFB;
+        --surface-highlight: #DBEAFE;
+        
+        --border-light: #E5E7EB;
+        --border-medium: #D1D5DB;
+        --border-heavy: #9CA3AF;
+        
+        --error: #EF4444;
+        --error-bg: rgba(239, 68, 68, 0.08);
+        --warning: #F59E0B;
+        --warning-bg: rgba(245, 158, 11, 0.08);
+        --success: #10B981;
+        --success-bg: rgba(16, 185, 129, 0.08);
+        --info: #0EA5E9;
+        --info-bg: rgba(14, 165, 233, 0.08);
+        
+        /* Typography */
+        --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        --font-mono: 'JetBrains Mono', Menlo, Monaco, Consolas, 'Courier New', monospace;
+        
+        /* Spacing */
+        --space-1: 0.25rem;
+        --space-2: 0.5rem;
+        --space-3: 0.75rem;
+        --space-4: 1rem;
+        --space-5: 1.25rem;
+        --space-6: 1.5rem;
+        --space-8: 2rem;
+        --space-10: 2.5rem;
+        --space-12: 3rem;
+        --space-16: 4rem;
+        --space-20: 5rem;
+        
+        /* Border radius */
+        --radius-sm: 0.125rem;
+        --radius-md: 0.375rem;
+        --radius-lg: 0.5rem;
+        --radius-xl: 0.75rem;
+        --radius-full: 9999px;
+        
+        /* Shadows */
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        
+        /* Transitions */
+        --transition-fast: 150ms ease;
+        --transition-normal: 300ms ease;
+        --transition-slow: 500ms ease;
+      }
 
-block content
-  .page-header
-    .page-title-wrapper
-      h1.page-title Data Integration SQL Interface
-      p.page-description Interactive SQL querying in a conversational interface
-    
-    .page-actions
-      button.btn.btn-outline.btn-with-icon#btn-clear-chat(type="button")
-        i.fas.fa-broom
-        | Clear Chat
-      button.btn.btn-outline.btn-with-icon#btn-export-history(type="button")
-        i.fas.fa-download
-        | Export History
+      [data-theme="dark"] {
+        --brand-primary: #3694FF;
+        --brand-primary-hover: #5FA9FF;
+        --brand-primary-bg: rgba(54, 148, 255, 0.2);
+        --brand-secondary: #9353D3;
+        --brand-secondary-bg: rgba(147, 83, 211, 0.2);
+        --brand-accent: #FF9F7B;
+        --brand-accent-bg: rgba(255, 159, 123, 0.2);
 
-  .sql-chat-container
-    .chat-area#chat-area
-      .chat-welcome
-        .chat-welcome-icon
-          i.fas.fa-database
-        h3.chat-welcome-title Welcome to SQL Chat
-        p.chat-welcome-message Ask questions or run SQL queries against your integrated data sources
-        .chat-welcome-examples
-          h4 Try these examples:
-          .example-queries
-            button.example-query SELECT * FROM clients LIMIT 15;
-            button.example-query SELECT COUNT(*) FROM commandes;
-            button.example-query SELECT c.nom_complet, COUNT(o.id) as total_commandes FROM Clients c LEFT JOIN Commandes o ON c.id = o.client_ref GROUP BY c.id, c.nom_complet ORDER BY total_commandes DESC LIMIT 15;
+        --text-primary: #ECEDEE;
+        --text-secondary: #B1B5C3;
+        --text-tertiary: #889096;
+        --text-disabled: #596068;
+        --text-inverse: #0F1114;
+        
+        --surface-body: #151718;
+        --surface-card: #1E2022;
+        --surface-overlay: rgba(30, 32, 34, 0.95);
+        --surface-nav: #1A1C1E;
+        --surface-nav-hover: #26282C;
+        --surface-nav-active: rgba(54, 148, 255, 0.25);
+        --surface-code: #1A1C1E;
+        --surface-table-header: #1A1C1E;
+        
+        --border-light: #2C2F34;
+        --border-medium: #3E4248;
+        --border-heavy: #525864;
+        
+        --error: #F21361;
+        --warning: #F5A524;
+        --success: #0AC864;
+        --info: #0D8CFF;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: var(--font-sans);
+        background-color: var(--surface-body);
+        color: var(--text-primary);
+        min-height: 100vh;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .app {
+        display: flex;
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        width: 250px;
+        background-color: var(--surface-card);
+        border-right: 1px solid var(--border-light);
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.3s ease;
+        z-index: 100;
+      }
+
+      .sidebar-header {
+        padding: 16px;
+        border-bottom: 1px solid var(--border-light);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+
+      .logo-icon {
+        color: var(--brand-primary);
+        font-size: 18px;
+      }
+
+      .sidebar-nav {
+        padding: 16px 0;
+        flex: 1;
+        overflow-y: auto;
+      }
+
+      .nav-group {
+        margin-bottom: 16px;
+      }
+
+      .nav-group-title {
+        padding: 0 16px;
+        margin-bottom: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        color: var(--text-secondary);
+        text-decoration: none;
+        border-left: 3px solid transparent;
+        transition: all 0.2s ease;
+      }
+
+      .nav-item:hover {
+        background-color: var(--surface-nav-hover);
+        color: var(--text-primary);
+      }
+
+      .nav-item.active {
+        background-color: var(--surface-nav-active);
+        color: var(--brand-primary);
+        border-left-color: var(--brand-primary);
+      }
+
+      .nav-item i {
+        width: 20px;
+        text-align: center;
+      }
+
+      .sidebar-footer {
+        padding: 16px;
+        border-top: 1px solid var(--border-light);
+      }
+
+      .theme-switcher {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+      }
+
+      .theme-switcher-label {
+        color: var(--text-secondary);
+        font-size: 13px;
+      }
+
+      .theme-switch {
+        position: relative;
+        display: inline-block;
+        width: 44px;
+        height: 24px;
+      }
+
+      .theme-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--surface-nav);
+        border: 1px solid var(--border-medium);
+        transition: .4s;
+        border-radius: 24px;
+      }
+
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 2px;
+        bottom: 2px;
+        background-color: var(--text-tertiary);
+        transition: .4s;
+        border-radius: 50%;
+      }
+
+      input:checked + .slider {
+        background-color: var(--brand-primary-bg);
+      }
+
+      input:checked + .slider:before {
+        transform: translateX(20px);
+        background-color: var(--brand-primary);
+      }
+
+      .user-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .user-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background-color: var(--brand-primary-bg);
+        color: var(--brand-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 13px;
+      }
+
+      .user-details {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .user-name {
+        font-weight: 600;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .user-role {
+        font-size: 12px;
+        color: var(--text-tertiary);
+      }
+
+      .main-content {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .header {
+        height: 60px;
+        border-bottom: 1px solid var(--border-light);
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        gap: 16px;
+      }
+
+      .menu-toggle {
+        display: none;
+        background: none;
+        border: none;
+        color: var(--text-tertiary);
+        font-size: 18px;
+        cursor: pointer;
+      }
+
+      .header-actions {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .header-search {
+        flex: 1;
+        max-width: 400px;
+      }
+
+      .search-container {
+        position: relative;
+      }
+
+      .search-input-wrapper {
+        position: relative;
+      }
+
+      .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-tertiary);
+      }
+
+      .search-input {
+        width: 100%;
+        height: 36px;
+        padding: 0 12px 0 36px;
+        border-radius: 18px;
+        border: 1px solid var(--border-medium);
+        background-color: var(--surface-nav);
+        color: var(--text-primary);
+        outline: none;
+        transition: all 0.2s ease;
+      }
+
+      .search-input:focus {
+        border-color: var(--brand-primary);
+        background-color: var(--surface-body);
+        box-shadow: 0 0 0 3px var(--brand-primary-bg);
+      }
+      
+      .theme-toggle-container {
+        margin-left: 16px;
+      }
+      
+      .btn-theme-toggle {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background-color: var(--surface-nav);
+        border: 1px solid var(--border-medium);
+        color: var(--text-tertiary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      
+      .btn-theme-toggle:hover {
+        background-color: var(--surface-nav-hover);
+        color: var(--text-primary);
+      }
+      
+      [data-theme="dark"] .btn-theme-toggle i.fa-moon {
+        color: var(--brand-primary);
+      }
+      
+      [data-theme="dark"] .btn-theme-toggle i.fa-moon:before {
+        content: "\f185"; /* Changes to sun icon */
+      }
+
+      .page-content {
+        padding: 20px;
+        flex: 1;
+        overflow: auto;
+      }
+
+      @media (max-width: 768px) {
+        .sidebar {
+          position: fixed;
+          top: 0;
+          bottom: 0;
+          left: 0;
+          transform: translateX(-100%);
+        }
+        
+        .sidebar.active {
+          transform: translateX(0);
+        }
+        
+        .menu-toggle {
+          display: block;
+        }
+      }
+    link(rel="stylesheet", href="/public/css/sql-interface.css")
+
+  body(data-theme="light")
+    .app
+      main.main-content
+        .header
+          button.menu-toggle#menu-toggle
+            i.fas.fa-bars
+          
+          .header-actions
+            .header-search
+              .search-container
+                .search-input-wrapper
+                  i.fas.fa-search.search-icon
+                  input.search-input(type="text", placeholder="Search data...")
+            
+            .theme-toggle-container
+              button#theme-toggle-btn.btn-theme-toggle(title="Toggle Dark/Light Mode")
+                i.fas.fa-moon
+
+        .page-content
+          .sql-workspace
+            .workspace-main
+              .query-panel
+                .query-toolbar
+                  .toolbar-group
+                    button.btn-toolbar#btn-run(title="Run Query (Ctrl+Enter)")
+                      i.fas.fa-play
+                      span Run
+                    button.btn-toolbar#btn-stop(title="Stop Execution" disabled)
+                      i.fas.fa-stop
+                      span Stop
+                  
+                  .toolbar-group
+                    select#query-template.query-dropdown
+                      option(value="") SQL Templates
+                      option(value="select-clients") Select clients
+                      option(value="select-employees") Select employees
+                      option(value="select-orders") Select orders
+                      option(value="join-orders-clients") Join orders with clients
+                      option(value="count-by-client") Count orders by client
+                      option(value="product-inventory") Product inventory
+                      option(value="clients-with-no-orders") Clients without orders
+                      option(value="top-products-by-orders") Top products by orders
+                      option(value="recent-invoices") Recent invoices
+                      option(value="pending-deliveries") Pending deliveries
+                      option(value="suppliers-and-products") Suppliers and products
+                      option(value="complex-multi-join") Complex multi-table join
+                      option(value="average-order-value") Average order value
+                      option(value="employee-performance") Employee performance
+                      
+                  .toolbar-group
+                    select#data-source.query-dropdown
+                      option(value="all") All Sources
+                      option(value="sql") SQL Database
+                      option(value="xml") XML Store
+                      option(value="neo4j") Neo4j Graph
+                    
+                    select#result-limit.query-dropdown
+                      option(value="100") Limit: 100
+                      option(value="500") Limit: 500
+                      option(value="1000") Limit: 1000
+                      option(value="5000") Limit: 5000
+                  
+                  .toolbar-group.toolbar-right
+                    button.btn-toolbar#btn-format(title="Format SQL")
+                      i.fas.fa-indent
+                    button.btn-toolbar#btn-clear(title="Clear Editor")
+                      i.fas.fa-eraser
+                    button.btn-toolbar#btn-save(title="Save Query")
+                      i.fas.fa-save
+                    button.btn-toolbar#btn-load(title="Load Query")
+                      i.fas.fa-folder-open
+                
+                .query-editor-container
+                  .editor-line-numbers#line-numbers
+                  .query-editor#sql-editor(contenteditable="true" spellcheck="false")
+                
+                .query-status-bar
+                  .status-section.keyboard-shortcuts
+                    span.shortcut-item
+                      kbd Ctrl
+                      span +
+                      kbd Enter
+                      span Run
+                    span.shortcut-item
+                      kbd Ctrl
+                      span +
+                      kbd S
+                      span Save
+                    span.shortcut-item
+                      kbd Ctrl
+                      span +
+                      kbd /
+                      span Comment
+                  .status-section.cursor-position
+                    span Line: 
+                    span#cursor-line 1
+                    span , Column: 
+                    span#cursor-column 1
+              
+              .results-panel
+                .results-tabs
+                  .tab.active#tab-results(data-panel="results-output") Results
+                  .tab#tab-messages(data-panel="messages-output") Messages
+                  .tab#tab-explain(data-panel="explain-output") Execution Plan
+                  .tabs-actions
+                    button.btn-tab-action#btn-export(title="Export Results")
+                      i.fas.fa-download
+                      span Export
+                
+                .results-container
+                  .panel-content.active#results-output
+                    .results-placeholder
+                      i.fas.fa-database
+                      h3 No Query Results
+                      p Run a query to see results here
+                      
+                  .panel-content#messages-output
+                    .message-list
+                      .system-message.info-message
+                        span.timestamp 00:00:00
+                        span.message System ready. Execute a query to begin.
+                        
+                  .panel-content#explain-output
+                    .explain-placeholder
+                      i.fas.fa-project-diagram
+                      h3 No Execution Plan
+                      p Run a query with EXPLAIN to see the execution plan
+              
+  .modal#save-modal
+    .modal-content
+      .modal-header
+        h3 Save Query
+        button.btn-close#save-modal-close
+          i.fas.fa-times
+      .modal-body
+        .form-group
+          label(for="query-name") Query Name
+          input#query-name(type="text" placeholder="Enter a name for your query")
+        .form-group
+          label(for="query-description") Description (optional)
+          textarea#query-description(placeholder="Enter a description")
+      .modal-footer
+        button.btn-secondary#save-modal-cancel Cancel
+        button.btn-primary#save-modal-save Save Query
+        
+  .modal#load-modal
+    .modal-content
+      .modal-header
+        h3 Load Saved Query
+        button.btn-close#load-modal-close
+          i.fas.fa-times
+      .modal-body
+        .saved-queries-list#saved-queries-list
+          .empty-queries
+            i.fas.fa-folder-open
+            p No saved queries found
+      .modal-footer
+        button.btn-secondary#load-modal-cancel Cancel
+        
+  .modal#table-preview-modal
+    .modal-content.preview-content
+      .modal-header
+        h3#preview-table-name Table Preview
+        button.btn-close#preview-modal-close
+          i.fas.fa-times
+      .modal-body
+        .table-preview-container#table-preview-container
+          .preview-loading
+            .spinner
+            p Loading table data...
+      .modal-footer
+        span.preview-info Showing sample data (max 10 rows)
+        button.btn-secondary#preview-modal-close-btn Close
     
     .query-controls
-      .query-options
-        .query-option
-          label.option-label(for="chat-data-source") Data Source:
-          select#chat-data-source.option-select
-            option(value="all") All Sources
-            option(value="sql") SQL Database
-            option(value="xml") XML Store
-            option(value="neo4j") Neo4j Graph
-        
-        .query-option
-          label.option-label(for="chat-result-limit") Result Limit:
-          select#chat-result-limit.option-select
-            option(value="100") 100 rows
-            option(value="500") 500 rows
-            option(value="1000") 1000 rows
-            option(value="5000") 5000 rows
+      .query-toolbar
+        .query-options
+          .query-option
+            label.option-label(for="chat-data-source") 
+              i.fas.fa-database
+              | Data Source
+            select#chat-data-source.option-select
+              option(value="all") All Sources
+              option(value="sql") SQL Database
+              option(value="xml") XML Store
+              option(value="neo4j") Neo4j Graph
+          
+          .query-option
+            label.option-label(for="chat-result-limit") 
+              i.fas.fa-list-ol
+              | Result Limit
+            select#chat-result-limit.option-select
+              option(value="100") 100 rows
+              option(value="500") 500 rows
+              option(value="1000") 1000 rows
+              option(value="5000") 5000 rows
+              
+          .query-option.template-option
+            label.option-label(for="chat-query-template") 
+              i.fas.fa-bookmark
+              | Templates
+            select#chat-query-template.option-select
+              option(value="") Select template...
+              option(value="select-clients") Select clients
+              option(value="select-employees") Select employees
+              option(value="select-orders") Select orders
+              option(value="join-orders-clients") Join orders with clients
+              option(value="count-by-client") Count orders by client
+              option(value="product-inventory") Product inventory
+              option(value="clients-with-no-orders") Clients without orders
+              option(value="top-products-by-orders") Top products by orders
+              option(value="recent-invoices") Recent invoices
+              option(value="pending-deliveries") Pending deliveries
+              option(value="suppliers-and-products") Suppliers and products
+              option(value="complex-multi-join") Complex multi-table join
+              option(value="average-order-value") Average order value
+              option(value="employee-performance") Employee performance
       
       .chat-input-area
-        .template-select-wrapper
-          select.template-select#chat-query-template
-            option(value="") Templates...
-            option(value="select-clients") Select clients
-            option(value="select-employees") Select employees
-            option(value="select-orders") Select orders
-            option(value="join-orders-clients") Join orders with clients
-            option(value="count-by-client") Count orders by client
-            option(value="product-inventory") Product inventory
-            option(value="clients-with-no-orders") Clients without orders
-            option(value="top-products-by-orders") Top products by orders
-            option(value="recent-invoices") Recent invoices
-            option(value="pending-deliveries") Pending deliveries
-            option(value="suppliers-and-products") Suppliers and products
-            option(value="complex-multi-join") Complex multi-table join
-            option(value="average-order-value") Average order value
-            option(value="employee-performance") Employee performance
-        
         .chat-input-wrapper
-          textarea#chat-input.chat-input(placeholder="Type your SQL query here...", rows="1")
-          button#chat-send-btn.chat-send-btn(type="button")
-            i.fas.fa-paper-plane
+          .input-editor
+            textarea#chat-input.chat-input(placeholder="Type your SQL query here... Press Ctrl+Enter to run", rows="3")
+          .input-actions
+            .keyboard-hint
+              kbd Ctrl
+              | +
+              kbd Enter
+              span to run
+            button#chat-send-btn.chat-send-btn(type="button")
+              i.fas.fa-play
+              span Run Query
 
-block append styles
-  style.
-    /* Chat UI Styles */
-    .sql-chat-container {
-      display: flex;
-      flex-direction: column;
-      height: calc(100vh - 220px);
-      min-height: 500px;
-      border-radius: var(--radius-lg);
+
+    script.
+      // Theme functionality
+      const body = document.body;
+      const themeToggleBtn = document.getElementById('theme-toggle-btn');
+      
+      // Set the theme based on localStorage
+      if (localStorage.getItem('theme') === 'dark') {
+        body.setAttribute('data-theme', 'dark');
+      }
+      
+      // Handle theme toggle click
+      if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', () => {
+          const isDarkTheme = body.getAttribute('data-theme') === 'dark';
+          if (isDarkTheme) {
+            body.setAttribute('data-theme', 'light');
+            localStorage.setItem('theme', 'light');
+          } else {
+            body.setAttribute('data-theme', 'dark');
+            localStorage.setItem('theme', 'dark');
+          }
+        });
+      }
+      
+      // Mobile menu toggle functionality
+      const menuToggle = document.getElementById('menu-toggle');
+      if (menuToggle) {
+        menuToggle.addEventListener('click', () => {
+          const sidebar = document.querySelector('.sidebar');
+          if (sidebar) {
+            sidebar.classList.toggle('active');
+          }
+        });
+      }
+      
+      // Global search functionality
+      const searchInput = document.querySelector('.search-input');
+      if (searchInput) {
+        searchInput.addEventListener('keyup', (e) => {
+          if (e.key === 'Enter') {
+            const query = searchInput.value.trim();
+            if (query) {
+              window.location.href = `/search?q=${encodeURIComponent(query)}`;
+            }
+          }
+        });
+      }
+    
+
+  
+style.
+  /* SQL Workspace Layout */
+  .sql-workspace {
+    display: flex;
+    height: calc(100vh - 100px);
+    min-height: 600px;
+    background-color: var(--surface-body);
+    border-radius: 8px;
       overflow: hidden;
-      background-color: var(--surface-card);
-      box-shadow: var(--shadow-md);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
       border: 1px solid var(--border-light);
     }
     
-    .chat-area {
-      flex: 1;
-      overflow-y: auto;
-      padding: var(--space-4);
+    /* Workspace Sidebar */
+    .workspace-sidebar {
+      width: 280px;
+      background-color: var(--surface-card);
+      border-right: 1px solid var(--border-light);
       display: flex;
       flex-direction: column;
-      gap: var(--space-4);
-      background-color: var(--surface-background);
+      overflow: hidden;
+      transition: width 0.3s ease;
     }
     
-    /* Welcome message */
-    .chat-welcome {
-      max-width: 600px;
-      margin: auto;
-      text-align: center;
-      padding: var(--space-6);
+    .workspace-sidebar.collapsed {
+      width: 50px;
     }
     
-    .chat-welcome-icon {
-      font-size: 3rem;
-      margin-bottom: var(--space-4);
+    .sidebar-section {
+      display: flex;
+      flex-direction: column;
+      border-bottom: 1px solid var(--border-light);
+      overflow: hidden;
+    }
+    
+    .sidebar-section:last-child {
+      border-bottom: none;
+      flex: 1;
+    }
+    
+    .section-header {
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: var(--surface-table-header);
+    }
+    
+    .section-header h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .section-header h3 i {
       color: var(--brand-primary);
     }
     
-    .chat-welcome-title {
-      font-size: var(--font-size-xl);
-      font-weight: 600;
-      margin-bottom: var(--space-3);
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn-collapse, 
+    .btn-clear-history {
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-collapse:hover, 
+    .btn-clear-history:hover {
       color: var(--text-primary);
+      background-color: var(--surface-nav-hover);
     }
     
-    .chat-welcome-message {
-      font-size: var(--font-size-md);
-      margin-bottom: var(--space-5);
-      color: var(--text-secondary);
+    .section-content {
+      padding: 12px;
+      overflow-y: auto;
+      flex: 1;
     }
     
-    .chat-welcome-examples {
-      margin-top: var(--space-6);
+    /* Schema Browser */
+    .schema-search {
+      position: relative;
+      margin-bottom: 12px;
     }
     
-    .example-queries {
+    .schema-search input {
+      width: 100%;
+      padding: 8px 12px 8px 32px;
+      border-radius: 6px;
+      border: 1px solid var(--border-medium);
+      background-color: var(--surface-body);
+      color: var(--text-primary);
+      font-size: 13px;
+    }
+    
+    .schema-search input:focus {
+      outline: none;
+      border-color: var(--brand-primary);
+      box-shadow: 0 0 0 2px var(--brand-primary-bg);
+    }
+    
+    .schema-search i {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-tertiary);
+    }
+    
+    .schema-tree {
       display: flex;
       flex-direction: column;
-      gap: var(--space-2);
-      margin-top: var(--space-3);
+      gap: 4px;
     }
     
-    .example-query {
-      font-family: var(--font-mono);
-      font-size: var(--font-size-sm);
-      padding: var(--space-2) var(--space-3);
-      background-color: var(--surface-code);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-md);
+    .schema-category {
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    
+    .category-header {
+      padding: 8px 12px;
+      background-color: var(--surface-table-header);
+      display: flex;
+      align-items: center;
+      gap: 8px;
       cursor: pointer;
-      text-align: left;
-      color: var(--text-secondary);
-      transition: all var(--transition-fast);
+      border-radius: 6px;
+      transition: all 0.2s ease;
     }
     
-    .example-query:hover {
+    .category-header:hover {
+      background-color: var(--surface-nav-hover);
+    }
+    
+    .category-header span {
+      font-weight: 500;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    
+    .category-header i {
+      color: var(--text-tertiary);
+      font-size: 12px;
+      transition: transform 0.2s ease;
+    }
+    
+    .category-items {
+      display: flex;
+      flex-direction: column;
+      padding: 6px 0;
+    }
+    
+    .category-items.collapsed {
+      display: none;
+    }
+    
+    .schema-item {
+      padding: 6px 12px 6px 28px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+    
+    .schema-item:hover {
+      background-color: var(--surface-nav-hover);
+    }
+    
+    .schema-item span {
+      font-size: 13px;
+      color: var(--text-secondary);
+      flex: 1;
+    }
+    
+    .schema-item i.fa-table {
+      color: var(--brand-primary);
+      font-size: 12px;
+    }
+    
+    .preview-icon {
+      color: var(--text-tertiary);
+      opacity: 0;
+      transition: all 0.2s ease;
+    }
+    
+    .schema-item:hover .preview-icon {
+      opacity: 1;
+    }
+    
+    .preview-icon:hover {
+      color: var(--brand-primary);
+    }
+    
+    /* Query History */
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .history-item {
+      padding: 10px;
+      border-radius: 6px;
+      background-color: var(--surface-body);
+      border: 1px solid var(--border-light);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .history-item:hover {
+      border-color: var(--border-medium);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    
+    .history-item-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    
+    .history-time {
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+    
+    .history-query {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    
+    .history-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-top: 6px;
+    }
+    
+    .empty-history, 
+    .empty-queries {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      color: var(--text-tertiary);
+      text-align: center;
+    }
+    
+    .empty-icon {
+      font-size: 24px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+    
+    /* Main Workspace */
+    .workspace-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background-color: var(--surface-body);
+    }
+    
+    /* Query Panel */
+    .query-panel {
+      display: flex;
+      flex-direction: column;
+      height: 50%;
+      min-height: 200px;
+      border-bottom: 1px solid var(--border-light);
+      overflow: hidden;
+      resize: vertical;
+    }
+    
+    .query-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      background-color: var(--surface-card);
+      border-bottom: 1px solid var(--border-light);
+      flex-wrap: wrap;
+    }
+    
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .toolbar-right {
+      margin-left: auto;
+    }
+    
+    .btn-toolbar {
+      height: 34px;
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 6px;
+      background-color: var(--surface-body);
+      border: 1px solid var(--border-medium);
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-toolbar:hover {
+      border-color: var(--border-heavy);
+      background-color: var(--surface-nav-hover);
+    }
+    
+    .btn-toolbar:active {
+      transform: translateY(1px);
+    }
+    
+    .btn-toolbar i {
+      font-size: 14px;
+    }
+    
+    #btn-run {
+      background-color: var(--brand-primary);
+      color: white;
+      border-color: var(--brand-primary);
+    }
+    
+    #btn-run:hover {
+      background-color: var(--brand-primary-hover);
+      border-color: var(--brand-primary-hover);
+    }
+    
+    #btn-stop {
+      background-color: var(--error);
+      color: white;
+      border-color: var(--error);
+    }
+    
+    #btn-stop:not(:disabled):hover {
+      background-color: #e11d48;
+      border-color: #e11d48;
+    }
+    
+    #btn-stop:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .query-dropdown {
+      height: 34px;
+      padding: 0 12px;
+      border-radius: 6px;
+      background-color: var(--surface-body);
+      border: 1px solid var(--border-medium);
+      color: var(--text-secondary);
+      font-size: 13px;
+      min-width: 130px;
+      cursor: pointer;
+    }
+    
+    .query-dropdown:focus {
+      outline: none;
+      border-color: var(--brand-primary);
+      box-shadow: 0 0 0 2px var(--brand-primary-bg);
+    }
+    
+    .query-editor-container {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+      background-color: var(--surface-code);
+    }
+    
+    .editor-line-numbers {
+      width: 50px;
+      padding: 12px 0;
+      background-color: var(--surface-table-header);
+      border-right: 1px solid var(--border-light);
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-tertiary);
+      user-select: none;
+    }
+    
+    .query-editor {
+      flex: 1;
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text-primary);
+      white-space: pre;
+      overflow: auto;
+      outline: none;
+    }
+    
+    /* Syntax highlighting classes */
+    .query-editor .keyword {
+      color: #9c27b0;
+      font-weight: 600;
+    }
+    
+    .query-editor .function {
+      color: #2196f3;
+    }
+    
+    .query-editor .table {
+      color: #009688;
+    }
+    
+    .query-editor .column {
+      color: #ff5722;
+    }
+    
+    .query-editor .number {
+      color: #e91e63;
+    }
+    
+    .query-editor .string {
+      color: #4caf50;
+    }
+    
+    .query-editor .comment {
+      color: #9e9e9e;
+      font-style: italic;
+    }
+    
+    .query-status-bar {
+      padding: 4px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: var(--surface-table-header);
+      border-top: 1px solid var(--border-light);
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+    
+    .keyboard-shortcuts {
+      display: flex;
+      gap: 12px;
+    }
+    
+    .shortcut-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .shortcut-item kbd {
+      background-color: var(--surface-card);
+      border: 1px solid var(--border-light);
+      border-radius: 3px;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+      font-family: var(--font-sans);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 1px 4px;
+      min-width: 16px;
+      text-align: center;
+      color: var(--text-secondary);
+    }
+    
+    /* Results Panel */
+    .results-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .results-tabs {
+      display: flex;
+      align-items: center;
+      background-color: var(--surface-card);
+      border-bottom: 1px solid var(--border-light);
+      padding: 0 12px;
+    }
+    
+    .tab {
+      padding: 12px 16px;
+      color: var(--text-tertiary);
+      font-weight: 500;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-bottom: 2px solid transparent;
+    }
+    
+    .tab:hover {
+      color: var(--text-secondary);
+    }
+    
+    .tab.active {
+      color: var(--brand-primary);
+      border-bottom-color: var(--brand-primary);
+    }
+    
+    .tabs-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn-tab-action {
+      height: 34px;
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 6px;
+      background-color: var(--surface-body);
+      border: 1px solid var(--border-medium);
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-tab-action:hover {
+      border-color: var(--border-heavy);
+      background-color: var(--surface-nav-hover);
+    }
+    
+    .results-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .panel-content {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: auto;
+      display: none;
+      padding: 16px;
+    }
+    
+    .panel-content.active {
+      display: block;
+    }
+    
+    .results-placeholder,
+    .explain-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      text-align: center;
+      color: var(--text-tertiary);
+      padding: 0 16px;
+    }
+    
+    .results-placeholder i,
+    .explain-placeholder i {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+    
+    .results-placeholder h3,
+    .explain-placeholder h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    
+    .results-placeholder p,
+    .explain-placeholder p {
+      font-size: 14px;
+      max-width: 300px;
+      margin: 0;
+    }
+    
+    /* Results Table */
+    .results-table-container {
+      border-radius: 8px;
+      border: 1px solid var(--border-light);
+      overflow: hidden;
+    }
+    
+    .results-info {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background-color: var(--surface-table-header);
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    
+    .results-info-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .results-info-item i {
+      color: var(--brand-primary);
+    }
+    
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .results-table th {
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text-secondary);
+      background-color: var(--surface-table-header);
+      border-bottom: 1px solid var(--border-medium);
+      position: sticky;
+      top: 0;
+    }
+    
+    .results-table td {
+      padding: 10px 16px;
+      font-size: 13px;
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--border-light);
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .results-table tr:nth-child(even) {
+      background-color: var(--surface-body);
+    }
+    
+    .results-table tr:hover td {
+      background-color: var(--brand-primary-bg);
+    }
+    
+    /* Message List */
+    .message-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .system-message {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    
+    .info-message {
+      background-color: var(--info-bg);
+      color: var(--text-secondary);
+    }
+    
+    .error-message {
+      background-color: var(--error-bg);
+      color: var(--error);
+    }
+    
+    .success-message {
+      background-color: var(--success-bg);
+      color: var(--success);
+    }
+    
+    .warning-message {
+      background-color: var(--warning-bg);
+      color: var(--warning);
+    }
+    
+    .timestamp {
+      color: var(--text-tertiary);
+      font-size: 12px;
+      min-width: 70px;
+    }
+    
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.2s ease;
+    }
+    
+    .modal.visible {
+      display: flex;
+    }
+    
+    .modal-content {
+      background-color: var(--surface-card);
+      border-radius: 8px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      animation: modalIn 0.3s ease;
+    }
+    
+    .preview-content {
+      max-width: 700px;
+    }
+    
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-light);
+    }
+    
+    .modal-header h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    
+    .btn-close {
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .btn-close:hover {
+      background-color: var(--surface-nav-hover);
+      color: var(--text-primary);
+    }
+    
+    .modal-body {
+      padding: 20px;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+    
+    .modal-footer {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border-light);
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      align-items: center;
+    }
+    
+    .preview-info {
+      color: var(--text-tertiary);
+      font-size: 13px;
+      margin-right: auto;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+    
+    .form-group input, 
+    .form-group textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border-medium);
+      background-color: var(--surface-body);
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+    
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    .form-group input:focus, 
+    .form-group textarea:focus {
+      outline: none;
+      border-color: var(--brand-primary);
+      box-shadow: 0 0 0 2px var(--brand-primary-bg);
+    }
+    
+    .btn-primary {
+      background-color: var(--brand-primary);
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-primary:hover {
+      background-color: var(--brand-primary-hover);
+    }
+    
+    .btn-secondary {
+      background-color: var(--surface-nav);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-medium);
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-secondary:hover {
+      background-color: var(--surface-nav-hover);
+      color: var(--text-primary);
+    }
+    
+    .saved-queries-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .saved-query-item {
+      padding: 12px;
+      border-radius: 6px;
+      background-color: var(--surface-body);
+      border: 1px solid var(--border-light);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .saved-query-item:hover {
       border-color: var(--brand-primary);
       background-color: var(--brand-primary-bg);
+    }
+    
+    .saved-query-name {
+      font-weight: 600;
+      font-size: 14px;
       color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    
+    .saved-query-description {
+      font-size: 13px;
+      color: var(--text-tertiary);
+    }
+    
+    .saved-query-preview {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 8px;
+      padding: 6px;
+      background-color: var(--surface-code);
+      border-radius: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    
+    .table-preview-container {
+      overflow: auto;
+    }
+    
+    .preview-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      color: var(--text-tertiary);
+    }
+    
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      border-top-color: var(--brand-primary);
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes modalIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    /* Responsive Adjustments */
+    @media (max-width: 992px) {
+      .workspace-sidebar {
+        width: 250px;
+      }
+      
+      .shortcut-item {
+        display: none;
+      }
+      
+      .shortcut-item:first-child {
+        display: flex;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .workspace-sidebar {
+        position: absolute;
+        height: 100%;
+        z-index: 10;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+      }
+      
+      .workspace-sidebar.visible {
+        transform: translateX(0);
+      }
+      
+      .toolbar-group:not(:first-child) {
+        display: none;
+      }
+      
+      .toolbar-right {
+        display: flex !important;
+      }
+      
+      #btn-run span, 
+      #btn-stop span,
+      .btn-tab-action span {
+        display: none;
+      }
+      
+      .btn-toolbar, 
+      .btn-tab-action {
+        width: 34px;
+        padding: 0;
+        justify-content: center;
+      }
     }
     
     /* Chat messages */
     .chat-message {
       display: flex;
-      margin-bottom: var(--space-3);
+      margin-bottom: 1.25rem;
       max-width: 85%;
       animation: fadeIn 0.3s ease-out;
     }
     
     @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes fadeInUp {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
@@ -174,39 +1767,45 @@ block append styles
     }
     
     .message-avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: var(--radius-full);
-      margin-right: var(--space-3);
-      background-color: var(--brand-primary-bg);
-      color: var(--brand-primary);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin-right: 0.75rem;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
+      font-size: 1rem;
       flex-shrink: 0;
     }
     
+    .message-avatar.user-avatar {
+      background: linear-gradient(135deg, var(--brand-secondary), var(--brand-secondary-hover));
+      color: white;
+    }
+    
+    .message-avatar.system-avatar {
+      background: linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover));
+      color: white;
+    }
+    
     .chat-message.user .message-avatar {
-      background-color: var(--brand-secondary-bg);
-      color: var(--brand-secondary);
       order: 1;
       margin-right: 0;
-      margin-left: var(--space-3);
+      margin-left: 0.75rem;
     }
     
     .message-content {
       background-color: var(--surface-card);
-      border-radius: var(--radius-lg);
-      padding: var(--space-3);
-      box-shadow: var(--shadow-sm);
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
       border: 1px solid var(--border-light);
       max-width: 100%;
     }
     
     .chat-message.user .message-content {
       background-color: var(--brand-primary-bg);
-      border-color: var(--brand-primary-light);
+      border-color: rgba(var(--brand-primary-rgb), 0.3);
       border-top-right-radius: 0;
     }
     
@@ -217,39 +1816,42 @@ block append styles
     .message-text {
       white-space: pre-wrap;
       color: var(--text-primary);
-      font-size: var(--font-size-sm);
-      margin-bottom: var(--space-2);
+      font-size: 0.95rem;
+      margin-bottom: 0.5rem;
     }
     
     .message-query {
       font-family: var(--font-mono);
       background-color: var(--surface-code);
-      padding: var(--space-2) var(--space-3);
-      border-radius: var(--radius-md);
-      margin-bottom: var(--space-2);
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 0.75rem;
       overflow-x: auto;
       color: var(--text-secondary);
-      font-size: var(--font-size-sm);
+      font-size: 0.85rem;
+      border: 1px solid var(--border-light);
     }
     
     .message-actions {
       display: flex;
-      gap: var(--space-2);
-      margin-top: var(--space-2);
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
     }
     
     .message-action-btn {
-      font-size: var(--font-size-xs);
-      padding: var(--space-1) var(--space-2);
+      font-size: 0.75rem;
+      padding: 0.4rem 0.75rem;
       background-color: var(--surface-nav);
       border: 1px solid var(--border-light);
-      border-radius: var(--radius-md);
+      border-radius: 6px;
       color: var(--text-tertiary);
       cursor: pointer;
-      transition: all var(--transition-fast);
+      transition: all 0.2s ease;
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 0.4rem;
+      font-weight: 500;
     }
     
     .message-action-btn:hover {
@@ -260,39 +1862,46 @@ block append styles
     
     /* Query results in chat */
     .result-container {
-      margin-top: var(--space-2);
+      margin-top: 0.75rem;
       max-width: 100%;
       overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid var(--border-light);
     }
     
     .result-info {
       display: flex;
       justify-content: space-between;
-      margin-bottom: var(--space-2);
-      font-size: var(--font-size-xs);
+      padding: 0.5rem 0.75rem;
+      background-color: var(--surface-table-header);
+      font-size: 0.75rem;
       color: var(--text-tertiary);
+      border-bottom: 1px solid var(--border-light);
+      font-weight: 500;
     }
     
     .result-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: var(--font-size-xs);
+      font-size: 0.85rem;
     }
     
     .result-table th {
       background-color: var(--surface-table-header);
       text-align: left;
-      padding: var(--space-2);
+      padding: 0.75rem;
       border-bottom: 1px solid var(--border-medium);
       font-weight: 600;
       color: var(--text-secondary);
       white-space: nowrap;
+      position: sticky;
+      top: 0;
     }
     
     .result-table td {
-      padding: var(--space-2);
+      padding: 0.75rem;
       border-bottom: 1px solid var(--border-light);
-      color: var (--text-secondary);
+      color: var(--text-secondary);
     }
     
     .result-table tr:nth-child(even) {
@@ -479,450 +2088,3 @@ block append styles
         max-width: 95%;
       }
     }
-
-block append scripts
-  script.
-    document.addEventListener('DOMContentLoaded', function() {
-      // DOM Elements
-      const chatArea = document.getElementById('chat-area');
-      const chatInput = document.getElementById('chat-input');
-      const sendButton = document.getElementById('chat-send-btn');
-      const clearChatButton = document.getElementById('btn-clear-chat');
-      const exportHistoryButton = document.getElementById('btn-export-history');
-      const queryTemplateSelect = document.getElementById('chat-query-template');
-      const dataSourceSelect = document.getElementById('chat-data-source');
-      const resultLimitSelect = document.getElementById('chat-result-limit');
-      const exampleQueries = document.querySelectorAll('.example-query');
-      
-      // Chat history
-      let chatHistory = [];
-      
-      // Auto-resize text input
-      chatInput.addEventListener('input', () => {
-        chatInput.style.height = 'auto';
-        chatInput.style.height = Math.min(chatInput.scrollHeight, 150) + 'px';
-      });
-      
-      // Send button click
-      sendButton.addEventListener('click', () => {
-        sendQuery();
-      });
-      
-      // Enter key to send (Ctrl/Cmd + Enter)
-      chatInput.addEventListener('keydown', (e) => {
-        if ((e.key === 'Enter' && (e.ctrlKey || e.metaKey)) || 
-            (e.key === 'Enter' && !e.shiftKey)) {
-          e.preventDefault();
-          sendQuery();
-        }
-      });
-      
-      // Clear chat button
-      clearChatButton.addEventListener('click', () => {
-        if (confirm('Are you sure you want to clear the chat history?')) {
-          chatHistory = [];
-          chatArea.innerHTML = '';
-          addWelcomeMessage();
-        }
-      });
-      
-      // Export chat history
-      exportHistoryButton.addEventListener('click', () => {
-        if (chatHistory.length === 0) {
-          alert('No chat history to export.');
-          return;
-        }
-        
-        const historyJSON = JSON.stringify(chatHistory, null, 2);
-        const blob = new Blob([historyJSON], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `sql-chat-history-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      });
-      
-      // Query templates
-      const templates = {
-        'select-clients': 'SELECT * FROM Clients LIMIT 10;',
-        'select-employees': 'SELECT * FROM Employees LIMIT 10;',
-        'select-orders': 'SELECT * FROM Commandes LIMIT 10;',
-        'join-orders-clients': 'SELECT c.nom_complet, o.date_commande, o.montant\nFROM Clients c\nJOIN Commandes o ON c.id_client = o.client_ref\nORDER BY o.date_commande DESC\nLIMIT 15;',
-        'count-by-client': 'SELECT c.nom_complet, COUNT(o.id_commande) as total_commandes FROM Clients c LEFT JOIN Commandes o ON c.id_client = o.client_ref GROUP BY c.id_client, c.nom_complet ORDER BY total_commandes DESC LIMIT 15;',
-        'product-inventory': 'SELECT p.description, p.prix_cout, p.categorie\nFROM Produits p\nORDER BY p.description;',
-        'clients-with-no-orders': 'SELECT c.nom_complet, c.email_contact, c.numero_telephone\nFROM Clients c\nLEFT JOIN Commandes o ON c.id_client = o.client_ref\nWHERE o.id_commande IS NULL;',
-        'top-products-by-orders': 'SELECT p.description, COUNT(d.id_commande) as times_ordered, SUM(d.quantite) as total_quantity\nFROM Produits p\nJOIN Details_Commande d ON p.id_produit = d.id_produit\nGROUP BY p.id_produit, p.description\nORDER BY times_ordered DESC\nLIMIT 10;',
-        'recent-invoices': 'SELECT f.id_facture, f.date_facture, c.nom_complet, f.montant_total\nFROM Factures f\nJOIN Commandes o ON f.commande_ref = o.id_commande\nJOIN Clients c ON o.client_ref = c.id_client\nORDER BY f.date_facture DESC\nLIMIT 15;',
-        'pending-deliveries': 'SELECT l.id_livraison, l.date_estimee, c.nom_complet, l.transporteur, o.montant\nFROM Livraisons l\nJOIN Commandes o ON l.commande_ref = o.id_commande\nJOIN Clients c ON o.client_ref = c.id_client\nWHERE l.statut = \'en cours\'\nORDER BY l.date_estimee;',
-        'suppliers-and-products': 'SELECT f.nom_fournisseur, p.description, a.quantite\nFROM Fournisseurs f\nJOIN Approvisionnements a ON f.id_fournisseur = a.id_fournisseur\nJOIN Produits p ON a.id_produit = p.id_produit\nORDER BY f.nom_fournisseur, p.description;',
-        'complex-multi-join': 'SELECT c.nom_complet, o.id_commande, o.date_commande, p.description,\nd.quantite, f.id_facture, l.statut as statut_livraison\nFROM Clients c\nJOIN Commandes o ON c.id_client = o.client_ref\nJOIN Details_Commande d ON o.id_commande = d.id_commande\nJOIN Produits p ON d.id_produit = p.id_produit\nLEFT JOIN Factures f ON o.id_commande = f.commande_ref\nLEFT JOIN Livraisons l ON o.id_commande = l.commande_ref\nWHERE o.date_commande > \'2023-01-01\'\nORDER BY o.date_commande DESC\nLIMIT 20;',
-        'average-order-value': 'SELECT SUBSTRING(o.date_commande, 1, 7) as month,\nAVG(o.montant) as average_order_value,\nCOUNT(o.id_commande) as order_count\nFROM Commandes o\nGROUP BY month\nORDER BY month DESC;',
-        'employee-performance': 'SELECT e.nom_complet, COUNT(o.id_commande) as orders_processed,\nSUM(o.montant) as total_sales\nFROM Employees e\nJOIN Commandes o ON e.id_employe = o.employe_ref\nGROUP BY e.id_employe, e.nom_complet\nORDER BY total_sales DESC;'
-      };
-      
-      // Query template selection
-      queryTemplateSelect.addEventListener('change', (e) => {
-        const template = templates[e.target.value];
-        if (template) {
-          chatInput.value = template;
-          chatInput.style.height = 'auto';
-          chatInput.style.height = Math.min(chatInput.scrollHeight, 150) + 'px';
-          chatInput.focus();
-        }
-      });
-      
-      // Example queries
-      exampleQueries.forEach(btn => {
-        btn.addEventListener('click', () => {
-          chatInput.value = btn.textContent.trim();
-          chatInput.style.height = 'auto';
-          chatInput.style.height = Math.min(chatInput.scrollHeight, 150) + 'px';
-          chatInput.focus();
-        });
-      });
-      
-      // Add welcome message
-      function addWelcomeMessage() {
-        const welcomeHTML = `
-          <div class="chat-welcome">
-            <div class="chat-welcome-icon">
-              <i class="fas.fa-database"></i>
-            </div>
-            <h3 class="chat-welcome-title">Welcome to SQL Chat</h3>
-            <p class="chat-welcome-message">Ask questions or run SQL queries against your integrated data sources</p>
-            <div class="chat-welcome-examples">
-              <h4>Try these examples:</h4>
-              <div class="example-queries">
-                <button class="example-query">SELECT * FROM clients LIMIT 5;</button>
-                <button class="example-query">SELECT COUNT(*) FROM commandes;</button>
-                <button class="example-query">SELECT c.nom_complet, COUNT(o.id) as total_commandes FROM Clients c LEFT JOIN Commandes o ON c.id = o.client_ref GROUP BY c.id, c.nom_complet ORDER BY total_commandes DESC LIMIT 15;</button>
-              </div>
-            </div>
-          </div>
-        `;
-        
-        chatArea.innerHTML = welcomeHTML;
-        
-        // Re-attach event listeners to example queries
-        document.querySelectorAll('.example-query').forEach(btn => {
-          btn.addEventListener('click', () => {
-            chatInput.value = btn.textContent.trim();
-            chatInput.style.height = 'auto';
-            chatInput.style.height = Math.min(chatInput.scrollHeight, 150) + 'px';
-            chatInput.focus();
-          });
-        });
-      }
-      
-      // Send query function
-      function sendQuery() {
-        const query = chatInput.value.trim();
-        
-        if (!query) {
-          return;
-        }
-        
-        // Add user message to chat
-        addUserMessage(query);
-        
-        // Add to history
-        chatHistory.push({
-          type: 'user',
-          query: query,
-          timestamp: new Date().toISOString()
-        });
-        
-        // Clear input
-        chatInput.value = '';
-        chatInput.style.height = 'auto';
-        
-        // Reset template select
-        queryTemplateSelect.selectedIndex = 0;
-        
-        // Show typing indicator
-        showTypingIndicator();
-        
-        // Get data source and limit
-        const dataSource = dataSourceSelect.value;
-        const limit = parseInt(resultLimitSelect.value);
-        
-        // Execute query
-        executeQuery(query, dataSource, limit);
-      }
-      
-      // Add user message to chat
-      function addUserMessage(query) {
-        // Remove welcome message if present
-        const welcomeMessage = chatArea.querySelector('.chat-welcome');
-        if (welcomeMessage) {
-          chatArea.innerHTML = '';
-        }
-        
-        const messageHTML = `
-          <div class="chat-message user">
-            <div class="message-content">
-              <div class="message-text">You ran the following SQL query:</div>
-              <div class="message-query">${escapeHTML(query)}</div>
-            </div>
-            <div class="message-avatar">
-              <i class="fas fa-user"></i>
-            </div>
-          </div>
-        `;
-        
-        chatArea.insertAdjacentHTML('beforeend', messageHTML);
-        scrollToBottom();
-      }
-      
-      // Add system message to chat
-      function addSystemMessage(data, query, executionTime, error = null) {
-        // Remove typing indicator
-        const typingIndicator = chatArea.querySelector('.typing-indicator');
-        if (typingIndicator) {
-          typingIndicator.remove();
-        }
-        
-        let resultHTML = '';
-        
-        if (error) {
-          resultHTML = `<div class="result-error">${escapeHTML(error)}</div>`;
-        } else if (!data || data.length === 0) {
-          resultHTML = `<div class="result-message">The query returned no results.</div>`;
-        } else {
-          // Get column headers from first result
-          const columns = Object.keys(data[0]);
-          
-          resultHTML = `
-            <div class="result-container">
-              <div class="result-info">
-                <span>${data.length} ${data.length === 1 ? 'row' : 'rows'} returned</span>
-                <span>Execution time: ${executionTime}ms</span>
-              </div>
-              <table class="result-table">
-                <thead>
-                  <tr>
-                    ${columns.map(col => `<th>${escapeHTML(col)}</th>`).join('')}
-                  </tr>
-                </thead>
-                <tbody>
-          `;
-          
-          // Add rows (limit to 50 in the UI for performance)
-          const displayLimit = Math.min(data.length, 50);
-          
-          for (let i = 0; i < displayLimit; i++) {
-            const row = data[i];
-            resultHTML += '<tr>';
-            
-            columns.forEach(column => {
-              const value = row[column] !== null ? row[column] : '';
-              resultHTML += `<td>${escapeHTML(String(value))}</td>`;
-            });
-            
-            resultHTML += '</tr>';
-          }
-          
-          // Add message if rows were limited
-          if (displayLimit < data.length) {
-            resultHTML += `
-              <tr>
-                <td colspan="${columns.length}" style="text-align: center; font-style: italic;">
-                  ${data.length - displayLimit} more rows (limited display for performance)
-                </td>
-              </tr>
-            `;
-          }
-          
-          resultHTML += `
-                </tbody>
-              </table>
-            </div>
-          `;
-        }
-        
-        const messageHTML = `
-          <div class="chat-message system">
-            <div class="message-avatar">
-              <i class="fas fa-database"></i>
-            </div>
-            <div class="message-content">
-              <div class="message-text">Query results:</div>
-              ${resultHTML}
-              <div class="message-actions">
-                <button class="message-action-btn copy-query" data-query="${escapeHTML(query)}">
-                  <i class="fas fa-copy"></i> Copy Query
-                </button>
-                <button class="message-action-btn rerun-query" data-query="${escapeHTML(query)}">
-                  <i class="fas fa-redo-alt"></i> Run Again
-                </button>
-                ${!error && data && data.length > 0 ? `
-                <button class="message-action-btn export-csv" data-index="${chatHistory.length}">
-                  <i class="fas fa-file-csv"></i> Export CSV
-                </button>` : ''}
-              </div>
-            </div>
-          </div>
-        `;
-        
-        chatArea.insertAdjacentHTML('beforeend', messageHTML);
-        
-        // Add to history
-        chatHistory.push({
-          type: 'system',
-          query: query,
-          result: error ? { error } : data,
-          executionTime: executionTime,
-          timestamp: new Date().toISOString()
-        });
-        
-        // Add event listeners for message actions
-        const copyButtons = document.querySelectorAll('.copy-query');
-        const rerunButtons = document.querySelectorAll('.rerun-query');
-        const exportButtons = document.querySelectorAll('.export-csv');
-        
-        copyButtons.forEach(btn => {
-          btn.addEventListener('click', function() {
-            const query = this.getAttribute('data-query');
-            navigator.clipboard.writeText(query)
-              .then(() => {
-                this.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                setTimeout(() => {
-                  this.innerHTML = '<i class="fas fa-copy"></i> Copy Query';
-                }, 2000);
-              });
-          });
-        });
-        
-        rerunButtons.forEach(btn => {
-          btn.addEventListener('click', function() {
-            const query = this.getAttribute('data-query');
-            chatInput.value = query;
-            chatInput.style.height = 'auto';
-            chatInput.style.height = Math.min(chatInput.scrollHeight, 150) + 'px';
-            chatInput.focus();
-          });
-        });
-        
-        exportButtons.forEach(btn => {
-          btn.addEventListener('click', function() {
-            const historyIndex = this.getAttribute('data-index');
-            const result = chatHistory[historyIndex].result;
-            exportAsCSV(result);
-          });
-        });
-        
-        scrollToBottom();
-      }
-      
-      // Show typing indicator
-      function showTypingIndicator() {
-        const indicatorHTML = `
-          <div class="chat-message system typing-indicator">
-            <div class="message-avatar">
-              <i class="fas fa-database"></i>
-            </div>
-            <div class="message-content">
-              <div class="typing-dot"></div>
-              <div class="typing-dot"></div>
-              <div class="typing-dot"></div>
-            </div>
-          </div>
-        `;
-        
-        chatArea.insertAdjacentHTML('beforeend', indicatorHTML);
-        scrollToBottom();
-      }
-      
-      // Execute query
-      async function executeQuery(query, dataSource, limit) {
-        const startTime = performance.now();
-        
-        try {
-          // Send query to server
-          const response = await fetch('/api/query', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              query,
-              parameters: {
-                dataSource,
-                limit
-              }
-            })
-          });
-          
-          const executionTime = Math.round(performance.now() - startTime);
-          
-          if (!response.ok) {
-            const error = await response.json();
-            addSystemMessage(null, query, executionTime, error.error || 'Unknown error occurred');
-            return;
-          }
-          
-          const data = await response.json();
-          addSystemMessage(data, query, executionTime);
-          
-        } catch (error) {
-          const executionTime = Math.round(performance.now() - startTime);
-          addSystemMessage(null, query, executionTime, error.message || 'An error occurred while executing the query.');
-        }
-      }
-      
-      // Export as CSV function
-      function exportAsCSV(data) {
-        if (!data || !data.length) {
-          alert('No data to export');
-          return;
-        }
-        
-        // Get column headers
-        const columns = Object.keys(data[0]);
-        
-        // Create CSV header row
-        const csvRows = [columns.map(col => `"${col}"`).join(',')];
-        
-        // Add data rows
-        data.forEach(row => {
-          const values = columns.map(col => {
-            const val = row[col] !== null ? row[col] : '';
-            return `"${String(val).replace(/"/g, '""')}"`;
-          });
-          csvRows.push(values.join(','));
-        });
-        
-        // Download CSV
-        const csvContent = csvRows.join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `query-result-${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-      
-      // Helper function to escape HTML
-      function escapeHTML(str) {
-        return String(str)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#039;');
-      }
-      
-      // Scroll to bottom function
-      function scrollToBottom() {
-        chatArea.scrollTop = chatArea.scrollHeight;
-      }
-      
-      // Initialize with welcome message
-      addWelcomeMessage();
-    });
