@@ -74,68 +74,63 @@ document.addEventListener('DOMContentLoaded', function() {
     'select-employees': 'SELECT * FROM Employees LIMIT 100;',
     'select-orders': 'SELECT * FROM Commandes ORDER BY date_commande DESC LIMIT 100;',
     'join-orders-clients': 
-      'SELECT c.id_commande, c.date_commande, cl.nom, cl.prenom, c.montant_total\n' +
+      'SELECT c.id_commande, c.date_commande, cl.nom_complet, c.montant\n' +
       'FROM Commandes c\n' +
-      'JOIN Clients cl ON c.id_client = cl.id_client\n' +
+      'JOIN Clients cl ON c.client_ref = cl.id_client\n' +
       'ORDER BY c.date_commande DESC\n' +
       'LIMIT 100;',
     'count-by-client': 
-      'SELECT cl.id_client, cl.nom, cl.prenom, COUNT(c.id_commande) as nombre_commandes, SUM(c.montant_total) as montant_total\n' +
+      'SELECT cl.id_client, cl.nom_complet, COUNT(c.id_commande) as nombre_commandes, SUM(c.montant) as montant_total\n' +
       'FROM Clients cl\n' +
-      'LEFT JOIN Commandes c ON cl.id_client = c.id_client\n' +
-      'GROUP BY cl.id_client, cl.nom, cl.prenom\n' +
+      'LEFT JOIN Commandes c ON cl.id_client = c.client_ref\n' +
+      'GROUP BY cl.id_client, cl.nom_complet\n' +
       'ORDER BY nombre_commandes DESC\n' +
       'LIMIT 100;',
     'product-inventory': 
-      'SELECT id_produit, nom_produit, description, prix, quantite_stock\n' +
+      'SELECT id_produit, description, prix_cout, categorie, source_system\n' +
       'FROM Produits\n' +
-      'ORDER BY quantite_stock DESC\n' +
-      'LIMIT 100;',
-    'clients-with-no-orders': 
-      'SELECT id_client, nom, prenom, email, telephone\n' +
-      'FROM Clients\n' +
-      'WHERE id_client NOT IN (SELECT id_client FROM Commandes)\n' +
+      'ORDER BY prix_cout DESC\n' +
       'LIMIT 100;',
     'top-products-by-orders': 
-      'SELECT p.id_produit, p.nom_produit, SUM(dc.quantite) as quantite_totale, SUM(dc.prix_unitaire * dc.quantite) as montant_total\n' +
+      'SELECT p.id_produit, p.description, SUM(dc.quantite) as quantite_totale\n' +
       'FROM Produits p\n' +
       'JOIN Details_Commande dc ON p.id_produit = dc.id_produit\n' +
-      'GROUP BY p.id_produit, p.nom_produit\n' +
+      'GROUP BY p.id_produit, p.description\n' +
       'ORDER BY quantite_totale DESC\n' +
       'LIMIT 10;',
     'recent-invoices': 
-      'SELECT f.id_facture, f.date_emission, f.date_paiement, c.id_commande, cl.nom, cl.prenom, f.montant_total, f.statut\n' +
+      'SELECT f.id_facture, f.date_facture, c.id_commande, cl.nom_complet, f.montant_total\n' +
       'FROM Factures f\n' +
-      'JOIN Commandes c ON f.id_commande = c.id_commande\n' +
-      'JOIN Clients cl ON c.id_client = cl.id_client\n' +
-      'ORDER BY f.date_emission DESC\n' +
+      'JOIN Commandes c ON f.commande_ref = c.id_commande\n' +
+      'JOIN Clients cl ON c.client_ref = cl.id_client\n' +
+      'ORDER BY f.date_facture DESC\n' +
       'LIMIT 100;',
     'pending-deliveries': 
-      'SELECT l.id_livraison, l.date_livraison_prevue, l.statut, c.id_commande, cl.nom, cl.prenom, cl.adresse\n' +
+      'SELECT l.id_livraison, l.date_estimee, l.statut, c.id_commande, cl.nom_complet, cl.adresse\n' +
       'FROM Livraisons l\n' +
-      'JOIN Commandes c ON l.id_commande = c.id_commande\n' +
-      'JOIN Clients cl ON c.id_client = cl.id_client\n' +
+      'JOIN Commandes c ON l.commande_ref = c.id_commande\n' +
+      'JOIN Clients cl ON c.client_ref = cl.id_client\n' +
       'WHERE l.statut = "En cours"\n' +
-      'ORDER BY l.date_livraison_prevue\n' +
+      'ORDER BY l.date_estimee\n' +
       'LIMIT 100;',
     'suppliers-and-products': 
-      'SELECT f.id_fournisseur, f.nom_entreprise, p.id_produit, p.nom_produit, a.quantite, a.date_approvisionnement\n' +
+      'SELECT f.id_fournisseur, f.nom_fournisseur, p.id_produit, p.description, a.quantite\n' +
       'FROM Fournisseurs f\n' +
       'JOIN Approvisionnements a ON f.id_fournisseur = a.id_fournisseur\n' +
       'JOIN Produits p ON a.id_produit = p.id_produit\n' +
-      'ORDER BY a.date_approvisionnement DESC\n' +
+      'ORDER BY f.nom_fournisseur\n' +
       'LIMIT 100;',
     'complex-multi-join': 
-      'SELECT c.id_commande, c.date_commande, cl.nom as client_nom, e.nom as employee_nom,\n' +
-      '       p.nom_produit, dc.quantite, dc.prix_unitaire, (dc.quantite * dc.prix_unitaire) as sous_total,\n' +
-      '       f.id_facture, f.statut as statut_facture, l.statut as statut_livraison\n' +
+      'SELECT c.id_commande, c.date_commande, cl.nom_complet as client_nom, e.nom_complet as employee_nom,\n' +
+      '       p.description as produit, dc.quantite,\n' +
+      '       f.id_facture, f.montant_total, l.statut as statut_livraison\n' +
       'FROM Commandes c\n' +
-      'JOIN Clients cl ON c.id_client = cl.id_client\n' +
-      'JOIN Employees e ON c.id_employee = e.id_employee\n' +
+      'JOIN Clients cl ON c.client_ref = cl.id_client\n' +
+      'JOIN Employees e ON c.employe_ref = e.id_employe\n' +
       'JOIN Details_Commande dc ON c.id_commande = dc.id_commande\n' +
       'JOIN Produits p ON dc.id_produit = p.id_produit\n' +
-      'LEFT JOIN Factures f ON c.id_commande = f.id_commande\n' +
-      'LEFT JOIN Livraisons l ON c.id_commande = l.id_commande\n' +
+      'LEFT JOIN Factures f ON c.id_commande = f.commande_ref\n' +
+      'LEFT JOIN Livraisons l ON c.id_commande = l.commande_ref\n' +
       'ORDER BY c.date_commande DESC\n' +
       'LIMIT 100;',
     'average-order-value': 
@@ -143,20 +138,20 @@ document.addEventListener('DOMContentLoaded', function() {
       '    YEAR(c.date_commande) as annee,\n' +
       '    MONTH(c.date_commande) as mois,\n' +
       '    COUNT(c.id_commande) as nombre_commandes,\n' +
-      '    AVG(c.montant_total) as valeur_moyenne,\n' +
-      '    SUM(c.montant_total) as revenu_total\n' +
+      '    AVG(c.montant) as valeur_moyenne,\n' +
+      '    SUM(c.montant) as revenu_total\n' +
       'FROM Commandes c\n' +
       'GROUP BY annee, mois\n' +
       'ORDER BY annee DESC, mois DESC\n' +
       'LIMIT 24;',
     'employee-performance': 
-      'SELECT e.id_employee, e.nom, e.prenom, e.poste,\n' +
+      'SELECT e.id_employe, e.nom_complet, e.poste,\n' +
       '       COUNT(c.id_commande) as nombre_commandes,\n' +
-      '       SUM(c.montant_total) as montant_total,\n' +
-      '       AVG(c.montant_total) as montant_moyen\n' +
+      '       SUM(c.montant) as montant_total,\n' +
+      '       AVG(c.montant) as montant_moyen\n' +
       'FROM Employees e\n' +
-      'LEFT JOIN Commandes c ON e.id_employee = c.id_employee\n' +
-      'GROUP BY e.id_employee, e.nom, e.prenom, e.poste\n' +
+      'LEFT JOIN Commandes c ON e.id_employe = c.employe_ref\n' +
+      'GROUP BY e.id_employe, e.nom_complet, e.poste\n' +
       'ORDER BY nombre_commandes DESC, montant_total DESC;'
   };
 
@@ -174,9 +169,10 @@ document.addEventListener('DOMContentLoaded', function() {
     sqlEditor.addEventListener('input', function() {
       clearTimeout(inputTimer);
       inputTimer = setTimeout(function() {
-        // Update UI
+        // Update line numbers (which doesn't affect the editor content)
         updateLineNumbers();
-        processEditorText();
+        
+        // Only update cursor position display, avoid modifying content during typing
         updateCursorPosition();
       }, 150); // 150ms debounce for better performance
     });
@@ -211,6 +207,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Track cursor position
     sqlEditor.addEventListener('click', updateCursorPosition);
     sqlEditor.addEventListener('keyup', updateCursorPosition);
+    
+    // Process text when the editor loses focus (to clean up any formatting)
+    sqlEditor.addEventListener('blur', processEditorText);
   }
 
   // Update line numbers in the editor
@@ -233,7 +232,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (selection.rangeCount === 0) return;
     
     const range = selection.getRangeAt(0);
-    if (range.startContainer.nodeType !== Node.TEXT_NODE) return;
+    
+    // Handle case where range might not be in a text node
+    if (!range.startContainer || range.startContainer.nodeType !== Node.TEXT_NODE) {
+      // Just display position 1,1 if we can't determine actual position
+      cursorLine.textContent = 1;
+      cursorColumn.textContent = 1;
+      return;
+    }
     
     // Get text before the cursor, handling HTML content properly
     let textBeforeCursor = '';
@@ -276,6 +282,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // Restore focus if editor had focus
     if (hasFocus) {
       sqlEditor.focus();
+      
+      // Restore cursor position if we had a valid range
+      if (range) {
+        const newRange = document.createRange();
+        const treeWalker = document.createTreeWalker(sqlEditor, NodeFilter.SHOW_TEXT);
+        let currentNode = treeWalker.nextNode();
+        
+        if (currentNode) {
+          // Set cursor at the same position in the new text node
+          const offset = Math.min(range.startOffset, currentNode.length);
+          newRange.setStart(currentNode, offset);
+          newRange.setEnd(currentNode, offset);
+          
+          // Apply the range to the selection
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+        }
+      }
     }
   }
 
@@ -391,6 +415,16 @@ document.addEventListener('DOMContentLoaded', function() {
         throw new Error(result.error || 'Error executing query');
       }
       
+      // Debug: Log the response data
+      console.log('Query response:', result);
+      console.log('Query response type:', typeof result);
+      console.log('Query response structure:', Object.keys(result));
+      
+      // Check if result contains an error property
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      
       // Add to query history
       addToQueryHistory(currentQuery);
       
@@ -406,7 +440,21 @@ document.addEventListener('DOMContentLoaded', function() {
       if (error.name === 'AbortError') {
         showMessage('warning', 'Exécution de la requête annulée.');
       } else {
+        console.error('Error executing query:', error);
         showMessage('error', `Erreur: ${error.message}`);
+        
+        // Show a more user-friendly error in the results tab
+        resultsOutput.innerHTML = `
+          <div class="error-container">
+            <div class="error-icon"><i class="fas fa-exclamation-circle"></i></div>
+            <div class="error-message">
+              <h3>Erreur lors de l'exécution de la requête</h3>
+              <p>${error.message}</p>
+              <pre class="error-details">${error.stack || ''}</pre>
+            </div>
+          </div>
+        `;
+        
         switchTab(messagesTab);
       }
     } finally {
@@ -458,7 +506,63 @@ document.addEventListener('DOMContentLoaded', function() {
     // Clear previous results
     resultsOutput.innerHTML = '';
     
-    if (!data || !data.results || !Array.isArray(data.results) || data.results.length === 0) {
+    // Debug: Log data received by the display function
+    console.log('Data received for display:', data);
+    console.log('Data type:', typeof data);
+    
+    // Check if data has the expected structure
+    if (!data) {
+      console.error('No data received');
+      resultsOutput.innerHTML = `
+        <div class="results-placeholder">
+          <i class="fas fa-exclamation-triangle"></i>
+          <h3>Erreur de données</h3>
+          <p>Aucune donnée n'a été reçue du serveur.</p>
+        </div>
+      `;
+      return;
+    }
+    
+    // Handle different response structures
+    let resultsArray;
+    
+    // If data is an array itself (direct results array), use it
+    if (Array.isArray(data)) {
+      console.log('Data is directly an array, using it as results');
+      resultsArray = data;
+    } 
+    // If data has results property that's an array, use that
+    else if (data.results && Array.isArray(data.results)) {
+      console.log('Using data.results array');
+      resultsArray = data.results;
+    }
+    // If data has a data property with results
+    else if (data.data && Array.isArray(data.data)) {
+      console.log('Using data.data array');
+      resultsArray = data.data;
+    }
+    // If data has a data.results property
+    else if (data.data && data.data.results && Array.isArray(data.data.results)) {
+      console.log('Using data.data.results array');
+      resultsArray = data.data.results;
+    }
+    // If data is just a plain object, wrap it in an array
+    else if (typeof data === 'object' && !Array.isArray(data)) {
+      console.log('Data appears to be a single result object, wrapping in array');
+      // Check if any property contains an array we could use
+      const arrayProps = Object.entries(data).find(([_, val]) => Array.isArray(val));
+      if (arrayProps) {
+        console.log(`Found array in property: ${arrayProps[0]}`);
+        resultsArray = arrayProps[1];
+      } else {
+        // No arrays found, use the object itself
+        resultsArray = [data];
+      }
+    }
+    
+    // Final check if we have valid results to display
+    if (!resultsArray || !Array.isArray(resultsArray) || resultsArray.length === 0) {
+      console.error('No valid results array found in data:', data);
       resultsOutput.innerHTML = `
         <div class="results-placeholder">
           <i class="fas fa-database"></i>
@@ -482,7 +586,7 @@ document.addEventListener('DOMContentLoaded', function() {
     rowCountInfo.className = 'results-info-item';
     rowCountInfo.innerHTML = `
       <i class="fas fa-list"></i>
-      <span>${data.results.length} ligne${data.results.length !== 1 ? 's' : ''}</span>
+      <span>${resultsArray.length} ligne${resultsArray.length !== 1 ? 's' : ''}</span>
     `;
     
     // Add execution time info
@@ -505,9 +609,63 @@ document.addEventListener('DOMContentLoaded', function() {
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
     
-    // Get column names from the first result
-    const columns = Object.keys(data.results[0]);
+    // Check if the first result exists and is an object
+    if (!resultsArray[0] || typeof resultsArray[0] !== 'object') {
+      console.error("First result item is invalid:", resultsArray);
+      
+      // Check if the results might be primitive values
+      if (resultsArray.length > 0 && (typeof resultsArray[0] === 'string' || 
+                                     typeof resultsArray[0] === 'number' || 
+                                     typeof resultsArray[0] === 'boolean')) {
+        // Handle primitive values by creating a simple "Value" column
+        const th = document.createElement('th');
+        th.textContent = "Value";
+        headerRow.appendChild(th);
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        // Create table body for primitive values
+        const tbody = document.createElement('tbody');
+        resultsArray.forEach(value => {
+          const tr = document.createElement('tr');
+          const td = document.createElement('td');
+          td.textContent = value !== null ? value : 'NULL';
+          tr.appendChild(td);
+          tbody.appendChild(tr);
+        });
+        
+        table.appendChild(tbody);
+        resultsContainer.appendChild(table);
+        resultsOutput.appendChild(resultsContainer);
+        return;
+      }
+      
+      // If not a primitive array, show error
+      resultsContainer.innerHTML = `
+        <div class="error-message">
+          <p>Results array exists but first item is invalid. Check console for details.</p>
+        </div>
+      `;
+      resultsOutput.appendChild(resultsContainer);
+      return;
+    }
     
+    // Get column names from the first result
+    const columns = Object.keys(resultsArray[0]);
+    
+    // Make sure we have columns
+    if (!columns.length) {
+      console.error("No columns found in results:", resultsArray[0]);
+      resultsContainer.innerHTML = `
+        <div class="error-message">
+          <p>No columns found in result data. Check console for details.</p>
+        </div>
+      `;
+      resultsOutput.appendChild(resultsContainer);
+      return;
+    }
+    
+    // Add columns to header row
     columns.forEach(column => {
       const th = document.createElement('th');
       th.textContent = column;
@@ -520,17 +678,41 @@ document.addEventListener('DOMContentLoaded', function() {
     // Create table body
     const tbody = document.createElement('tbody');
     
-    data.results.forEach(row => {
-      const tr = document.createElement('tr');
-      
-      columns.forEach(column => {
-        const td = document.createElement('td');
-        td.textContent = row[column] !== null ? row[column] : 'NULL';
-        tr.appendChild(td);
+    // Handle data rows
+    try {
+      resultsArray.forEach(row => {
+        const tr = document.createElement('tr');
+        
+        columns.forEach(column => {
+          const td = document.createElement('td');
+          
+          // Handle different data types safely
+          if (row[column] === null || row[column] === undefined) {
+            td.textContent = 'NULL';
+            td.classList.add('null-value');
+          } else if (typeof row[column] === 'object') {
+            // For objects, display as JSON
+            td.textContent = JSON.stringify(row[column]);
+          } else {
+            // For primitives, display as string
+            td.textContent = String(row[column]);
+          }
+          
+          tr.appendChild(td);
+        });
+        
+        tbody.appendChild(tr);
       });
-      
-      tbody.appendChild(tr);
-    });
+    } catch (error) {
+      console.error("Error rendering table rows:", error);
+      resultsContainer.innerHTML = `
+        <div class="error-message">
+          <p>Error rendering result data: ${error.message}</p>
+        </div>
+      `;
+      resultsOutput.appendChild(resultsContainer);
+      return;
+    }
     
     table.appendChild(tbody);
     resultsContainer.appendChild(table);
