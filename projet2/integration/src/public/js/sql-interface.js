@@ -162,16 +162,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Initialize the SQL editor with line numbers
   function initializeEditor() {
-    // Set initial content
+    // Set initial content as plain text
     sqlEditor.textContent = '-- Entrez votre requête SQL ici\nSELECT * FROM Clients LIMIT 100;';
+    
+    // Apply line numbers and process text
     updateLineNumbers();
-    highlightSyntax();
+    processEditorText();
 
-    // Detect input events
+    // Detect input events - use a debounce to prevent performance issues
+    let inputTimer;
     sqlEditor.addEventListener('input', function() {
-      updateLineNumbers();
-      highlightSyntax();
-      updateCursorPosition();
+      clearTimeout(inputTimer);
+      inputTimer = setTimeout(function() {
+        // Update UI
+        updateLineNumbers();
+        processEditorText();
+        updateCursorPosition();
+      }, 150); // 150ms debounce for better performance
     });
 
     // Detect key events for shortcuts
@@ -199,8 +206,6 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         toggleComment();
       }
-      
-      updateCursorPosition();
     });
 
     // Track cursor position
@@ -210,7 +215,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Update line numbers in the editor
   function updateLineNumbers() {
-    const lines = sqlEditor.textContent.split('\n');
+    // Get the text content without HTML tags
+    const text = sqlEditor.innerText || sqlEditor.textContent;
+    const lines = text.split('\n');
     let html = '';
     
     for (let i = 0; i < lines.length; i++) {
@@ -228,8 +235,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const range = selection.getRangeAt(0);
     if (range.startContainer.nodeType !== Node.TEXT_NODE) return;
     
-    const text = sqlEditor.textContent.substring(0, range.startOffset);
-    const lines = text.split('\n');
+    // Get text before the cursor, handling HTML content properly
+    let textBeforeCursor = '';
+    const nodes = [];
+    const treeWalker = document.createTreeWalker(sqlEditor, NodeFilter.SHOW_TEXT);
+    let currentNode;
+    
+    while (currentNode = treeWalker.nextNode()) {
+      nodes.push(currentNode);
+      if (currentNode === range.startContainer) {
+        textBeforeCursor += currentNode.nodeValue.substring(0, range.startOffset);
+        break;
+      } else {
+        textBeforeCursor += currentNode.nodeValue;
+      }
+    }
+    
+    const lines = textBeforeCursor.split('\n');
     const line = lines.length;
     const column = lines[lines.length - 1].length + 1;
     
@@ -237,79 +259,23 @@ document.addEventListener('DOMContentLoaded', function() {
     cursorColumn.textContent = column;
   }
 
-  // Apply syntax highlighting to the SQL query
-  function highlightSyntax() {
-    let text = sqlEditor.textContent;
-    
-    // Save the current selection
+  // Process the editor content - no syntax highlighting applied
+  function processEditorText() {
+    // Save cursor position and focus state
     const selection = window.getSelection();
     const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-    const startOffset = range ? range.startOffset : 0;
+    const hasFocus = document.activeElement === sqlEditor;
     
-    // Create a temporary div to work with the HTML
-    const tempDiv = document.createElement('div');
+    // Get the raw text content without HTML tags
+    const text = sqlEditor.innerText || sqlEditor.textContent || '';
     
-    // Escape HTML to prevent XSS
-    const escapedText = escapeHTML(text);
+    // Simply set the text content without any syntax highlighting
+    // This preserves line breaks but doesn't add any HTML formatting
+    sqlEditor.textContent = text;
     
-    // Apply syntax highlighting with regex
-    let highlightedText = escapedText
-      // Highlight keywords
-      .replace(new RegExp('\\b(' + sqlKeywords.join('|') + ')\\b', 'gi'), match => {
-        return `<span class="keyword">${match}</span>`;
-      })
-      // Highlight functions
-      .replace(/\b(\w+)\s*\(/g, '<span class="function">$1</span>(')
-      // Highlight strings
-      .replace(/'([^']*)'/g, '<span class="string">\'$1\'</span>')
-      .replace(/"([^"]*)"/g, '<span class="string">"$1"</span>')
-      // Highlight numbers
-      .replace(/\b(\d+(\.\d+)?)\b/g, '<span class="number">$1</span>')
-      // Highlight comments
-      .replace(/--(.*)$/gm, '<span class="comment">--$1</span>')
-      // Convert newlines to <br> for proper display
-      .replace(/\n/g, '<br>');
-    
-    tempDiv.innerHTML = highlightedText;
-    
-    // Restore the content with highlighting
-    sqlEditor.innerHTML = tempDiv.innerHTML;
-    
-    // Restore selection if it existed
-    if (range) {
-      try {
-        // Find text nodes and their lengths to calculate the new position
-        const nodes = [];
-        const treeWalker = document.createTreeWalker(sqlEditor, NodeFilter.SHOW_TEXT);
-        let currentNode;
-        
-        while (currentNode = treeWalker.nextNode()) {
-          nodes.push(currentNode);
-        }
-        
-        let offset = 0;
-        let targetNode = null;
-        let targetOffset = 0;
-        
-        for (const node of nodes) {
-          if (offset + node.length >= startOffset) {
-            targetNode = node;
-            targetOffset = startOffset - offset;
-            break;
-          }
-          offset += node.length;
-        }
-        
-        if (targetNode) {
-          const newRange = document.createRange();
-          newRange.setStart(targetNode, targetOffset);
-          newRange.collapse(true);
-          selection.removeAllRanges();
-          selection.addRange(newRange);
-        }
-      } catch (e) {
-        console.error('Error restoring selection:', e);
-      }
+    // Restore focus if editor had focus
+    if (hasFocus) {
+      sqlEditor.focus();
     }
   }
 
@@ -318,8 +284,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const selection = window.getSelection();
     const range = selection.getRangeAt(0);
     
-    // Get the text content of the editor
-    const text = sqlEditor.textContent;
+    // Get the text content of the editor without HTML tags
+    const text = sqlEditor.innerText;
     
     // Get the start and end of the selection
     let start = 0;
@@ -358,9 +324,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update the editor content
     sqlEditor.textContent = newText;
     
-    // Update line numbers and highlighting
+    // Update line numbers and process text
     updateLineNumbers();
-    highlightSyntax();
+    processEditorText();
   }
 
   // Execute the current SQL query
@@ -370,8 +336,8 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     
-    // Get the current query from the editor
-    currentQuery = sqlEditor.textContent.trim();
+    // Get the current query from the editor (use innerText to get text without HTML tags)
+    currentQuery = sqlEditor.innerText.trim();
     
     if (!currentQuery) {
       showToast('warning', 'Veuillez entrer une requête SQL.');
@@ -463,8 +429,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // Format the SQL query with indentation
   function formatSQLQuery() {
     try {
-      // Get the current query
-      const query = sqlEditor.textContent;
+      // Get the current query (use innerText to get text without HTML tags)
+      const query = sqlEditor.innerText;
       
       // Use the formatSQL utility function
       const formattedQuery = formatSQL(query);
@@ -472,7 +438,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Update the editor
       sqlEditor.textContent = formattedQuery;
       updateLineNumbers();
-      highlightSyntax();
+      processEditorText();
       
       showToast('success', 'Requête formatée');
     } catch (error) {
@@ -482,9 +448,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Clear the SQL editor
   function clearEditor() {
-    sqlEditor.textContent = '';
+    sqlEditor.innerHTML = '';
     updateLineNumbers();
-    highlightSyntax();
+    processEditorText();
   }
 
   // Display query results in the results tab
@@ -782,9 +748,11 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Add click event to load the query
       historyItemElement.addEventListener('click', () => {
+        // Set plain text first
         sqlEditor.textContent = item.query;
+        // Then update display
         updateLineNumbers();
-        highlightSyntax();
+        processEditorText();
         showToast('info', 'Requête chargée depuis l\'historique');
       });
       
@@ -805,7 +773,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Open the save query modal
   function openSaveModal() {
-    const query = sqlEditor.textContent.trim();
+    const query = sqlEditor.innerText.trim();
     
     if (!query) {
       showToast('warning', 'Aucune requête à sauvegarder');
@@ -823,7 +791,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Save the current query
   function saveQuery() {
-    const query = sqlEditor.textContent.trim();
+    const query = sqlEditor.innerText.trim();
     const name = queryNameInput.value.trim();
     const description = queryDescriptionInput.value.trim();
     
@@ -897,9 +865,11 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Add click event to load the query
       queryItemElement.addEventListener('click', () => {
+        // Set plain text first
         sqlEditor.textContent = item.query;
+        // Then update display
         updateLineNumbers();
-        highlightSyntax();
+        processEditorText();
         loadModal.classList.remove('visible');
         showToast('info', `Requête "${item.name}" chargée`);
       });
@@ -1154,6 +1124,13 @@ document.addEventListener('DOMContentLoaded', function() {
       .replace(/'/g, '&#039;');
   }
 
+  // Debug function to check what's happening with the editor
+  function debugEditor() {
+    console.log('Editor content (innerHTML):', sqlEditor.innerHTML);
+    console.log('Editor content (innerText):', sqlEditor.innerText);
+    console.log('Editor content (textContent):', sqlEditor.textContent);
+  }
+
   // Initialize the application
   function init() {
     // Initialize editor if it exists
@@ -1201,9 +1178,11 @@ document.addEventListener('DOMContentLoaded', function() {
       queryTemplateSelect.addEventListener('change', function() {
         const templateId = this.value;
         if (templateId && queryTemplates[templateId]) {
+          // Set plain text first
           sqlEditor.textContent = queryTemplates[templateId];
+          // Then update display
           updateLineNumbers();
-          highlightSyntax();
+          processEditorText();
           this.value = ''; // Reset select
         }
       });

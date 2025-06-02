@@ -699,6 +699,10 @@ table.data-table {
     width: 100%;
     resize: vertical;
     font-size: var(--font-size-sm);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    outline: none;
 }
 
 .query-editor:focus {
@@ -706,6 +710,8 @@ table.data-table {
     border-color: var(--brand-primary);
     box-shadow: 0 0 0 2px var(--brand-primary-bg);
 }
+
+/* Syntax highlighting styles removed */
 
 .query-tools {
     display: flex;
