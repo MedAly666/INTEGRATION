@@ -4,6 +4,8 @@
  */
 
 document.addEventListener('DOMContentLoaded', function() {
+  console.log('SQL Interface initialized - checking for historyList');
+  
   // DOM Elements
   const sqlEditor = document.getElementById('sql-editor');
   const lineNumbers = document.getElementById('line-numbers');
@@ -26,7 +28,9 @@ document.addEventListener('DOMContentLoaded', function() {
   const cursorColumn = document.getElementById('cursor-column');
   const schemaSearch = document.getElementById('schema-search');
   const schemaItems = document.querySelectorAll('.schema-item');
+  // These elements may be removed if sidebar was removed
   const historyList = document.getElementById('history-list');
+  console.log('historyList element found:', historyList); // Debug log to check if historyList exists
   const clearHistoryButton = document.querySelector('.btn-clear-history');
   const exportButton = document.getElementById('btn-export');
 
@@ -711,8 +715,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Save to local storage
     saveQueryHistory();
     
-    // Update the UI
-    updateQueryHistoryUI();
+    // Update the UI only if the history list exists
+    if (historyList) {
+      updateQueryHistoryUI();
+    }
   }
 
   // Load query history from local storage
@@ -737,6 +743,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Update the query history UI
   function updateQueryHistoryUI() {
+    // Check if historyList exists before trying to access it
+    if (!historyList) {
+      console.log('History list element not found in the DOM - sidebar may have been removed');
+      return;
+    }
+    
     // Clear the current history list
     historyList.innerHTML = '';
     
@@ -752,6 +764,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add each history item to the list
     queryHistory.forEach(item => {
+      if (!historyList) return; // Skip if historyList doesn't exist
+      
       const historyItemElement = document.createElement('div');
       historyItemElement.className = 'history-item';
       historyItemElement.setAttribute('data-id', item.id);
@@ -782,7 +796,10 @@ document.addEventListener('DOMContentLoaded', function() {
   function clearQueryHistory() {
     queryHistory = [];
     saveQueryHistory();
-    updateQueryHistoryUI();
+    // Only update UI if historyList exists
+    if (historyList) {
+      updateQueryHistoryUI();
+    }
     showToast('info', 'Historique des requêtes effacé');
   }
 
@@ -1139,88 +1156,112 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Initialize the application
   function init() {
-    // Initialize editor
-    initializeEditor();
+    // Initialize editor if it exists
+    if (sqlEditor) {
+      initializeEditor();
+    } else {
+      console.warn('SQL Editor element not found in the DOM');
+    }
     
-    // Update history UI
-    updateQueryHistoryUI();
+    // Update history UI if historyList exists
+    if (historyList) {
+      updateQueryHistoryUI();
+    } else {
+      console.log('History list element not found - sidebar may have been removed');
+    }
     
-    // Set up event listeners for buttons
-    runButton.addEventListener('click', executeQuery);
-    stopButton.addEventListener('click', stopQueryExecution);
-    formatButton.addEventListener('click', formatSQLQuery);
-    clearButton.addEventListener('click', clearEditor);
-    saveButton.addEventListener('click', openSaveModal);
-    loadButton.addEventListener('click', openLoadModal);
-    clearHistoryButton.addEventListener('click', clearQueryHistory);
-    exportButton.addEventListener('click', exportResultsToCSV);
+    // Set up event listeners for buttons (only if they exist)
+    if (runButton) runButton.addEventListener('click', executeQuery);
+    if (stopButton) stopButton.addEventListener('click', stopQueryExecution);
+    if (formatButton) formatButton.addEventListener('click', formatSQLQuery);
+    if (clearButton) clearButton.addEventListener('click', clearEditor);
+    if (saveButton) saveButton.addEventListener('click', openSaveModal);
+    if (loadButton) loadButton.addEventListener('click', openLoadModal);
+    if (clearHistoryButton) clearHistoryButton.addEventListener('click', clearQueryHistory);
+    if (exportButton) exportButton.addEventListener('click', exportResultsToCSV);
     
-    // Set up event listeners for tabs
-    resultsTab.addEventListener('click', () => switchTab(resultsTab));
-    messagesTab.addEventListener('click', () => switchTab(messagesTab));
-    explainTab.addEventListener('click', () => switchTab(explainTab));
+    // Set up event listeners for tabs (only if they exist)
+    if (resultsTab) resultsTab.addEventListener('click', () => switchTab(resultsTab));
+    if (messagesTab) messagesTab.addEventListener('click', () => switchTab(messagesTab));
+    if (explainTab) explainTab.addEventListener('click', () => switchTab(explainTab));
     
-    // Set up event listeners for modals
-    saveModalClose.addEventListener('click', () => saveModal.classList.remove('visible'));
-    saveModalCancel.addEventListener('click', () => saveModal.classList.remove('visible'));
-    saveModalSave.addEventListener('click', saveQuery);
+    // Set up event listeners for modals (only if they exist)
+    if (saveModalClose) saveModalClose.addEventListener('click', () => saveModal.classList.remove('visible'));
+    if (saveModalCancel) saveModalCancel.addEventListener('click', () => saveModal.classList.remove('visible'));
+    if (saveModalSave) saveModalSave.addEventListener('click', saveQuery);
     
-    loadModalClose.addEventListener('click', () => loadModal.classList.remove('visible'));
-    loadModalCancel.addEventListener('click', () => loadModal.classList.remove('visible'));
+    if (loadModalClose) loadModalClose.addEventListener('click', () => loadModal.classList.remove('visible'));
+    if (loadModalCancel) loadModalCancel.addEventListener('click', () => loadModal.classList.remove('visible'));
     
-    previewModalClose.addEventListener('click', () => tablePreviewModal.classList.remove('visible'));
-    previewModalCloseBtn.addEventListener('click', () => tablePreviewModal.classList.remove('visible'));
+    if (previewModalClose) previewModalClose.addEventListener('click', () => tablePreviewModal.classList.remove('visible'));
+    if (previewModalCloseBtn) previewModalCloseBtn.addEventListener('click', () => tablePreviewModal.classList.remove('visible'));
     
-    // Set up event listener for query template select
-    queryTemplateSelect.addEventListener('change', function() {
-      const templateId = this.value;
-      if (templateId && queryTemplates[templateId]) {
-        sqlEditor.textContent = queryTemplates[templateId];
-        updateLineNumbers();
-        highlightSyntax();
-        this.value = ''; // Reset select
-      }
-    });
+    // Set up event listener for query template select (only if it exists)
+    if (queryTemplateSelect) {
+      queryTemplateSelect.addEventListener('change', function() {
+        const templateId = this.value;
+        if (templateId && queryTemplates[templateId]) {
+          sqlEditor.textContent = queryTemplates[templateId];
+          updateLineNumbers();
+          highlightSyntax();
+          this.value = ''; // Reset select
+        }
+      });
+    }
     
     // Set up event listener for schema search
-    schemaSearch.addEventListener('input', function() {
-      filterSchemaItems(this.value);
-    });
+    if (schemaSearch) {
+      schemaSearch.addEventListener('input', function() {
+        filterSchemaItems(this.value);
+      });
+    }
     
     // Set up event listeners for schema items
-    schemaItems.forEach(item => {
-      const tableName = item.getAttribute('data-table');
-      const previewIcon = item.querySelector('.preview-icon');
-      
-      // Double-click on table name inserts the table name in the editor
-      item.addEventListener('dblclick', () => {
-        document.execCommand('insertText', false, tableName);
+    if (schemaItems && schemaItems.length > 0) {
+      schemaItems.forEach(item => {
+        const tableName = item.getAttribute('data-table');
+        const previewIcon = item.querySelector('.preview-icon');
+        
+        // Double-click on table name inserts the table name in the editor
+        item.addEventListener('dblclick', () => {
+          if (sqlEditor) {
+            document.execCommand('insertText', false, tableName);
+          }
+        });
+        
+        // Click on preview icon opens the table preview
+        if (previewIcon) {
+          previewIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openTablePreview(tableName);
+          });
+        }
       });
-      
-      // Click on preview icon opens the table preview
-      previewIcon.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openTablePreview(tableName);
-      });
-    });
+    }
     
     // Set up collapsible sections
     const collapsibleButtons = document.querySelectorAll('.btn-collapse');
-    collapsibleButtons.forEach(button => {
-      button.addEventListener('click', function() {
-        const section = this.closest('.sidebar-section');
-        section.classList.toggle('collapsed');
-        
-        const icon = this.querySelector('i');
-        if (section.classList.contains('collapsed')) {
-          icon.classList.remove('fa-chevron-left');
-          icon.classList.add('fa-chevron-right');
-        } else {
-          icon.classList.remove('fa-chevron-right');
-          icon.classList.add('fa-chevron-left');
-        }
+    if (collapsibleButtons && collapsibleButtons.length > 0) {
+      collapsibleButtons.forEach(button => {
+        button.addEventListener('click', function() {
+          const section = this.closest('.sidebar-section');
+          if (section) {
+            section.classList.toggle('collapsed');
+            
+            const icon = this.querySelector('i');
+            if (icon) {
+              if (section.classList.contains('collapsed')) {
+                icon.classList.remove('fa-chevron-left');
+                icon.classList.add('fa-chevron-right');
+              } else {
+                icon.classList.remove('fa-chevron-right');
+                icon.classList.add('fa-chevron-left');
+              }
+            }
+          }
+        });
       });
-    });
+    }
     
     // Set up collapsible categories
     const categoryHeaders = document.querySelectorAll('.category-header');

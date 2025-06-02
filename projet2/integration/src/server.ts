@@ -75,7 +75,7 @@ app.get('/health', async (c) => {
 });
 
 // Static files middleware for public directory
-app.use('/public/*', serveStatic({ root: './src/public' }));
+app.use('/public/*', serveStatic({ root: './src' }));
 
 // Main routes
 app.get('/', async (c) => {
